@@ -1,0 +1,14 @@
+.DS_Store
+
+node_modules
+node_modules/
+artifacts/
+
+app/bin/
+app/.cache/
+web/.next/
+web/node_modules/
+
+*.log
+.env
+.env.local

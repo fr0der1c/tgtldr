@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tgtldr
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: deploy/docker/app.Dockerfile
+    environment:
+      TGTLDR_DATABASE_URL: postgres://postgres:postgres@postgres:5432/tgtldr?sslmode=disable
+      TGTLDR_MASTER_KEY: ${TGTLDR_MASTER_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      TGTLDR_WEB_ORIGIN: http://localhost:3000
+      TGTLDR_HTTP_ADDR: :8080
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+    depends_on:
+      - app
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  postgres-data:

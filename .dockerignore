@@ -1,0 +1,8 @@
+.git
+.DS_Store
+
+web/node_modules
+web/.next
+
+app/bin
+app/.cache
