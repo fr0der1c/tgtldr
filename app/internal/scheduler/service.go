@@ -171,7 +171,7 @@ func (s *Service) runOnce(ctx context.Context) error {
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, chat := range chats {
 		chat := chat
-		timezone := resolveChatTimezone(chat, settings.DefaultTimezone)
+		timezone := settings.DefaultTimezone
 		if !isDue(s.clock.Now(), chat, timezone) {
 			continue
 		}
@@ -182,7 +182,7 @@ func (s *Service) runOnce(ctx context.Context) error {
 				return err
 			}
 
-			switch decideScheduledAction(chat, item, found) {
+			switch decideScheduledAction(chat, item, found, timezone) {
 			case scheduledActionSkip:
 				return nil
 			case scheduledActionDeliver:
@@ -253,7 +253,7 @@ func (s *Service) lookupSummary(ctx context.Context, chatID int64, date string) 
 	return model.Summary{}, false, err
 }
 
-func decideScheduledAction(chat model.Chat, item model.Summary, found bool) scheduledAction {
+func decideScheduledAction(chat model.Chat, item model.Summary, found bool, timezone string) scheduledAction {
 	if !found {
 		return scheduledActionGenerate
 	}
@@ -266,14 +266,23 @@ func decideScheduledAction(chat model.Chat, item model.Summary, found bool) sche
 	if item.DeliveredAt != nil {
 		return scheduledActionSkip
 	}
+	if !summaryReadyForDelivery(item, timezone) {
+		return scheduledActionGenerate
+	}
 	return scheduledActionDeliver
 }
 
-func resolveChatTimezone(chat model.Chat, fallback string) string {
-	if timezone := strings.TrimSpace(chat.SummaryTimezone); timezone != "" {
-		return timezone
+func summaryReadyForDelivery(item model.Summary, timezone string) bool {
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		return false
 	}
-	return fallback
+	summaryDate, err := time.ParseInLocation("2006-01-02", item.SummaryDate, location)
+	if err != nil {
+		return false
+	}
+	windowEnd := summaryDate.AddDate(0, 0, 1)
+	return !item.GeneratedAt.Before(windowEnd)
 }
 
 func isDue(now time.Time, chat model.Chat, timezone string) bool {
