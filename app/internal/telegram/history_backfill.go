@@ -71,7 +71,7 @@ func (s *Service) StartHistoryBackfill(chat model.Chat, fromDate, toDate string)
 	}
 	s.saveHistoryTask(task)
 
-	go s.runHistoryBackfill(task.ID, chat, start, endExclusive)
+	go s.runHistoryBackfill(task.ID, chat, fromDate, toDate, start, endExclusive)
 	return task, nil
 }
 
@@ -83,7 +83,7 @@ func (s *Service) GetHistoryBackfillTask(taskID string) (model.HistoryBackfillTa
 	return task, nil
 }
 
-func (s *Service) runHistoryBackfill(taskID string, chat model.Chat, start, endExclusive time.Time) {
+func (s *Service) runHistoryBackfill(taskID string, chat model.Chat, fromDate, toDate string, start, endExclusive time.Time) {
 	s.updateHistoryTask(taskID, func(task *model.HistoryBackfillTask) {
 		task.Status = model.HistoryBackfillStatusRunning
 		task.UpdatedAt = s.clock.Now()
@@ -108,6 +108,9 @@ func (s *Service) runHistoryBackfill(taskID string, chat model.Chat, start, endE
 				task.CompletedAt = &now
 				task.ErrorMessage = ""
 			})
+			if hook := s.historyBackfillCompletionHook(); hook != nil {
+				go hook(chat, fromDate, toDate)
+			}
 			return
 		}
 

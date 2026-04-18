@@ -96,6 +96,19 @@ func (r *MessageRepository) ListForRange(ctx context.Context, chatID int64, star
 	return messages, rows.Err()
 }
 
+func (r *MessageRepository) CountForRange(ctx context.Context, chatID int64, start, end time.Time) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		select count(*)
+		from messages
+		where chat_id = $1 and message_time >= $2 and message_time < $3
+	`, chatID, start, end).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count messages: %w", err)
+	}
+	return count, nil
+}
+
 func (r *MessageRepository) LookupByTelegramIDs(ctx context.Context, chatID int64, ids []int) (map[int]model.Message, error) {
 	if len(ids) == 0 {
 		return map[int]model.Message{}, nil

@@ -132,6 +132,40 @@ func (s *Service) RetryDelivery(ctx context.Context, summaryID int64) error {
 	return s.store.Summaries.MarkDelivered(ctx, item.ChatID, item.SummaryDate, s.clock.Now())
 }
 
+func (s *Service) RepairEmptySummariesInRange(ctx context.Context, chat model.Chat, fromDate, toDate string) error {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	timezone := settings.DefaultTimezone
+	for _, date := range datesInRange(fromDate, toDate, timezone) {
+		item, found, err := s.lookupSummary(ctx, chat.ID, date)
+		if err != nil {
+			return err
+		}
+		if !found || !isRepairableEmptySummary(item) {
+			continue
+		}
+
+		start, end, err := summaryDayRange(date, timezone)
+		if err != nil {
+			return err
+		}
+		messageCount, err := s.store.Messages.CountForRange(ctx, chat.ID, start, end)
+		if err != nil {
+			return err
+		}
+		if messageCount == 0 {
+			continue
+		}
+		if _, err := s.RunNowAsync(ctx, chat, date); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) runNow(ctx context.Context, chat model.Chat, date string) error {
 	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date); err != nil {
 		return err
@@ -285,6 +319,12 @@ func summaryReadyForDelivery(item model.Summary, timezone string) bool {
 	return !item.GeneratedAt.Before(windowEnd)
 }
 
+func isRepairableEmptySummary(item model.Summary) bool {
+	return item.Status == model.SummaryStatusSucceeded &&
+		item.SourceMessageCount == 0 &&
+		item.ChunkCount == 0
+}
+
 func isDue(now time.Time, chat model.Chat, timezone string) bool {
 	location, err := loadSummaryLocation(timezone)
 	if err != nil {
@@ -316,6 +356,40 @@ func targetDate(now time.Time, timezone string) string {
 	}
 	localNow := now.In(location)
 	return localNow.AddDate(0, 0, -1).Format("2006-01-02")
+}
+
+func datesInRange(fromDate, toDate, timezone string) []string {
+	start, _, err := summaryDayRange(fromDate, timezone)
+	if err != nil {
+		return nil
+	}
+	endStart, _, err := summaryDayRange(toDate, timezone)
+	if err != nil {
+		return nil
+	}
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		return nil
+	}
+
+	dates := make([]string, 0)
+	for current := start.In(location); !current.After(endStart.In(location)); current = current.AddDate(0, 0, 1) {
+		dates = append(dates, current.Format("2006-01-02"))
+	}
+	return dates
+}
+
+func summaryDayRange(date string, timezone string) (time.Time, time.Time, error) {
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	start, err := time.ParseInLocation("2006-01-02", date, location)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("parse summary date %s: %w", date, err)
+	}
+	end := start.AddDate(0, 0, 1)
+	return start.UTC(), end.UTC(), nil
 }
 
 func loadSummaryLocation(timezone string) (*time.Location, error) {

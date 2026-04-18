@@ -110,3 +110,35 @@ func TestSummaryReadyForDelivery(t *testing.T) {
 		}, "Asia/Shanghai"), ShouldBeTrue)
 	})
 }
+
+func TestDatesInRange(t *testing.T) {
+	Convey("日期范围会包含首尾两天", t, func() {
+		So(datesInRange("2026-04-10", "2026-04-12", "Asia/Shanghai"), ShouldResemble, []string{
+			"2026-04-10",
+			"2026-04-11",
+			"2026-04-12",
+		})
+	})
+}
+
+func TestIsRepairableEmptySummary(t *testing.T) {
+	Convey("只有成功且消息数和分块数都为零的摘要才会被修复", t, func() {
+		So(isRepairableEmptySummary(model.Summary{
+			Status:             model.SummaryStatusSucceeded,
+			SourceMessageCount: 0,
+			ChunkCount:         0,
+		}), ShouldBeTrue)
+
+		So(isRepairableEmptySummary(model.Summary{
+			Status:             model.SummaryStatusFailed,
+			SourceMessageCount: 0,
+			ChunkCount:         0,
+		}), ShouldBeFalse)
+
+		So(isRepairableEmptySummary(model.Summary{
+			Status:             model.SummaryStatusSucceeded,
+			SourceMessageCount: 1,
+			ChunkCount:         0,
+		}), ShouldBeFalse)
+	})
+}

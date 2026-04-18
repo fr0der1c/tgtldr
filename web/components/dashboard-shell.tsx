@@ -18,7 +18,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
         <div className="dashboard-brand">
           <p className="dashboard-brand-mark">TGTLDR</p>
           <p className="dashboard-brand-copy">
-            单用户自部署的 Telegram 群摘要工作台。
+            Too long, don't read. 为你每天节省时间。
           </p>
         </div>
 
@@ -40,10 +40,6 @@ export function DashboardShell({ children }: PropsWithChildren) {
             <StatusPill tone={bootstrap?.botEnabled ? "good" : "neutral"}>
               {bootstrap?.botEnabled ? "启用中" : "未启用"}
             </StatusPill>
-          </div>
-          <div className="sidebar-status-item">
-            <span>已启用消息保存</span>
-            <strong>{bootstrap?.enabledChatCount ?? 0}</strong>
           </div>
         </div>
       </aside>

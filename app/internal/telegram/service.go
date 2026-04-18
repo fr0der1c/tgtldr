@@ -52,6 +52,8 @@ type Service struct {
 
 	historyBackfills *historyBackfillStore
 
+	historyBackfillCompleted func(chat model.Chat, fromDate, toDate string)
+
 	mu             sync.Mutex
 	pending        *model.AuthSessionState
 	listenerCancel context.CancelFunc
@@ -76,6 +78,18 @@ func (s *Service) PendingAuthState() *model.AuthSessionState {
 	}
 	state := *s.pending
 	return &state
+}
+
+func (s *Service) SetHistoryBackfillCompletionHook(fn func(chat model.Chat, fromDate, toDate string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.historyBackfillCompleted = fn
+}
+
+func (s *Service) historyBackfillCompletionHook() func(chat model.Chat, fromDate, toDate string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.historyBackfillCompleted
 }
 
 func (s *Service) StartAuth(ctx context.Context, phone string) (*model.AuthSessionState, error) {

@@ -856,6 +856,13 @@ select {
   line-height: 1.6;
 }
 
+.summary-detail-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .summary-status-actions {
   display: flex;
   align-items: center;

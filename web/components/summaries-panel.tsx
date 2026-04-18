@@ -157,6 +157,16 @@ export function SummariesPanel() {
     }
   }
 
+  async function rerunSummary(summary: Summary) {
+    try {
+      await api.runSummary(summary.chatId, summary.summaryDate);
+      toast.showSuccess("已提交重新生成。");
+      await loadRef.current();
+    } catch (err) {
+      toast.showError(asMessage(err));
+    }
+  }
+
   const chatTitles = useMemo(() => {
     return new Map(allChats.map((chat) => [chat.id, chat.title]));
   }, [allChats]);
@@ -384,13 +394,22 @@ export function SummariesPanel() {
                     {selectedSummary.sourceMessageCount} 条 · 分块{" "}
                     {selectedSummary.chunkCount}
                   </p>
-                  <button
-                    className="text-link-button"
-                    onClick={() => setContextOpen(true)}
-                    type="button"
-                  >
-                    查看原始 prompt
-                  </button>
+                  <div className="summary-detail-meta-actions">
+                    <button
+                      className="text-link-button"
+                      onClick={() => setContextOpen(true)}
+                      type="button"
+                    >
+                      查看原始 prompt
+                    </button>
+                    <button
+                      className="text-link-button"
+                      onClick={() => startTransition(() => void rerunSummary(selectedSummary))}
+                      type="button"
+                    >
+                      重新生成
+                    </button>
+                  </div>
                 </div>
                 <SummaryContent summary={selectedSummary} />
               </div>
