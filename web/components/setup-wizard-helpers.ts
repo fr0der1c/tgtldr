@@ -79,14 +79,14 @@ export function stepState(
   currentStep: SetupStep,
   bootstrap: Bootstrap | null,
 ) {
+  if (step === currentStep) {
+    return "active";
+  }
   if (stepIndex(step) < stepIndex(currentStep)) {
     return "completed";
   }
   if (!stepEnabled(step, bootstrap)) {
     return "locked";
-  }
-  if (step === currentStep) {
-    return "active";
   }
   return "upcoming";
 }

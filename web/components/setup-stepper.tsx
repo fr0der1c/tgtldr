@@ -32,7 +32,7 @@ export function SetupStepper({
             <h2 className="setup-progress-title">欢迎使用，请先完成设置向导</h2>
           </div>
           <StatusPill tone={bootstrap?.telegramAuthorized ? "good" : "warn"}>
-            步骤 {stepIndex(currentStep) + 1}/3
+            步骤 {stepIndex(currentStep) + 1}/{setupSteps.length}
           </StatusPill>
         </div>
         <div className="setup-progress-track">

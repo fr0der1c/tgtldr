@@ -321,6 +321,12 @@ export function SetupWizard() {
     setNotice("");
   }
 
+  function forceStep(step: SetupStep) {
+    setCurrentStep(step);
+    setError("");
+    setNotice("");
+  }
+
   function handleAuthError(err: unknown) {
     if (err instanceof APIError && err.retryAfterSeconds) {
       setAuthRetryUntil(Date.now() + err.retryAfterSeconds * 1000);
@@ -404,12 +410,12 @@ export function SetupWizard() {
             discoveredChats={discoveredChats}
             authBlocked={authBlocked}
             authBlockedLabel={authBlockedLabel}
-            onBack={() => moveToStep("config")}
+            onBack={() => forceStep("config")}
             onContinueFromPhone={startAuthFlow}
             onSubmitCode={submitCode}
             onSubmitPassword={submitPassword}
             onResetToPhone={() => setLoginStageOverride("phone")}
-            onContinueToBot={() => moveToStep("bot")}
+            onContinueToBot={() => forceStep("bot")}
             onResendCode={startAuthFlow}
             onRetrySyncChats={retryChatSync}
           />
@@ -427,7 +433,7 @@ export function SetupWizard() {
               hasAvailableBotToken(settings.botToken, botTokenPlaceholder)
             }
             onBotTokenChange={changeBotToken}
-            onBack={() => moveToStep("login")}
+            onBack={() => forceStep("login")}
             onContinue={finishSetup}
             onResolveBotTargetChat={resolveBotTargetChat}
             onSelectBotTargetChat={selectBotTargetChat}
