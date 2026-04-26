@@ -44,11 +44,12 @@ export function SetupStepper({
         <div className="setup-step-grid">
           {setupSteps.map((step) => {
             const state = stepState(step.key, currentStep, bootstrap);
+            const disabled = step.key !== currentStep && !stepEnabled(step.key, bootstrap);
             return (
               <button
                 key={step.key}
                 className={`setup-step ${state}`}
-                disabled={!stepEnabled(step.key, bootstrap)}
+                disabled={disabled}
                 onClick={() => onStepChange(step.key)}
                 type="button"
               >
