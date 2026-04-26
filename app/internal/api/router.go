@@ -131,6 +131,13 @@ func redactSecret(secret string) string {
 	return secret[:2] + "****" + secret[len(secret)-2:]
 }
 
+func settingsConfigured(settings model.AppSettings) bool {
+	return settings.TelegramAPIID != 0 &&
+		strings.TrimSpace(settings.TelegramAPIHash) != "" &&
+		strings.TrimSpace(settings.OpenAIAPIKey) != "" &&
+		strings.TrimSpace(settings.OpenAIModel) != ""
+}
+
 func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -176,7 +183,7 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 	}
 
 	payload := map[string]any{
-		"settingsConfigured": settings.TelegramAPIID != 0 && strings.TrimSpace(settings.OpenAIBaseURL) != "",
+		"settingsConfigured": settingsConfigured(settings),
 		"passwordConfigured": passwordConfigured,
 		"authenticated":      authenticated,
 		"telegramAuthorized": auth != nil && auth.Status == "authorized",
@@ -228,6 +235,9 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 	if strings.TrimSpace(payload.OpenAIAPIKey) == "" {
 		httpx.Error(w, http.StatusBadRequest, "请填写 OpenAI API Key。")
 		return
+	}
+	if strings.TrimSpace(payload.OpenAIBaseURL) == "" {
+		payload.OpenAIBaseURL = model.DefaultOpenAIBaseURL
 	}
 	if strings.TrimSpace(payload.OpenAIModel) == "" {
 		httpx.Error(w, http.StatusBadRequest, "请填写 Model。")

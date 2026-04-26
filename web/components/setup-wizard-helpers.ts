@@ -12,7 +12,7 @@ export function resolveCurrentStep(
   if (!bootstrap.passwordConfigured) {
     return "password";
   }
-  if (current === "bot" && bootstrap.telegramAuthorized) {
+  if (current === "bot" && bootstrap.settingsConfigured && bootstrap.telegramAuthorized) {
     return "bot";
   }
   if (current === "login" && bootstrap.settingsConfigured) {
@@ -68,6 +68,7 @@ export function stepEnabled(step: SetupStep, bootstrap: Bootstrap | null) {
     return Boolean(
       bootstrap?.passwordConfigured &&
         bootstrap.authenticated &&
+        bootstrap.settingsConfigured &&
         bootstrap.telegramAuthorized,
     );
   }

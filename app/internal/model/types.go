@@ -21,8 +21,9 @@ const (
 type OutputMode string
 
 const (
-	OutputModeAuto   OutputMode = "auto"
-	OutputModeManual OutputMode = "manual"
+	OutputModeAuto       OutputMode = "auto"
+	OutputModeManual     OutputMode = "manual"
+	DefaultOpenAIBaseURL            = "https://api.openai.com/v1"
 )
 
 type AppSettings struct {

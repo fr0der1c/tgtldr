@@ -13,6 +13,13 @@ type SettingsRepository struct {
 	cipher Cipher
 }
 
+func normalizeAppSettings(settings model.AppSettings) model.AppSettings {
+	if settings.OpenAIBaseURL == "" {
+		settings.OpenAIBaseURL = model.DefaultOpenAIBaseURL
+	}
+	return settings
+}
+
 func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error) {
 	var row model.AppSettings
 	var encAPIHash string
@@ -58,10 +65,12 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 	if row.BotToken, err = r.cipher.DecryptString(encBotToken); err != nil {
 		return model.AppSettings{}, err
 	}
-	return row, nil
+	return normalizeAppSettings(row), nil
 }
 
 func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSettings) (model.AppSettings, error) {
+	settings = normalizeAppSettings(settings)
+
 	encAPIHash, err := r.cipher.EncryptString(settings.TelegramAPIHash)
 	if err != nil {
 		return model.AppSettings{}, err
