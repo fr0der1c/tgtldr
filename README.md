@@ -39,12 +39,20 @@ export TGTLDR_IMAGE_TAG=latest
 docker compose up -d
 ```
 
+如果宿主机的 `3000` 或 `8080` 端口已被占用，可以在 `.env` 中覆盖：
+
+```bash
+cp .env.example .env
+printf '\nTGTLDR_HOST_WEB_PORT=13000\nTGTLDR_HOST_APP_PORT=18080\n' >> .env
+docker compose up -d
+```
+
 `TGTLDR_MASTER_KEY` 是本地数据加密主密钥，用来加密保存 Telegram 登录 session、OpenAI API Key 和 Bot Token。它不会发送给外部服务。默认情况下，这把 key 会保存在 app 数据卷中的 `/var/lib/tgtldr/master.key`；如果你删除了这个数据卷，已经保存的这些敏感数据将无法解密。
 
 启动后访问：
 
-- 前端：http://localhost:3000
-- 后端 API：http://localhost:8080
+- 前端：`http://localhost:${TGTLDR_HOST_WEB_PORT}`（默认 `http://localhost:3000`）
+- 后端 API：`http://localhost:${TGTLDR_HOST_APP_PORT}`（默认 `http://localhost:8080`）
 
 首次访问前端后，按照页面向导完成访问密码、Telegram、OpenAI 和群组摘要配置即可。
 
