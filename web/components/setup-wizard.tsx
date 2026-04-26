@@ -7,24 +7,25 @@ import {
   Bootstrap,
   BotTargetChatCandidate,
   Chat,
-  PendingAuth
+  PendingAuth,
 } from "@/lib/types";
 import { hasAvailableBotToken } from "@/lib/bot-target-chat";
 import {
   asMessage,
   resolveCurrentStep,
   resolveLoginStage,
-  stepEnabled
+  stepEnabled,
 } from "@/components/setup-wizard-helpers";
 import {
   emptySettings,
   knownOpenAIModels,
-  SetupStep
+  SetupStep,
 } from "@/components/setup-wizard-types";
 import {
   BotStep,
   ConfigStep,
-  LoginStep
+  LoginStep,
+  PasswordStep,
 } from "@/components/setup-step-content";
 import { SetupStepper } from "@/components/setup-stepper";
 
@@ -32,11 +33,13 @@ export function SetupWizard() {
   const router = useRouter();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [settings, setSettings] = useState(emptySettings);
-  const [currentStep, setCurrentStep] = useState<SetupStep>("config");
+  const [currentStep, setCurrentStep] = useState<SetupStep>("password");
   const [countryCode, setCountryCode] = useState("+86");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
+  const [accessPasswordConfirm, setAccessPasswordConfirm] = useState("");
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [loginStageOverride, setLoginStageOverride] = useState<
     "phone" | "code" | "password" | "success" | null
@@ -73,7 +76,7 @@ export function SetupWizard() {
   const loginStage = resolveLoginStage(
     bootstrap?.telegramAuthorized ?? false,
     pendingAuth,
-    loginStageOverride
+    loginStageOverride,
   );
   const authBlocked = authRetryUntil !== null && authRetryUntil > authRetryNow;
   const authBlockedLabel = useMemo(() => {
@@ -81,33 +84,45 @@ export function SetupWizard() {
       return null;
     }
 
-    const seconds = Math.max(1, Math.ceil((authRetryUntil - authRetryNow) / 1000));
+    const seconds = Math.max(
+      1,
+      Math.ceil((authRetryUntil - authRetryNow) / 1000),
+    );
     return `Telegram 暂时限制了请求，请在 ${seconds} 秒后重试。`;
   }, [authBlocked, authRetryNow, authRetryUntil]);
   const fullPhoneNumber = useMemo(
     () => buildPhoneNumber(countryCode, phoneNumber),
-    [countryCode, phoneNumber]
+    [countryCode, phoneNumber],
   );
 
   async function refresh(nextStep: SetupStep | "auto" = "auto") {
     try {
-      const [data, fullSettings, chats] = await Promise.all([
-        api.bootstrap(),
+      const data = await api.bootstrap();
+      setBootstrap(data);
+      if (!data.passwordConfigured) {
+        setCurrentStep("password");
+        return { data, fullSettings: emptySettings, discovered: 0 };
+      }
+      if (!data.authenticated) {
+        router.replace("/login");
+        return { data, fullSettings: emptySettings, discovered: 0 };
+      }
+
+      const [fullSettings, chats] = await Promise.all([
         api.settings(),
-        api.listChats().catch(() => [] as Chat[])
+        api.listChats().catch(() => [] as Chat[]),
       ]);
       const discovered = Array.isArray(chats) ? chats.length : 0;
-      setBootstrap(data);
       setBotTokenPlaceholder(fullSettings.botToken || "");
       setSettings({
         ...emptySettings,
         ...fullSettings,
-        botToken: ""
+        botToken: "",
       });
       setPendingAuth(data.pendingAuth ?? null);
       setDiscoveredChats(discovered);
       setCurrentStep((prev) =>
-        nextStep === "auto" ? resolveCurrentStep(data, prev) : nextStep
+        nextStep === "auto" ? resolveCurrentStep(data, prev) : nextStep,
       );
       return { data, fullSettings, discovered };
     } catch (err) {
@@ -265,7 +280,7 @@ export function SetupWizard() {
         const [candidate] = result.candidates;
         setSettings((current) => ({
           ...current,
-          botTargetChatId: candidate.chatId
+          botTargetChatId: candidate.chatId,
         }));
         setBotTargetChatCandidates([]);
         setNotice("已获取目标 Chat ID，点击“保存并完成”后生效。");
@@ -284,7 +299,7 @@ export function SetupWizard() {
     setNotice("已选择目标 Chat ID，点击“保存并完成”后生效。");
     setSettings((current) => ({
       ...current,
-      botTargetChatId: candidate.chatId
+      botTargetChatId: candidate.chatId,
     }));
     setBotTargetChatCandidates([]);
   }
@@ -293,7 +308,7 @@ export function SetupWizard() {
     setBotTargetChatCandidates([]);
     setSettings((current) => ({
       ...current,
-      botToken
+      botToken,
     }));
   }
 
@@ -315,15 +330,41 @@ export function SetupWizard() {
   }
 
   async function finishSetup() {
-    if (settings.botEnabled && !hasAvailableBotToken(settings.botToken, botTokenPlaceholder)) {
+    if (
+      settings.botEnabled &&
+      !hasAvailableBotToken(settings.botToken, botTokenPlaceholder)
+    ) {
       setError("启用 Bot 推送时必须填写 Bot Token。");
       setNotice("");
       return;
     }
 
-    const ok = await saveSettings(undefined, "配置已保存，准备进入后台。");
+    const ok = await saveSettings("bot", "配置已保存，正在进入后台。");
     if (ok) {
       router.push("/dashboard/chats");
+    }
+  }
+
+  async function completePasswordSetup() {
+    if (accessPassword.trim().length < 8) {
+      setError("访问密码至少需要 8 位。");
+      setNotice("");
+      return;
+    }
+    if (accessPassword !== accessPasswordConfirm) {
+      setError("两次输入的访问密码不一致。");
+      setNotice("");
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    try {
+      await api.setupPassword(accessPassword);
+      setNotice("访问密码已设置，继续完成基础配置。");
+      await refresh("config");
+    } catch (err) {
+      setError(asMessage(err));
     }
   }
 
@@ -381,15 +422,26 @@ export function SetupWizard() {
             settings={settings}
             resolvingBotTargetChat={resolvingBotTargetChat}
             setSettings={setSettings}
-            canFinish={
-              !settings.botEnabled || hasAvailableBotToken(settings.botToken, botTokenPlaceholder)
+            canContinue={
+              !settings.botEnabled ||
+              hasAvailableBotToken(settings.botToken, botTokenPlaceholder)
             }
             onBotTokenChange={changeBotToken}
             onBack={() => moveToStep("login")}
-            onFinish={finishSetup}
+            onContinue={finishSetup}
             onResolveBotTargetChat={resolveBotTargetChat}
             onSelectBotTargetChat={selectBotTargetChat}
             telegramAuthorized={bootstrap?.telegramAuthorized ?? false}
+          />
+        ) : null}
+
+        {currentStep === "password" ? (
+          <PasswordStep
+            accessPassword={accessPassword}
+            accessPasswordConfirm={accessPasswordConfirm}
+            onChangeAccessPassword={setAccessPassword}
+            onChangeAccessPasswordConfirm={setAccessPasswordConfirm}
+            onFinish={completePasswordSetup}
           />
         ) : null}
 
@@ -437,7 +489,7 @@ function validateSettings(settings: typeof emptySettings) {
     return "请填写 OpenAI API Key。";
   }
   const usingKnownModel = knownOpenAIModels.includes(
-    settings.openAIModel as (typeof knownOpenAIModels)[number]
+    settings.openAIModel as (typeof knownOpenAIModels)[number],
   );
   if (!usingKnownModel && settings.openAIModel.trim() === "") {
     return "请填写 Model。";

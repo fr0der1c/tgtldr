@@ -1,16 +1,26 @@
 "use client";
 
 import { PropsWithChildren, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Bootstrap } from "@/lib/types";
 import { NavLink, StatusPill } from "@/components/ui";
 
 export function DashboardShell({ children }: PropsWithChildren) {
+  const router = useRouter();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
 
   useEffect(() => {
-    void api.bootstrap().then(setBootstrap).catch(() => null);
-  }, []);
+    void api
+      .bootstrap()
+      .then((data) => {
+        setBootstrap(data);
+        if (data.passwordConfigured && !data.authenticated) {
+          router.replace("/login");
+        }
+      })
+      .catch(() => null);
+  }, [router]);
 
   return (
     <div className="dashboard-layout">

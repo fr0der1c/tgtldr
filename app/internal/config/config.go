@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -53,18 +52,6 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
-}
-
-func envInt(key string, fallback int) int {
-	value := strings.TrimSpace(os.Getenv(key))
-	if value == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return n
 }
 
 func loadMasterKey() ([]byte, error) {

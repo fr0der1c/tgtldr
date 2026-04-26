@@ -34,8 +34,16 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(185, 137, 59, 0.1), transparent 34%),
-    radial-gradient(circle at top right, rgba(28, 25, 23, 0.06), transparent 30%),
+    radial-gradient(
+      circle at top left,
+      rgba(185, 137, 59, 0.1),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(28, 25, 23, 0.06),
+      transparent 30%
+    ),
     linear-gradient(180deg, #fbfaf6 0%, #f4efe6 100%);
   color: var(--text);
   font-family: var(--font-sans);
@@ -200,7 +208,10 @@ select {
   background: rgba(255, 255, 255, 0.78);
   line-height: 1.5;
   outline: none;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .input[type="number"] {
@@ -295,13 +306,23 @@ select {
   box-shadow: 0 0 0 4px rgba(185, 137, 59, 0.14);
 }
 
+.drawer-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(185, 137, 59, 0.14);
+}
+
 .button:disabled {
   cursor: wait;
   opacity: 0.6;
 }
 
 .button.primary {
-  background: linear-gradient(135deg, var(--brand) 0%, #2b2520 70%, var(--accent-strong) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand) 0%,
+    #2b2520 70%,
+    var(--accent-strong) 100%
+  );
   color: white;
   box-shadow: 0 14px 30px rgba(28, 25, 23, 0.14);
 }
@@ -348,7 +369,10 @@ select {
   text-align: left;
   color: var(--text);
   cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .app-select-trigger:hover,
@@ -401,7 +425,10 @@ select {
   text-align: left;
   color: var(--text);
   cursor: pointer;
-  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
 }
 
 .app-select-option:hover {
@@ -413,7 +440,11 @@ select {
 .app-select-option.selected {
   border-color: rgba(185, 137, 59, 0.36);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.1), transparent 50%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.1),
+      transparent 50%
+    ),
     rgba(255, 252, 246, 0.98);
 }
 
@@ -436,7 +467,10 @@ select {
   text-align: left;
   color: var(--text);
   cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .search-select-trigger:hover,
@@ -487,7 +521,10 @@ select {
   text-align: left;
   color: var(--text);
   cursor: pointer;
-  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
 }
 
 .search-select-option:hover {
@@ -499,7 +536,11 @@ select {
 .search-select-option.selected {
   border-color: rgba(185, 137, 59, 0.36);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.1), transparent 50%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.1),
+      transparent 50%
+    ),
     rgba(255, 252, 246, 0.98);
 }
 
@@ -663,7 +704,11 @@ select {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.56);
   border: 1px solid rgba(28, 25, 23, 0.04);
-  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .nav-link:hover {
@@ -675,7 +720,11 @@ select {
 .nav-link.active {
   color: #fffdfb;
   border-color: rgba(28, 25, 23, 0.45);
-  background: linear-gradient(135deg, rgba(28, 25, 23, 0.96), rgba(52, 43, 35, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(28, 25, 23, 0.96),
+    rgba(52, 43, 35, 0.92)
+  );
   box-shadow: 0 12px 28px rgba(28, 25, 23, 0.12);
 }
 
@@ -833,6 +882,10 @@ select {
   gap: 18px;
 }
 
+.summary-detail-content {
+  min-width: 0;
+}
+
 .summary-detail-header {
   display: grid;
   gap: 14px;
@@ -988,7 +1041,11 @@ select {
   border-radius: 20px;
   border: 1px solid rgba(28, 25, 23, 0.08);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.1), transparent 44%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.1),
+      transparent 44%
+    ),
     rgba(255, 252, 247, 0.82);
 }
 
@@ -1020,7 +1077,9 @@ select {
   color: var(--accent-strong);
   cursor: pointer;
   font-weight: 700;
-  transition: color 180ms ease, opacity 180ms ease;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease;
 }
 
 .text-link-button:hover {
@@ -1197,7 +1256,9 @@ select {
   border-radius: 50%;
   font-size: 1.5rem;
   line-height: 1;
-  transition: border-color 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease;
 }
 
 .modal-close:hover {
@@ -1223,6 +1284,58 @@ select {
   justify-content: flex-end;
 }
 
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1180;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(24, 19, 15, 0.32);
+  backdrop-filter: blur(6px);
+}
+
+.drawer-panel {
+  width: min(860px, 62vw);
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: rgba(255, 252, 247, 0.98);
+  border-left: 1px solid rgba(28, 25, 23, 0.08);
+  box-shadow: -18px 0 48px rgba(24, 19, 15, 0.16);
+}
+
+.drawer-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 18px 0;
+}
+
+.drawer-close {
+  appearance: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(28, 25, 23, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.drawer-body {
+  min-height: 0;
+  padding: 8px 28px 28px;
+  overflow-y: auto;
+}
+
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 28px 28px;
+}
+
 .summary-filter {
   width: min(220px, 100%);
   min-width: 0;
@@ -1237,19 +1350,39 @@ select {
   margin-bottom: 4px;
 }
 
+.summary-search-grid {
+  margin-bottom: 4px;
+}
+
+.summary-toolbar-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .summary-toolbar-button {
   min-width: 120px;
   min-height: 52px;
   padding-inline: 20px;
   border-color: rgba(185, 137, 59, 0.34);
-  background: linear-gradient(135deg, rgba(185, 137, 59, 0.96), rgba(142, 100, 42, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(185, 137, 59, 0.96),
+    rgba(142, 100, 42, 0.92)
+  );
   color: #fffdfb;
   box-shadow: 0 12px 24px rgba(185, 137, 59, 0.18);
 }
 
 .summary-toolbar-button:hover {
   border-color: rgba(185, 137, 59, 0.42);
-  background: linear-gradient(135deg, rgba(191, 144, 66, 0.98), rgba(151, 106, 45, 0.95));
+  background: linear-gradient(
+    135deg,
+    rgba(191, 144, 66, 0.98),
+    rgba(151, 106, 45, 0.95)
+  );
   color: #fffdfb;
 }
 
@@ -1335,7 +1468,11 @@ select {
 
 .data-row.active {
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.08), transparent 44%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.08),
+      transparent 44%
+    ),
     rgba(255, 252, 246, 0.94);
 }
 
@@ -1405,7 +1542,11 @@ select {
   border-radius: 20px;
   border: 1px solid rgba(28, 25, 23, 0.08);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.08), transparent 46%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.08),
+      transparent 46%
+    ),
     rgba(255, 255, 255, 0.72);
 }
 
@@ -1454,21 +1595,32 @@ select {
   gap: 14px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .entity-row:hover {
   border-color: rgba(185, 137, 59, 0.24);
   box-shadow: 0 10px 24px rgba(24, 19, 15, 0.06);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.08), transparent 48%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.08),
+      transparent 48%
+    ),
     rgba(255, 255, 255, 0.92);
 }
 
 .entity-row.active {
   border-color: rgba(185, 137, 59, 0.38);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.12), transparent 42%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.12),
+      transparent 42%
+    ),
     rgba(255, 252, 246, 0.96);
 }
 
@@ -1487,10 +1639,35 @@ select {
   line-height: 1.5;
 }
 
+.entity-row-snippet {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .entity-row-meta {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.summary-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary-pagination span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.search-highlight {
+  padding: 0 0.08em;
+  border-radius: 0.32em;
+  background: rgba(241, 214, 86, 0.42);
+  color: inherit;
 }
 
 .editor-stack {
@@ -1588,6 +1765,11 @@ select {
   gap: 18px;
 }
 
+.login-shell {
+  width: min(520px, 100%);
+  margin: 0 auto;
+}
+
 .setup-progress {
   display: grid;
   gap: 18px;
@@ -1624,7 +1806,7 @@ select {
 .setup-step-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .setup-step {
@@ -1636,7 +1818,10 @@ select {
   align-items: center;
   gap: 14px;
   text-align: left;
-  transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    background 180ms ease;
 }
 
 .setup-step:not(:disabled):hover {
@@ -1651,7 +1836,11 @@ select {
 }
 
 .setup-step.active {
-  background: linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(249, 244, 236, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 247, 0.98),
+    rgba(249, 244, 236, 0.98)
+  );
   border-color: rgba(185, 137, 59, 0.34);
   box-shadow: inset 0 0 0 1px rgba(185, 137, 59, 0.08);
 }
@@ -1787,8 +1976,16 @@ select {
   padding: 28px;
   border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.12), transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 251, 246, 0.88));
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.12),
+      transparent 36%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.72),
+      rgba(255, 251, 246, 0.88)
+    );
   border: 1px solid rgba(28, 25, 23, 0.08);
 }
 
@@ -1849,7 +2046,10 @@ select {
   gap: 10px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .setup-choice:hover {
@@ -1861,7 +2061,11 @@ select {
   border-color: rgba(185, 137, 59, 0.35);
   box-shadow: inset 0 0 0 1px rgba(185, 137, 59, 0.08);
   background:
-    radial-gradient(circle at top right, rgba(185, 137, 59, 0.12), transparent 38%),
+    radial-gradient(
+      circle at top right,
+      rgba(185, 137, 59, 0.12),
+      transparent 38%
+    ),
     rgba(255, 252, 246, 0.96);
 }
 
@@ -1895,10 +2099,10 @@ select {
     flex-direction: column;
   }
 
-   .metric-rail,
-   .dashboard-workspace,
-   .summary-workspace,
-   .settings-workspace {
+  .metric-rail,
+  .dashboard-workspace,
+  .summary-workspace,
+  .settings-workspace {
     grid-template-columns: 1fr;
   }
 
@@ -1926,5 +2130,13 @@ select {
 
   .entity-list {
     max-height: none;
+  }
+
+  .drawer-panel {
+    width: min(100vw, 760px);
+  }
+
+  .drawer-body {
+    padding: 8px 20px 24px;
   }
 }

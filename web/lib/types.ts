@@ -35,12 +35,18 @@ export type TelegramAuth = {
 
 export type Bootstrap = {
   settingsConfigured: boolean;
+  passwordConfigured: boolean;
+  authenticated: boolean;
   telegramAuthorized: boolean;
   enabledChatCount: number;
   botEnabled: boolean;
   settings: AppSettings;
   auth?: TelegramAuth;
   pendingAuth?: PendingAuth;
+};
+
+export type AuthStatus = {
+  status: string;
 };
 
 export type BotTargetChatCandidate = {
@@ -101,6 +107,33 @@ export type Summary = {
   deliveredAt?: string;
   deliveryError: string;
   errorMessage: string;
+  matchSnippet?: string;
+  matchedFields?: string[];
+};
+
+export type SummarySearchFilters = {
+  q?: string;
+  chatId?: string;
+  status?: "all" | Summary["status"];
+  delivery?: "all" | "sent" | "pending" | "failed" | "disabled";
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type SummaryListResponse = {
+  items: Summary[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type SummaryStats = {
+  total: number;
+  successCount: number;
+  processingCount: number;
+  failedCount: number;
 };
 
 export type SummaryContextChunk = {

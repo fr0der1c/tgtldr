@@ -2,18 +2,24 @@ import { Bootstrap, PendingAuth } from "@/lib/types";
 import {
   LoginStage,
   setupSteps,
-  SetupStep
+  SetupStep,
 } from "@/components/setup-wizard-types";
 
 export function resolveCurrentStep(
   bootstrap: Bootstrap,
-  current: SetupStep
+  current: SetupStep,
 ): SetupStep {
+  if (!bootstrap.passwordConfigured) {
+    return "password";
+  }
   if (current === "bot" && bootstrap.telegramAuthorized) {
     return "bot";
   }
   if (current === "login" && bootstrap.settingsConfigured) {
-    return bootstrap.telegramAuthorized ? "bot" : "login";
+    if (!bootstrap.telegramAuthorized) {
+      return "login";
+    }
+    return "bot";
   }
   if (!bootstrap.settingsConfigured) {
     return "config";
@@ -27,7 +33,7 @@ export function resolveCurrentStep(
 export function resolveLoginStage(
   telegramAuthorized: boolean,
   pendingAuth: PendingAuth | null,
-  override: LoginStage | null
+  override: LoginStage | null,
 ): LoginStage {
   if (override) {
     return override;
@@ -45,25 +51,39 @@ export function resolveLoginStage(
 }
 
 export function stepEnabled(step: SetupStep, bootstrap: Bootstrap | null) {
+  if (step === "password") {
+    return !bootstrap || !bootstrap.passwordConfigured;
+  }
   if (step === "config") {
-    return true;
+    return Boolean(bootstrap?.passwordConfigured && bootstrap.authenticated);
   }
   if (step === "login") {
-    return bootstrap?.settingsConfigured ?? false;
+    return Boolean(
+      bootstrap?.passwordConfigured &&
+        bootstrap.authenticated &&
+        bootstrap.settingsConfigured,
+    );
   }
-  return bootstrap?.telegramAuthorized ?? false;
+  if (step === "bot") {
+    return Boolean(
+      bootstrap?.passwordConfigured &&
+        bootstrap.authenticated &&
+        bootstrap.telegramAuthorized,
+    );
+  }
+  return false;
 }
 
 export function stepState(
   step: SetupStep,
   currentStep: SetupStep,
-  bootstrap: Bootstrap | null
+  bootstrap: Bootstrap | null,
 ) {
-  if (!stepEnabled(step, bootstrap)) {
-    return "locked";
-  }
   if (stepIndex(step) < stepIndex(currentStep)) {
     return "completed";
+  }
+  if (!stepEnabled(step, bootstrap)) {
+    return "locked";
   }
   if (step === currentStep) {
     return "active";

@@ -11,6 +11,7 @@ import (
 
 	"github.com/frederic/tgtldr/app/internal/bot"
 	"github.com/frederic/tgtldr/app/internal/httpx"
+	"github.com/frederic/tgtldr/app/internal/localauth"
 	"github.com/frederic/tgtldr/app/internal/model"
 	"github.com/frederic/tgtldr/app/internal/scheduler"
 	"github.com/frederic/tgtldr/app/internal/store"
@@ -22,6 +23,7 @@ type Router struct {
 	bot       *bot.Service
 	telegram  *telegramsvc.Service
 	scheduler *scheduler.Service
+	auth      *localauth.Service
 	origin    string
 	timeout   time.Duration
 }
@@ -39,6 +41,7 @@ func New(
 		bot:       botService,
 		telegram:  telegram,
 		scheduler: scheduler,
+		auth:      localauth.NewService(store),
 		origin:    origin,
 		timeout:   timeout,
 	}
@@ -49,6 +52,10 @@ func (r *Router) Handler() http.Handler {
 
 	mux.HandleFunc("/api/health", r.handleHealth)
 	mux.HandleFunc("/api/bootstrap", r.handleBootstrap)
+	mux.HandleFunc("/api/auth/login", r.handleLogin)
+	mux.HandleFunc("/api/auth/logout", r.handleLogout)
+	mux.HandleFunc("/api/auth/setup-password", r.handleSetupPassword)
+	mux.HandleFunc("/api/auth/change-password", r.handleChangePassword)
 	mux.HandleFunc("/api/settings", r.handleSettings)
 	mux.HandleFunc("/api/bot/target-chat/resolve", r.handleResolveBotTargetChat)
 	mux.HandleFunc("/api/telegram/auth/start", r.handleStartAuth)
@@ -60,6 +67,7 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/history-backfills", r.handleStartHistoryBackfill)
 	mux.HandleFunc("/api/history-backfills/", r.handleHistoryBackfillByID)
 	mux.HandleFunc("/api/summaries", r.handleSummaries)
+	mux.HandleFunc("/api/summaries/stats", r.handleSummaryStats)
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
@@ -72,6 +80,7 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 		if origin := allowedOrigin(req.Header.Get("Origin"), r.origin); origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
@@ -82,7 +91,11 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 
 		ctx, cancel := context.WithTimeout(req.Context(), r.timeout)
 		defer cancel()
-		next.ServeHTTP(w, req.WithContext(ctx))
+		authorizedReq, ok := r.authorizeRequest(w, req.WithContext(ctx))
+		if !ok {
+			return
+		}
+		next.ServeHTTP(w, authorizedReq)
 	})
 }
 
@@ -128,6 +141,24 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	passwordConfigured, err := r.auth.PasswordConfigured(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	authenticated := currentSessionID(req.Context()) != ""
+	if !authenticated {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"settingsConfigured": false,
+			"passwordConfigured": passwordConfigured,
+			"authenticated":      false,
+			"telegramAuthorized": false,
+			"enabledChatCount":   0,
+			"botEnabled":         false,
+		})
+		return
+	}
+
 	settings, err := r.store.Settings.Get(req.Context())
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
@@ -146,6 +177,8 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 
 	payload := map[string]any{
 		"settingsConfigured": settings.TelegramAPIID != 0 && strings.TrimSpace(settings.OpenAIBaseURL) != "",
+		"passwordConfigured": passwordConfigured,
+		"authenticated":      authenticated,
 		"telegramAuthorized": auth != nil && auth.Status == "authorized",
 		"enabledChatCount":   count,
 		"botEnabled":         settings.BotEnabled,
@@ -486,12 +519,62 @@ func (r *Router) handleSummaries(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	summaries, err := r.store.Summaries.List(req.Context())
+
+	params := store.SummaryListParams{
+		Query:    strings.TrimSpace(req.URL.Query().Get("q")),
+		Status:   strings.TrimSpace(req.URL.Query().Get("status")),
+		Delivery: strings.TrimSpace(req.URL.Query().Get("delivery")),
+		DateFrom: strings.TrimSpace(req.URL.Query().Get("dateFrom")),
+		DateTo:   strings.TrimSpace(req.URL.Query().Get("dateTo")),
+	}
+
+	if chatIDValue := strings.TrimSpace(req.URL.Query().Get("chatId")); chatIDValue != "" {
+		chatID, err := strconv.ParseInt(chatIDValue, 10, 64)
+		if err != nil || chatID < 0 {
+			httpx.Error(w, http.StatusBadRequest, "invalid chatId")
+			return
+		}
+		params.ChatID = chatID
+	}
+
+	if pageValue := strings.TrimSpace(req.URL.Query().Get("page")); pageValue != "" {
+		page, err := strconv.Atoi(pageValue)
+		if err != nil || page < 1 {
+			httpx.Error(w, http.StatusBadRequest, "invalid page")
+			return
+		}
+		params.Page = page
+	}
+
+	if pageSizeValue := strings.TrimSpace(req.URL.Query().Get("pageSize")); pageSizeValue != "" {
+		pageSize, err := strconv.Atoi(pageSizeValue)
+		if err != nil || pageSize < 1 {
+			httpx.Error(w, http.StatusBadRequest, "invalid pageSize")
+			return
+		}
+		params.PageSize = pageSize
+	}
+
+	summaries, err := r.store.Summaries.Search(req.Context(), params)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	httpx.JSON(w, http.StatusOK, summaries)
+}
+
+func (r *Router) handleSummaryStats(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	stats, err := r.store.Summaries.Stats(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, stats)
 }
 
 func (r *Router) handleSummaryContextPreview(w http.ResponseWriter, req *http.Request) {

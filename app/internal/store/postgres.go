@@ -10,13 +10,15 @@ import (
 )
 
 type Store struct {
-	Pool      *pgxpool.Pool
-	Cipher    Cipher
-	Settings  *SettingsRepository
-	Auth      *AuthRepository
-	Chats     *ChatRepository
-	Messages  *MessageRepository
-	Summaries *SummaryRepository
+	Pool          *pgxpool.Pool
+	Cipher        Cipher
+	Settings      *SettingsRepository
+	Auth          *AuthRepository
+	LocalAuth     *LocalAuthRepository
+	LocalSessions *LocalSessionRepository
+	Chats         *ChatRepository
+	Messages      *MessageRepository
+	Summaries     *SummaryRepository
 }
 
 func Open(ctx context.Context, cfg config.Config) (*Store, error) {
@@ -35,13 +37,15 @@ func Open(ctx context.Context, cfg config.Config) (*Store, error) {
 	}
 
 	st := &Store{
-		Pool:      pool,
-		Cipher:    cipher,
-		Settings:  &SettingsRepository{pool: pool, cipher: cipher},
-		Auth:      &AuthRepository{pool: pool, cipher: cipher},
-		Chats:     &ChatRepository{pool: pool},
-		Messages:  &MessageRepository{pool: pool},
-		Summaries: &SummaryRepository{pool: pool},
+		Pool:          pool,
+		Cipher:        cipher,
+		Settings:      &SettingsRepository{pool: pool, cipher: cipher},
+		Auth:          &AuthRepository{pool: pool, cipher: cipher},
+		LocalAuth:     &LocalAuthRepository{pool: pool},
+		LocalSessions: &LocalSessionRepository{pool: pool},
+		Chats:         &ChatRepository{pool: pool},
+		Messages:      &MessageRepository{pool: pool},
+		Summaries:     &SummaryRepository{pool: pool},
 	}
 	return st, nil
 }

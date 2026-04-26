@@ -51,6 +51,24 @@ func (s AppSettings) Sanitized() AppSettings {
 	return s
 }
 
+type LocalAuth struct {
+	PasswordHash      string    `json:"-"`
+	PasswordUpdatedAt time.Time `json:"passwordUpdatedAt"`
+	SessionVersion    int       `json:"sessionVersion"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+type LocalSession struct {
+	ID             int64     `json:"id"`
+	SessionID      string    `json:"sessionId"`
+	SessionVersion int       `json:"sessionVersion"`
+	ExpiresAt      time.Time `json:"expiresAt"`
+	LastSeenAt     time.Time `json:"lastSeenAt"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
 type TelegramAuth struct {
 	ID              int64     `json:"id"`
 	PhoneNumber     string    `json:"phoneNumber"`
@@ -125,8 +143,24 @@ type Summary struct {
 	DeliveredAt        *time.Time    `json:"deliveredAt,omitempty"`
 	DeliveryError      string        `json:"deliveryError"`
 	ErrorMessage       string        `json:"errorMessage"`
+	MatchSnippet       string        `json:"matchSnippet,omitempty"`
+	MatchedFields      []string      `json:"matchedFields,omitempty"`
 	CreatedAt          time.Time     `json:"createdAt"`
 	UpdatedAt          time.Time     `json:"updatedAt"`
+}
+
+type SummaryListResponse struct {
+	Items    []Summary `json:"items"`
+	Total    int       `json:"total"`
+	Page     int       `json:"page"`
+	PageSize int       `json:"pageSize"`
+}
+
+type SummaryStats struct {
+	Total           int `json:"total"`
+	SuccessCount    int `json:"successCount"`
+	ProcessingCount int `json:"processingCount"`
+	FailedCount     int `json:"failedCount"`
 }
 
 type SummaryContextPreview struct {
@@ -174,6 +208,8 @@ type HistoryBackfillTask struct {
 
 type Bootstrap struct {
 	SettingsConfigured bool          `json:"settingsConfigured"`
+	PasswordConfigured bool          `json:"passwordConfigured"`
+	Authenticated      bool          `json:"authenticated"`
 	TelegramAuthorized bool          `json:"telegramAuthorized"`
 	EnabledChatCount   int           `json:"enabledChatCount"`
 	BotEnabled         bool          `json:"botEnabled"`

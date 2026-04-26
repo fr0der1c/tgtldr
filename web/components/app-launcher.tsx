@@ -6,6 +6,12 @@ import { api } from "@/lib/api";
 import { Bootstrap } from "@/lib/types";
 
 function resolveEntryRoute(bootstrap: Bootstrap) {
+  if (!bootstrap.passwordConfigured) {
+    return "/setup";
+  }
+  if (!bootstrap.authenticated) {
+    return "/login";
+  }
   if (!bootstrap.settingsConfigured) {
     return "/setup";
   }
@@ -30,7 +36,13 @@ export function AppLauncher() {
         }
 
         const target = resolveEntryRoute(bootstrap);
-        setMessage(target === "/setup" ? "正在进入首次配置..." : "正在进入后台...");
+        if (target === "/setup") {
+          setMessage("正在进入首次配置...");
+        } else if (target === "/login") {
+          setMessage("正在进入登录...");
+        } else {
+          setMessage("正在进入后台...");
+        }
         router.replace(target);
       } catch {
         if (cancelled) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { APIError, api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
 import { SearchSelect } from "@/components/search-select";
@@ -8,11 +9,11 @@ import {
   AppSettings,
   Bootstrap,
   BotTargetChatCandidate,
-  PendingAuth
+  PendingAuth,
 } from "@/lib/types";
 import {
   describeBotChatCandidate,
-  hasAvailableBotToken
+  hasAvailableBotToken,
 } from "@/lib/bot-target-chat";
 import { DashboardPage, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
@@ -28,18 +29,24 @@ type SecretPlaceholders = {
 type AuthStage = "summary" | "phone" | "code" | "password";
 
 export function SettingsPanel() {
+  const router = useRouter();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
-  const [secretPlaceholders, setSecretPlaceholders] = useState<SecretPlaceholders>({
-    botToken: "",
-    openAIApiKey: "",
-    telegramApiHash: ""
-  });
+  const [secretPlaceholders, setSecretPlaceholders] =
+    useState<SecretPlaceholders>({
+      botToken: "",
+      openAIApiKey: "",
+      telegramApiHash: "",
+    });
   const [countryCode, setCountryCode] = useState("+86");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [currentAccessPassword, setCurrentAccessPassword] = useState("");
+  const [nextAccessPassword, setNextAccessPassword] = useState("");
+  const [nextAccessPasswordConfirm, setNextAccessPasswordConfirm] =
+    useState("");
   const [authEditorOpen, setAuthEditorOpen] = useState(false);
   const [authRetryUntil, setAuthRetryUntil] = useState<number | null>(null);
   const [authRetryNow, setAuthRetryNow] = useState(Date.now());
@@ -67,12 +74,12 @@ export function SettingsPanel() {
     try {
       const [settingsData, bootstrapData] = await Promise.all([
         api.settings(),
-        api.bootstrap()
+        api.bootstrap(),
       ]);
       setSecretPlaceholders({
         botToken: settingsData.botToken || "",
         openAIApiKey: settingsData.openAIApiKey || "",
-        telegramApiHash: settingsData.telegramApiHash || ""
+        telegramApiHash: settingsData.telegramApiHash || "",
       });
       setSettings({
         ...settingsData,
@@ -80,7 +87,7 @@ export function SettingsPanel() {
         summaryParallelism: settingsData.summaryParallelism || 2,
         botToken: "",
         openAIApiKey: "",
-        telegramApiHash: ""
+        telegramApiHash: "",
       });
       setBootstrap(bootstrapData);
       setPendingAuth(bootstrapData.pendingAuth ?? null);
@@ -110,6 +117,36 @@ export function SettingsPanel() {
     }
   }
 
+  async function changeAccessPassword() {
+    if (nextAccessPassword.trim().length < 8) {
+      toast.showError("访问密码至少需要 8 位。");
+      return;
+    }
+    if (nextAccessPassword !== nextAccessPasswordConfirm) {
+      toast.showError("两次输入的访问密码不一致。");
+      return;
+    }
+
+    try {
+      await api.changePassword(currentAccessPassword, nextAccessPassword);
+      setCurrentAccessPassword("");
+      setNextAccessPassword("");
+      setNextAccessPasswordConfirm("");
+      toast.showSuccess("访问密码已更新。");
+    } catch (err) {
+      toast.showError(asMessage(err));
+    }
+  }
+
+  async function logout() {
+    try {
+      await api.logout();
+    } catch {
+      // ignore logout errors and continue redirecting
+    }
+    router.replace("/login");
+  }
+
   async function startAuthFlow() {
     if (!settings || authBlocked(authRetryUntil, authRetryNow)) {
       return;
@@ -126,7 +163,9 @@ export function SettingsPanel() {
       setPassword("");
       setAuthEditorOpen(true);
       setAuthRetryUntil(null);
-      toast.showSuccess(`验证码已发送到 ${fullPhone(countryCode, phoneNumber)}。`);
+      toast.showSuccess(
+        `验证码已发送到 ${fullPhone(countryCode, phoneNumber)}。`,
+      );
     } catch (err) {
       handleAuthError(err);
     }
@@ -204,7 +243,12 @@ export function SettingsPanel() {
       toast.showError("自动获取前请先完成 Telegram 登录。");
       return;
     }
-    if (!hasAvailableBotToken(currentSettings.botToken, secretPlaceholders.botToken)) {
+    if (
+      !hasAvailableBotToken(
+        currentSettings.botToken,
+        secretPlaceholders.botToken,
+      )
+    ) {
       toast.showError("请先填写 Bot Token。");
       return;
     }
@@ -246,7 +290,7 @@ export function SettingsPanel() {
         ...persistedSettings,
         botEnabled: settings.botEnabled,
         botTargetChatId: chatId,
-        botToken: settings.botToken?.trim() || persistedSettings.botToken || ""
+        botToken: settings.botToken?.trim() || persistedSettings.botToken || "",
       };
       const saved = await api.saveSettings(nextSettings);
       setSettings((current) => {
@@ -257,12 +301,12 @@ export function SettingsPanel() {
           ...current,
           botEnabled: saved.botEnabled,
           botTargetChatId: saved.botTargetChatId,
-          botToken: ""
+          botToken: "",
         };
       });
       setSecretPlaceholders((current) => ({
         ...current,
-        botToken: saved.botToken || current.botToken
+        botToken: saved.botToken || current.botToken,
       }));
       setBotTargetChatCandidates([]);
       toast.showSuccess("已自动绑定并保存 Chat ID。");
@@ -309,15 +353,21 @@ export function SettingsPanel() {
     >
       <div className="dashboard-workspace settings-workspace">
         <div className="settings-column">
-          <Surface title="Telegram 接入" description="用于登录 Telegram 账号并读取群组消息。">
+          <Surface
+            title="Telegram 接入"
+            description="用于登录 Telegram 账号并读取群组消息。"
+          >
             <div className="form-grid">
-              <Field label="Telegram API ID" hint="在 my.telegram.org/apps 申请后获得。">
+              <Field
+                label="Telegram API ID"
+                hint="在 my.telegram.org/apps 申请后获得。"
+              >
                 <Input
                   value={settings.telegramApiId || ""}
                   onChange={(event) =>
                     setSettings({
                       ...settings,
-                      telegramApiId: Number(event.target.value || "0")
+                      telegramApiId: Number(event.target.value || "0"),
                     })
                   }
                 />
@@ -327,24 +377,35 @@ export function SettingsPanel() {
                 hint="已保存时会显示掩码。留空表示保持现有值。"
               >
                 <Input
-                  placeholder={secretPlaceholder(secretPlaceholders.telegramApiHash)}
+                  placeholder={secretPlaceholder(
+                    secretPlaceholders.telegramApiHash,
+                  )}
                   type="password"
                   value={settings.telegramApiHash || ""}
                   onChange={(event) =>
-                    setSettings({ ...settings, telegramApiHash: event.target.value })
+                    setSettings({
+                      ...settings,
+                      telegramApiHash: event.target.value,
+                    })
                   }
                 />
               </Field>
             </div>
           </Surface>
 
-          <Surface title="摘要引擎" description="这些参数决定摘要模型、接口地址、输出策略和并行处理方式。">
+          <Surface
+            title="摘要引擎"
+            description="这些参数决定摘要模型、接口地址、输出策略和并行处理方式。"
+          >
             <div className="form-grid">
               <Field label="Base URL">
                 <Input
                   value={settings.openAIBaseUrl}
                   onChange={(event) =>
-                    setSettings({ ...settings, openAIBaseUrl: event.target.value })
+                    setSettings({
+                      ...settings,
+                      openAIBaseUrl: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -352,7 +413,10 @@ export function SettingsPanel() {
                 <Input
                   value={settings.openAIModel}
                   onChange={(event) =>
-                    setSettings({ ...settings, openAIModel: event.target.value })
+                    setSettings({
+                      ...settings,
+                      openAIModel: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -361,11 +425,16 @@ export function SettingsPanel() {
                 hint="已保存时会显示掩码。留空表示保持现有值。"
               >
                 <Input
-                  placeholder={secretPlaceholder(secretPlaceholders.openAIApiKey)}
+                  placeholder={secretPlaceholder(
+                    secretPlaceholders.openAIApiKey,
+                  )}
                   type="password"
                   value={settings.openAIApiKey || ""}
                   onChange={(event) =>
-                    setSettings({ ...settings, openAIApiKey: event.target.value })
+                    setSettings({
+                      ...settings,
+                      openAIApiKey: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -382,7 +451,7 @@ export function SettingsPanel() {
                   onChange={(event) =>
                     setSettings({
                       ...settings,
-                      openAITemperature: Number(event.target.value || "0")
+                      openAITemperature: Number(event.target.value || "0"),
                     })
                   }
                 />
@@ -395,12 +464,12 @@ export function SettingsPanel() {
                   onChange={(value) =>
                     setSettings({
                       ...settings,
-                      openAIOutputMode: value as "auto" | "manual"
+                      openAIOutputMode: value as "auto" | "manual",
                     })
                   }
                   options={[
                     { value: "auto", label: "自动" },
-                    { value: "manual", label: "自定义" }
+                    { value: "manual", label: "自定义" },
                   ]}
                   value={settings.openAIOutputMode}
                 />
@@ -413,7 +482,9 @@ export function SettingsPanel() {
                     onChange={(event) =>
                       setSettings({
                         ...settings,
-                        openAIMaxOutputTokens: Number(event.target.value || "0")
+                        openAIMaxOutputTokens: Number(
+                          event.target.value || "0",
+                        ),
                       })
                     }
                   />
@@ -427,7 +498,7 @@ export function SettingsPanel() {
                   onChange={(value) =>
                     setSettings({
                       ...settings,
-                      summaryParallelism: Number(value)
+                      summaryParallelism: Number(value),
                     })
                   }
                   options={[
@@ -436,7 +507,7 @@ export function SettingsPanel() {
                     { value: "3", label: "3" },
                     { value: "4", label: "4" },
                     { value: "5", label: "5" },
-                    { value: "6", label: "6" }
+                    { value: "6", label: "6" },
                   ]}
                   value={String(settings.summaryParallelism || 2)}
                 />
@@ -444,7 +515,10 @@ export function SettingsPanel() {
             </div>
           </Surface>
 
-          <Surface title="系统行为" description="这些设置会影响摘要日期计算和系统调度行为。">
+          <Surface
+            title="系统行为"
+            description="这些设置会影响摘要日期计算和系统调度行为。"
+          >
             <div className="form-grid">
               <Field label="默认时区">
                 <SearchSelect
@@ -463,7 +537,10 @@ export function SettingsPanel() {
         </div>
 
         <div className="settings-column">
-          <Surface title="Telegram 账号" description="在这里完成登录、重新登录或重新同步群组。">
+          <Surface
+            title="Telegram 账号"
+            description="在这里完成登录、重新登录或重新同步群组。"
+          >
             <TelegramAccountSection
               blocked={blocked}
               bootstrap={bootstrap}
@@ -478,7 +555,9 @@ export function SettingsPanel() {
               onStartAuth={startAuthFlow}
               onSubmitCode={submitCode}
               onSubmitPassword={submitPassword}
-              onToggleAuthEditor={() => setAuthEditorOpen((current) => !current)}
+              onToggleAuthEditor={() =>
+                setAuthEditorOpen((current) => !current)
+              }
               password={password}
               pendingAuth={pendingAuth}
               phoneNumber={phoneNumber}
@@ -487,7 +566,73 @@ export function SettingsPanel() {
             />
           </Surface>
 
-          <Surface title="Bot 推送" description="如果你只在网页端看摘要，这一块可以保持关闭。">
+          <Surface
+            title="访问密码"
+            description="初始化完成后，后台页面和 API 都需要使用这个密码登录。"
+          >
+            <div className="form-grid">
+              <Field label="当前密码">
+                <Input
+                  autoComplete="current-password"
+                  onChange={(event) =>
+                    setCurrentAccessPassword(event.target.value)
+                  }
+                  type="password"
+                  value={currentAccessPassword}
+                />
+              </Field>
+              <Field label="新密码" hint="至少 8 位。">
+                <Input
+                  autoComplete="new-password"
+                  onChange={(event) =>
+                    setNextAccessPassword(event.target.value)
+                  }
+                  type="password"
+                  value={nextAccessPassword}
+                />
+              </Field>
+              <Field label="确认新密码">
+                <Input
+                  aria-invalid={
+                    nextAccessPasswordConfirm.trim() !== "" &&
+                    nextAccessPassword !== nextAccessPasswordConfirm
+                  }
+                  autoComplete="new-password"
+                  onChange={(event) =>
+                    setNextAccessPasswordConfirm(event.target.value)
+                  }
+                  type="password"
+                  value={nextAccessPasswordConfirm}
+                />
+              </Field>
+            </div>
+            <div className="button-row">
+              <Button
+                disabled={
+                  currentAccessPassword.trim() === "" ||
+                  nextAccessPassword.trim().length < 8 ||
+                  nextAccessPasswordConfirm.trim() === "" ||
+                  nextAccessPassword !== nextAccessPasswordConfirm
+                }
+                onClick={() => void changeAccessPassword()}
+                type="button"
+              >
+                更新访问密码
+              </Button>
+              <Button
+                onClick={() => void logout()}
+                type="button"
+                variant="secondary"
+              >
+                退出登录
+              </Button>
+            </div>
+          </Surface>
+
+          <Surface
+            title="Bot 推送"
+            description="如果你只在网页端看摘要，这一块可以保持关闭。"
+          >
             <div className="form-grid">
               <Field label="是否启用">
                 <AppSelect
@@ -496,7 +641,7 @@ export function SettingsPanel() {
                   }
                   options={[
                     { value: "no", label: "关闭" },
-                    { value: "yes", label: "开启" }
+                    { value: "yes", label: "开启" },
                   ]}
                   value={settings.botEnabled ? "yes" : "no"}
                 />
@@ -527,7 +672,9 @@ export function SettingsPanel() {
                     2. 回到这里点击“获取 Chat ID”。
                   </p>
                   {!bootstrap?.telegramAuthorized ? (
-                    <p className="field-hint">自动获取前需要先完成上面的 Telegram 登录。</p>
+                    <p className="field-hint">
+                      自动获取前需要先完成上面的 Telegram 登录。
+                    </p>
                   ) : null}
                   <div className="button-row">
                     <Button
@@ -537,7 +684,7 @@ export function SettingsPanel() {
                         !bootstrap?.telegramAuthorized ||
                         !hasAvailableBotToken(
                           settings.botToken,
-                          secretPlaceholders.botToken
+                          secretPlaceholders.botToken,
                         )
                       }
                       onClick={() => void resolveBotTargetChat()}
@@ -579,11 +726,15 @@ export function SettingsPanel() {
                       ? `当前已绑定：${settings.botTargetChatId}`
                       : "尚未绑定 Chat ID"}
                   </div>
-                  <span className="field-hint">获取成功后会自动保存并立即显示在这里。</span>
+                  <span className="field-hint">
+                    获取成功后会自动保存并立即显示在这里。
+                  </span>
                 </div>
               </Field>
             </div>
-            <p className="muted">如果你只想在网页端查看摘要，可以把 Bot 推送保持关闭。</p>
+            <p className="muted">
+              如果你只想在网页端查看摘要，可以把 Bot 推送保持关闭。
+            </p>
           </Surface>
         </div>
       </div>
@@ -592,7 +743,9 @@ export function SettingsPanel() {
         <p className="muted">
           获取 Chat ID 会自动保存；其它系统配置修改仍需在这里统一保存。
         </p>
-        <Button onClick={() => startTransition(() => void save(true))}>保存系统配置</Button>
+        <Button onClick={() => startTransition(() => void save(true))}>
+          保存系统配置
+        </Button>
       </div>
     </DashboardPage>
   );
@@ -617,7 +770,7 @@ function TelegramAccountSection({
   pendingAuth,
   phoneNumber,
   retryLabel,
-  stage
+  stage,
 }: {
   blocked: boolean;
   bootstrap: Bootstrap | null;
@@ -655,7 +808,11 @@ function TelegramAccountSection({
           </div>
         </div>
         <div className="button-row">
-          <Button onClick={() => startTransition(onRetrySync)} type="button" variant="secondary">
+          <Button
+            onClick={() => startTransition(onRetrySync)}
+            type="button"
+            variant="secondary"
+          >
             重新同步群组
           </Button>
           <Button onClick={onToggleAuthEditor} type="button">
@@ -687,10 +844,18 @@ function TelegramAccountSection({
         </div>
         {retryLabel ? <p className="muted">{retryLabel}</p> : null}
         <div className="button-row">
-          <Button onClick={onToggleAuthEditor} type="button" variant="secondary">
+          <Button
+            onClick={onToggleAuthEditor}
+            type="button"
+            variant="secondary"
+          >
             收起
           </Button>
-          <Button disabled={blocked} onClick={() => startTransition(onStartAuth)} type="button">
+          <Button
+            disabled={blocked}
+            onClick={() => startTransition(onStartAuth)}
+            type="button"
+          >
             发送验证码
           </Button>
         </div>
@@ -716,7 +881,11 @@ function TelegramAccountSection({
           <Button onClick={onResetAuthEditor} type="button" variant="secondary">
             取消
           </Button>
-          <Button disabled={blocked} onClick={() => startTransition(onSubmitCode)} type="button">
+          <Button
+            disabled={blocked}
+            onClick={() => startTransition(onSubmitCode)}
+            type="button"
+          >
             继续
           </Button>
         </div>
@@ -735,11 +904,15 @@ function TelegramAccountSection({
         />
       </Field>
       {retryLabel ? <p className="muted">{retryLabel}</p> : null}
-        <div className="button-row">
-          <Button onClick={onResetAuthEditor} type="button" variant="secondary">
-            取消
-          </Button>
-        <Button disabled={blocked} onClick={() => startTransition(onSubmitPassword)} type="button">
+      <div className="button-row">
+        <Button onClick={onResetAuthEditor} type="button" variant="secondary">
+          取消
+        </Button>
+        <Button
+          disabled={blocked}
+          onClick={() => startTransition(onSubmitPassword)}
+          type="button"
+        >
           完成登录
         </Button>
       </div>
@@ -750,7 +923,7 @@ function TelegramAccountSection({
 function resolveAuthStage(
   bootstrap: Bootstrap | null,
   pendingAuth: PendingAuth | null,
-  authEditorOpen: boolean
+  authEditorOpen: boolean,
 ): AuthStage {
   if (pendingAuth?.step === "password") {
     return "password";

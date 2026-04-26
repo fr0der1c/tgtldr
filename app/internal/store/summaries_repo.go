@@ -18,7 +18,8 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select id, chat_id, summary_date::text, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, created_at, updated_at
+		       delivery_error, error_message, ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, created_at, updated_at
 		from summaries
 		where id = $1
 	`, id), &item); err != nil {
@@ -32,7 +33,8 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select id, chat_id, summary_date::text, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, created_at, updated_at
+		       delivery_error, error_message, ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, created_at, updated_at
 		from summaries
 		where chat_id = $1 and summary_date = $2::date
 	`, chatID, date), &item); err != nil {
@@ -42,28 +44,67 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 }
 
 func (r *SummaryRepository) List(ctx context.Context) ([]model.Summary, error) {
-	rows, err := r.pool.Query(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
-		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, created_at, updated_at
-		from summaries
-		order by summary_date desc, id desc
-		limit 200
-	`)
+	result, err := r.Search(ctx, SummaryListParams{})
 	if err != nil {
-		return nil, fmt.Errorf("query summaries: %w", err)
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams) (model.SummaryListResponse, error) {
+	normalized := normalizeSummaryListParams(params)
+	terms := searchTerms(normalized.Query)
+	whereClause, args := buildSummaryWhereClause(normalized, terms)
+
+	var total int
+	countQuery := `
+		select count(*)
+		from summaries s
+		join chats c on c.id = s.chat_id
+	` + whereClause
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", err)
+	}
+
+	offset := (normalized.Page - 1) * normalized.PageSize
+	argsWithPagination := append(args, normalized.PageSize, offset)
+	dataQuery := `
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
+		       s.delivery_error, s.error_message, ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, s.created_at, s.updated_at, c.title
+		from summaries s
+		join chats c on c.id = s.chat_id
+	` + whereClause + `
+		order by s.summary_date desc, s.id desc
+		limit $` + fmt.Sprint(len(args)+1) + ` offset $` + fmt.Sprint(len(args)+2)
+
+	rows, err := r.pool.Query(ctx, dataQuery, argsWithPagination...)
+	if err != nil {
+		return model.SummaryListResponse{}, fmt.Errorf("query summaries: %w", err)
 	}
 	defer rows.Close()
 
 	items := make([]model.Summary, 0)
 	for rows.Next() {
 		var item model.Summary
-		if err := scanSummary(rows, &item); err != nil {
-			return nil, fmt.Errorf("scan summary: %w", err)
+		var chatTitle string
+		if err := scanSummaryWithChatTitle(rows, &item, &chatTitle); err != nil {
+			return model.SummaryListResponse{}, fmt.Errorf("scan summary search result: %w", err)
 		}
+		item.MatchSnippet, item.MatchedFields = summarizeSearchMatch(item.Content, chatTitle, terms)
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return model.SummaryListResponse{}, fmt.Errorf("iterate summaries: %w", err)
+	}
+
+	return model.SummaryListResponse{
+		Items:    items,
+		Total:    total,
+		Page:     normalized.Page,
+		PageSize: normalized.PageSize,
+	}, nil
 }
 
 func (r *SummaryRepository) UpsertPending(ctx context.Context, chatID int64, date string) error {
@@ -192,8 +233,32 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.DeliveredAt,
 		&item.DeliveryError,
 		&item.ErrorMessage,
+		&item.MatchSnippet,
+		&item.MatchedFields,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+	)
+}
+
+func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatTitle *string) error {
+	return scanner.Scan(
+		&item.ID,
+		&item.ChatID,
+		&item.SummaryDate,
+		&item.Status,
+		&item.Content,
+		&item.Model,
+		&item.SourceMessageCount,
+		&item.ChunkCount,
+		&item.GeneratedAt,
+		&item.DeliveredAt,
+		&item.DeliveryError,
+		&item.ErrorMessage,
+		&item.MatchSnippet,
+		&item.MatchedFields,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		chatTitle,
 	)
 }
 

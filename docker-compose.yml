@@ -5,8 +5,6 @@ services:
       POSTGRES_DB: tgtldr
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "127.0.0.1:15432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 

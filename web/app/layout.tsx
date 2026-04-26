@@ -5,7 +5,11 @@ import { ToastProvider } from "@/components/toast";
 
 export const metadata: Metadata = {
   title: "TGTLDR",
-  description: "Telegram 群组监听与每日摘要平台"
+  description: "Telegram 群组监听与每日摘要平台",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png"
+  }
 };
 
 export default function RootLayout({

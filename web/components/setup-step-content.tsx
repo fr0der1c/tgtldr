@@ -6,11 +6,11 @@ import {
   AppSettings,
   Bootstrap,
   BotTargetChatCandidate,
-  PendingAuth
+  PendingAuth,
 } from "@/lib/types";
 import {
   describeBotChatCandidate,
-  hasAvailableBotToken
+  hasAvailableBotToken,
 } from "@/lib/bot-target-chat";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { knownOpenAIModels, LoginStage } from "@/components/setup-wizard-types";
@@ -26,10 +26,10 @@ export function ConfigStep({
   settings,
   setSettings,
   canSave,
-  onSaveAndContinue
+  onSaveAndContinue,
 }: ConfigStepProps) {
   const customModel = !knownOpenAIModels.includes(
-    settings.openAIModel as (typeof knownOpenAIModels)[number]
+    settings.openAIModel as (typeof knownOpenAIModels)[number],
   );
 
   return (
@@ -56,7 +56,7 @@ export function ConfigStep({
                   onChange={(event) =>
                     setSettings({
                       ...settings,
-                      telegramApiId: Number(event.target.value || "0")
+                      telegramApiId: Number(event.target.value || "0"),
                     })
                   }
                 />
@@ -68,7 +68,7 @@ export function ConfigStep({
                   onChange={(event) =>
                     setSettings({
                       ...settings,
-                      telegramApiHash: event.target.value
+                      telegramApiHash: event.target.value,
                     })
                   }
                 />
@@ -93,7 +93,7 @@ export function ConfigStep({
                   onChange={(event) =>
                     setSettings({
                       ...settings,
-                      openAIBaseUrl: event.target.value
+                      openAIBaseUrl: event.target.value,
                     })
                   }
                 />
@@ -103,7 +103,10 @@ export function ConfigStep({
                   aria-invalid={(settings.openAIApiKey ?? "").trim() === ""}
                   value={settings.openAIApiKey || ""}
                   onChange={(event) =>
-                    setSettings({ ...settings, openAIApiKey: event.target.value })
+                    setSettings({
+                      ...settings,
+                      openAIApiKey: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -112,15 +115,15 @@ export function ConfigStep({
                   onChange={(value) =>
                     setSettings({
                       ...settings,
-                      openAIModel: value === "__custom__" ? "" : value
+                      openAIModel: value === "__custom__" ? "" : value,
                     })
                   }
                   options={[
                     ...knownOpenAIModels.map((model) => ({
                       value: model,
-                      label: model
+                      label: model,
                     })),
-                    { value: "__custom__", label: "自定义模型名" }
+                    { value: "__custom__", label: "自定义模型名" },
                   ]}
                   value={customModel ? "__custom__" : settings.openAIModel}
                 />
@@ -135,7 +138,10 @@ export function ConfigStep({
                     aria-invalid={settings.openAIModel.trim() === ""}
                     value={settings.openAIModel}
                     onChange={(event) =>
-                      setSettings({ ...settings, openAIModel: event.target.value })
+                      setSettings({
+                        ...settings,
+                        openAIModel: event.target.value,
+                      })
                     }
                   />
                 </Field>
@@ -153,7 +159,7 @@ export function ConfigStep({
                     onChange={(event) =>
                       setSettings({
                         ...settings,
-                        openAITemperature: Number(event.target.value || "0")
+                        openAITemperature: Number(event.target.value || "0"),
                       })
                     }
                   />
@@ -166,12 +172,12 @@ export function ConfigStep({
                     onChange={(value) =>
                       setSettings({
                         ...settings,
-                        openAIOutputMode: value as "auto" | "manual"
+                        openAIOutputMode: value as "auto" | "manual",
                       })
                     }
                     options={[
                       { value: "auto", label: "自动" },
-                      { value: "manual", label: "自定义" }
+                      { value: "manual", label: "自定义" },
                     ]}
                     value={settings.openAIOutputMode}
                   />
@@ -184,7 +190,9 @@ export function ConfigStep({
                       onChange={(event) =>
                         setSettings({
                           ...settings,
-                          openAIMaxOutputTokens: Number(event.target.value || "0")
+                          openAIMaxOutputTokens: Number(
+                            event.target.value || "0",
+                          ),
                         })
                       }
                     />
@@ -198,7 +206,7 @@ export function ConfigStep({
                     onChange={(value) =>
                       setSettings({
                         ...settings,
-                        summaryParallelism: Number(value)
+                        summaryParallelism: Number(value),
                       })
                     }
                     options={[
@@ -207,7 +215,7 @@ export function ConfigStep({
                       { value: "3", label: "3" },
                       { value: "4", label: "4" },
                       { value: "5", label: "5" },
-                      { value: "6", label: "6" }
+                      { value: "6", label: "6" },
                     ]}
                     value={String(settings.summaryParallelism || 2)}
                   />
@@ -279,7 +287,7 @@ export function LoginStep(props: LoginStepProps) {
     onResetToPhone,
     onContinueToBot,
     onResendCode,
-    onRetrySyncChats
+    onRetrySyncChats,
   } = props;
 
   return (
@@ -309,7 +317,9 @@ export function LoginStep(props: LoginStepProps) {
                   />
                 </Field>
               </div>
-              {authBlockedLabel ? <p className="setup-helper">{authBlockedLabel}</p> : null}
+              {authBlockedLabel ? (
+                <p className="setup-helper">{authBlockedLabel}</p>
+              ) : null}
             </div>
             <div className="setup-actions">
               <Button variant="ghost" onClick={onBack} type="button">
@@ -333,7 +343,9 @@ export function LoginStep(props: LoginStepProps) {
               <p className="setup-helper">
                 验证码已发送到 <strong>{pendingAuth?.phoneNumber}</strong>。
               </p>
-              {authBlockedLabel ? <p className="setup-helper">{authBlockedLabel}</p> : null}
+              {authBlockedLabel ? (
+                <p className="setup-helper">{authBlockedLabel}</p>
+              ) : null}
               <Field label="验证码">
                 <Input
                   value={code}
@@ -371,7 +383,9 @@ export function LoginStep(props: LoginStepProps) {
           <>
             <div className="setup-auth-block">
               <p className="setup-auth-title">输入两步验证密码</p>
-              {authBlockedLabel ? <p className="setup-helper">{authBlockedLabel}</p> : null}
+              {authBlockedLabel ? (
+                <p className="setup-helper">{authBlockedLabel}</p>
+              ) : null}
               <Field label="两步验证密码">
                 <Input
                   type="password"
@@ -400,17 +414,22 @@ export function LoginStep(props: LoginStepProps) {
           <>
             <div className="setup-auth-block">
               <p className="setup-auth-title">
-                {discoveredChats > 0 ? "已登录并同步群组" : "已登录，尚未同步群组"}
+                {discoveredChats > 0
+                  ? "已登录并同步群组"
+                  : "已登录，尚未同步群组"}
               </p>
               {discoveredChats === 0 ? (
                 <p className="setup-helper">
-                  当前还没有拿到群组列表。若你已经加入了 Telegram 群组，可以重试一次同步。
+                  当前还没有拿到群组列表。若你已经加入了 Telegram
+                  群组，可以重试一次同步。
                 </p>
               ) : null}
               <div className="setup-metrics">
                 <div className="setup-metric">
                   <span>登录账号</span>
-                  <strong>{bootstrap?.auth?.telegramName || "已授权账号"}</strong>
+                  <strong>
+                    {bootstrap?.auth?.telegramName || "已授权账号"}
+                  </strong>
                 </div>
                 <div className="setup-metric">
                   <span>发现群组</span>
@@ -454,10 +473,10 @@ type BotStepProps = {
   settings: AppSettings;
   resolvingBotTargetChat: boolean;
   setSettings: (settings: AppSettings) => void;
-  canFinish: boolean;
+  canContinue: boolean;
   onBotTokenChange: (value: string) => void;
   onBack: () => void;
-  onFinish: () => void;
+  onContinue: () => void;
   onResolveBotTargetChat: () => void;
   onSelectBotTargetChat: (candidate: BotTargetChatCandidate) => void;
   telegramAuthorized: boolean;
@@ -469,13 +488,13 @@ export function BotStep({
   settings,
   resolvingBotTargetChat,
   setSettings,
-  canFinish,
+  canContinue,
   onBotTokenChange,
   onBack,
-  onFinish,
+  onContinue,
   onResolveBotTargetChat,
   onSelectBotTargetChat,
-  telegramAuthorized
+  telegramAuthorized,
 }: BotStepProps) {
   return (
     <Card title="Bot 推送">
@@ -486,7 +505,7 @@ export function BotStep({
             onClick={() =>
               setSettings({
                 ...settings,
-                botEnabled: false
+                botEnabled: false,
               })
             }
             type="button"
@@ -498,22 +517,20 @@ export function BotStep({
             onClick={() =>
               setSettings({
                 ...settings,
-                botEnabled: true
+                botEnabled: true,
               })
             }
             type="button"
           >
-            <span className="setup-choice-title">同时通过 Telegram Bot 推送</span>
+            <span className="setup-choice-title">
+              同时通过 Telegram Bot 推送
+            </span>
           </button>
         </div>
 
         {settings.botEnabled ? (
           <div className="setup-bot-fields">
-            <Field
-              label="Bot Token"
-              hint="启用 Bot 推送后必须填写。"
-              required
-            >
+            <Field label="Bot Token" hint="启用 Bot 推送后必须填写。" required>
               <Input
                 required
                 placeholder={botTokenPlaceholder || "启用 Bot 推送后必须填写。"}
@@ -534,14 +551,19 @@ export function BotStep({
                   2. 回到这里点击“获取 Chat ID”。
                 </p>
                 {!telegramAuthorized ? (
-                  <p className="field-hint">自动获取前需要先完成上一步的 Telegram 登录。</p>
+                  <p className="field-hint">
+                    自动获取前需要先完成上一步的 Telegram 登录。
+                  </p>
                 ) : null}
                 <div className="button-row">
                   <Button
                     disabled={
                       resolvingBotTargetChat ||
                       !telegramAuthorized ||
-                      !hasAvailableBotToken(settings.botToken, botTokenPlaceholder)
+                      !hasAvailableBotToken(
+                        settings.botToken,
+                        botTokenPlaceholder,
+                      )
                     }
                     onClick={() => void onResolveBotTargetChat()}
                     type="button"
@@ -559,7 +581,9 @@ export function BotStep({
                         onClick={() => onSelectBotTargetChat(candidate)}
                         type="button"
                         variant={
-                          settings.botTargetChatId === candidate.chatId ? "primary" : "secondary"
+                          settings.botTargetChatId === candidate.chatId
+                            ? "primary"
+                            : "secondary"
                         }
                       >
                         {describeBotChatCandidate(candidate)}
@@ -575,7 +599,9 @@ export function BotStep({
                     ? `当前将绑定：${settings.botTargetChatId}`
                     : "尚未绑定 Chat ID"}
                 </div>
-                <span className="field-hint">获取成功后会显示在这里，并在“保存并完成”时一起保存。</span>
+                <span className="field-hint">
+                  获取成功后会显示在这里，并在“保存并完成”时一起保存。
+                </span>
               </div>
             </Field>
           </div>
@@ -586,11 +612,11 @@ export function BotStep({
             返回上一步
           </Button>
           <Button
-            disabled={!canFinish}
-            onClick={() => startTransition(onFinish)}
+            disabled={!canContinue}
+            onClick={() => startTransition(onContinue)}
             type="button"
           >
-            保存并完成
+            保存并继续
           </Button>
         </div>
       </div>
@@ -598,15 +624,100 @@ export function BotStep({
   );
 }
 
-function ExternalLink({
-  children,
-  href
-}: {
-  children: string;
-  href: string;
-}) {
+type PasswordStepProps = {
+  accessPassword: string;
+  accessPasswordConfirm: string;
+  onBack?: () => void;
+  onChangeAccessPassword: (value: string) => void;
+  onChangeAccessPasswordConfirm: (value: string) => void;
+  onFinish: () => void;
+};
+
+export function PasswordStep({
+  accessPassword,
+  accessPasswordConfirm,
+  onBack,
+  onChangeAccessPassword,
+  onChangeAccessPasswordConfirm,
+  onFinish,
+}: PasswordStepProps) {
+  const passwordMismatch =
+    accessPasswordConfirm.trim() !== "" &&
+    accessPassword !== accessPasswordConfirm;
+
   return (
-    <a className="setup-inline-link" href={href} rel="noreferrer" target="_blank">
+    <Card title="设置访问密码">
+      <div className="setup-stage">
+        <div className="setup-config-panel">
+          <div className="setup-config-head">
+            <div>
+              <h3>访问保护</h3>
+              <p className="setup-panel-note">
+                初始化完成后，后台页面和 API 都需要使用这个密码登录。
+              </p>
+            </div>
+          </div>
+          <div className="form-grid compact">
+            <Field
+              label="访问密码"
+              required
+              hint="至少 8 位。后续可以在系统配置中修改。"
+            >
+              <Input
+                autoComplete="new-password"
+                onChange={(event) => onChangeAccessPassword(event.target.value)}
+                type="password"
+                value={accessPassword}
+              />
+            </Field>
+            <Field
+              label="确认访问密码"
+              required
+              hint={passwordMismatch ? "两次输入的密码不一致。" : undefined}
+            >
+              <Input
+                aria-invalid={passwordMismatch}
+                autoComplete="new-password"
+                onChange={(event) =>
+                  onChangeAccessPasswordConfirm(event.target.value)
+                }
+                type="password"
+                value={accessPasswordConfirm}
+              />
+            </Field>
+          </div>
+        </div>
+        <div className="setup-actions">
+          {onBack ? (
+            <Button variant="ghost" onClick={onBack} type="button">
+              返回上一步
+            </Button>
+          ) : null}
+          <Button
+            disabled={
+              accessPassword.trim().length < 8 ||
+              accessPasswordConfirm.trim() === "" ||
+              passwordMismatch
+            }
+            onClick={() => startTransition(onFinish)}
+            type="button"
+          >
+            设置密码并继续
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ExternalLink({ children, href }: { children: string; href: string }) {
+  return (
+    <a
+      className="setup-inline-link"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
       {children}
     </a>
   );
