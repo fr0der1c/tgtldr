@@ -35,16 +35,27 @@ body {
   min-height: 100%;
   background:
     radial-gradient(
+      circle at 50% 32%,
+      rgba(185, 137, 59, 0.14),
+      rgba(185, 137, 59, 0.08) 22%,
+      transparent 58%
+    ),
+    radial-gradient(
       circle at top left,
-      rgba(185, 137, 59, 0.1),
-      transparent 34%
+      rgba(185, 137, 59, 0.12),
+      transparent 38%
     ),
     radial-gradient(
       circle at top right,
-      rgba(28, 25, 23, 0.06),
-      transparent 30%
+      rgba(28, 25, 23, 0.08),
+      transparent 34%
     ),
-    linear-gradient(180deg, #fbfaf6 0%, #f4efe6 100%);
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(185, 137, 59, 0.08),
+      transparent 42%
+    ),
+    linear-gradient(180deg, #fcfbf8 0%, #f5efe6 52%, #f2ece2 100%);
   color: var(--text);
   font-family: var(--font-sans);
 }
@@ -196,6 +207,11 @@ select {
 
 .form-grid.compact {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.form-stack {
+  display: grid;
+  gap: 14px;
 }
 
 .input,

@@ -657,7 +657,7 @@ export function PasswordStep({
               </p>
             </div>
           </div>
-          <div className="form-grid compact">
+          <div className="form-stack">
             <Field
               label="访问密码"
               required
