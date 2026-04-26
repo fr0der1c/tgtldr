@@ -24,7 +24,7 @@ func (s *Service) SendMessage(ctx context.Context, token, chatID, text string) e
 		return fmt.Errorf("missing bot token or chat id")
 	}
 
-	formatted := formatTelegramHTML(text)
+	formatted := formatTelegramMessage(text)
 	payload, err := json.Marshal(map[string]any{
 		"chat_id":                  chatID,
 		"text":                     formatted,

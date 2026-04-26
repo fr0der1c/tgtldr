@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"html"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -35,6 +36,32 @@ func TestFormatTelegramHTML(t *testing.T) {
 		output := formatTelegramHTML("### 分话题总结")
 		So(output, ShouldEqual, "<b>分话题总结</b>")
 	})
+
+	Convey("超长消息会自动截断并追加提示", t, func() {
+		body := stringsJoin(
+			"## 今日主要结论",
+			"",
+			"- **很长的摘要** "+repeatText("机场稳定性讨论。", 500),
+			"",
+			"## 分话题总结",
+			"",
+			"- "+repeatText("第二段内容。", 500),
+		)
+
+		output := formatTelegramMessage(body)
+
+		So(telegramVisibleLength(output) <= telegramMessageVisibleLimit, ShouldBeTrue)
+		So(output, ShouldContainSubstring, htmlEscape(telegramTruncationNotice))
+		So(output, ShouldContainSubstring, "<b>【今日主要结论】</b>")
+		So(output, ShouldContainSubstring, "</b>")
+	})
+
+	Convey("短消息不会追加截断提示", t, func() {
+		output := formatTelegramMessage("## 今日主要结论\n\n- 一切正常")
+
+		So(output, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice))
+		So(output, ShouldContainSubstring, "<b>【今日主要结论】</b>")
+	})
 }
 
 func stringsJoin(lines ...string) string {
@@ -46,4 +73,16 @@ func stringsJoin(lines ...string) string {
 		result += line
 	}
 	return result
+}
+
+func repeatText(text string, count int) string {
+	result := ""
+	for i := 0; i < count; i++ {
+		result += text
+	}
+	return result
+}
+
+func htmlEscape(input string) string {
+	return html.EscapeString(input)
 }
