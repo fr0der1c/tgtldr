@@ -39,14 +39,20 @@ export TGTLDR_IMAGE_TAG=latest
 docker compose up -d
 ```
 
-如果宿主机的 `3000` 端口已被占用，可以在 `.env` 中覆盖：
+如果宿主机的 `3000` 端口已被占用，或者你希望监听所有网卡而不是仅监听本机，可以在 `.env` 中覆盖：
 
 ```bash
 cp .env.example .env
-# 编辑 .env，将下面一项改成你想使用的端口：
+# 编辑 .env，将下面这些项改成你想使用的值：
+# TGTLDR_HOST_BIND=0.0.0.0
 # TGTLDR_HOST_WEB_PORT=13000
 docker compose up -d
 ```
+
+其中：
+
+- `TGTLDR_HOST_BIND=127.0.0.1` 表示只监听本机，适合默认本地使用
+- `TGTLDR_HOST_BIND=0.0.0.0` 表示监听所有网卡，适合部署到服务器或 NAS
 
 `TGTLDR_MASTER_KEY` 是本地数据加密主密钥，用来加密保存 Telegram 登录 session、OpenAI API Key 和 Bot Token。它不会发送给外部服务。默认情况下，这把 key 会保存在 app 数据卷中的 `/var/lib/tgtldr/master.key`；如果你删除了这个数据卷，已经保存的这些敏感数据将无法解密。
 
@@ -108,6 +114,7 @@ TGTLDR 现在支持同域名部署：
 ```bash
 cp .env.example .env
 # 编辑 .env，将下面几项改成你的实际值：
+# TGTLDR_HOST_BIND=0.0.0.0
 # TGTLDR_WEB_ORIGIN=https://tgtldr.example.com
 # TGTLDR_HOST_WEB_PORT=13000
 ```
@@ -115,6 +122,7 @@ cp .env.example .env
 其中：
 
 - `TGTLDR_WEB_ORIGIN` 用于后端校验允许的网页来源
+- `TGTLDR_HOST_BIND` 控制 Docker 对宿主机的监听地址
 - `TGTLDR_HOST_WEB_PORT` 是反向代理实际连接的前端端口
 
 Nginx 示例：

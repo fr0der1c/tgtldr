@@ -28,7 +28,7 @@ services:
     depends_on:
       - app
     ports:
-      - "127.0.0.1:${TGTLDR_HOST_WEB_PORT:-3000}:3000"
+      - "${TGTLDR_HOST_BIND:-127.0.0.1}:${TGTLDR_HOST_WEB_PORT:-3000}:3000"
 
 volumes:
   app-data:
