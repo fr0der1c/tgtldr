@@ -78,6 +78,44 @@ select {
   padding: 32px 0 56px;
 }
 
+.setup-page-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.setup-page-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 28%,
+      rgba(185, 137, 59, 0.16),
+      rgba(185, 137, 59, 0.08) 24%,
+      transparent 56%
+    ),
+    radial-gradient(
+      circle at 12% 24%,
+      rgba(185, 137, 59, 0.12),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 24%,
+      rgba(185, 137, 59, 0.12),
+      transparent 34%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(250, 245, 236, 0.84) 0%,
+      rgba(250, 246, 239, 0.92) 24%,
+      rgba(249, 246, 240, 0.98) 50%,
+      rgba(250, 246, 239, 0.92) 76%,
+      rgba(250, 245, 236, 0.84) 100%
+    );
+}
+
 .app-launch {
   min-height: 100vh;
   display: grid;

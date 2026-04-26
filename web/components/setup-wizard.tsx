@@ -369,7 +369,7 @@ export function SetupWizard() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell setup-page-shell">
       <div className="setup-stack">
         <SetupStepper
           bootstrap={bootstrap}
