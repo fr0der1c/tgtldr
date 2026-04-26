@@ -25,12 +25,13 @@ TGTLDR （Telegram Too Long, Don't Read）是一个单用户自部署的 Telegra
 ### 推荐：使用 Docker 启动（同时启动前端、后端和数据库）
 
 ```bash
-cp .env.example .env
-openssl rand -base64 32
+awk -v key="$(openssl rand -base64 32)" '/^TGTLDR_MASTER_KEY=/ {$0="TGTLDR_MASTER_KEY=" key} {print}' .env.example > .env
 docker compose up --build
 ```
 
-建议先把 `openssl rand -base64 32` 输出的值填入 `.env` 里的 `TGTLDR_MASTER_KEY`，再执行 `docker compose up --build`。如果不填写，系统也能启动，但会使用内置默认 key；这只适合快速试用，不建议长期使用。
+上面的命令会复制 `.env.example` 并自动写入随机生成的 `TGTLDR_MASTER_KEY`。如果你手动创建 `.env` 且不填写这个值，系统也能启动，但会使用内置默认 key；这只适合快速试用，不建议长期使用。
+
+`TGTLDR_MASTER_KEY` 是本地数据加密主密钥，用来加密保存 Telegram 登录 session、OpenAI API Key 和 Bot Token。它不会发送给外部服务，但必须在后续重启、升级和备份恢复时保持不变；如果更换或丢失，已经保存的这些敏感数据将无法解密。
 
 启动后访问：
 
