@@ -43,7 +43,9 @@ docker compose up -d
 
 ```bash
 cp .env.example .env
-printf '\nTGTLDR_HOST_WEB_PORT=13000\nTGTLDR_HOST_APP_PORT=18080\n' >> .env
+# 编辑 .env，将下面两项改成你想使用的端口：
+# TGTLDR_HOST_WEB_PORT=13000
+# TGTLDR_HOST_APP_PORT=18080
 docker compose up -d
 ```
 
@@ -84,7 +86,7 @@ go run ./cmd/server
 ```bash
 cd web
 npm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
+TGTLDR_INTERNAL_API_BASE_URL=http://127.0.0.1:8080 npm run dev
 ```
 
 ## 安全提示
@@ -93,6 +95,58 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
 - 如果你不显式设置 `TGTLDR_MASTER_KEY`，系统会自动生成一把随机 key，并持久化到 `/var/lib/tgtldr/master.key`。
 - 请妥善保存这把 key 或对应的数据卷；如果丢失，已经保存到数据库里的密钥和 Telegram session 将无法解密。
 - 建议只部署在本机或可信内网；如果要暴露到公网，请先确认已经完成访问密码设置，并放在可信反向代理之后。
+
+## 反向代理部署
+
+TGTLDR 现在支持同域名部署：
+
+- `https://tgtldr.example.com/` -> 前端页面
+- `https://tgtldr.example.com/api/` -> 由前端容器内部继续代理到后端
+
+在 Docker Compose 模式下，最简单的做法是让反向代理只转发到 `web` 服务对应的宿主机端口；浏览器里的 `/api/*` 请求会先到前端容器，再由前端容器转发到内部的 `app` 服务。
+
+推荐 `.env`：
+
+```bash
+cp .env.example .env
+# 编辑 .env，将下面几项改成你的实际值：
+# TGTLDR_WEB_ORIGIN=https://tgtldr.example.com
+# TGTLDR_HOST_WEB_PORT=13000
+# TGTLDR_HOST_APP_PORT=18080
+```
+
+其中：
+
+- `TGTLDR_WEB_ORIGIN` 用于后端校验允许的网页来源
+- `TGTLDR_HOST_WEB_PORT` 是反向代理实际连接的前端端口
+- `TGTLDR_HOST_APP_PORT` 仍然可以保留，仅用于本机调试或直接访问后端 API
+
+Nginx 示例：
+
+```nginx
+server {
+    listen 80;
+    server_name tgtldr.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name tgtldr.example.com;
+
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:13000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+如果你更希望让反向代理自己处理 `/api/`，也可以把 `/api/` 直接转发到 `127.0.0.1:${TGTLDR_HOST_APP_PORT}`。不过默认情况下，不额外拆分 `/api/` 会更简单。
 
 ## 镜像发布
 

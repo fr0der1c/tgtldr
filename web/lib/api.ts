@@ -78,9 +78,9 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
 
 function resolveAPIBaseURL() {
   if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8080`;
+    return "";
   }
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8080";
+  return "";
 }
 
 function buildQuery(params: Record<string, string | number | undefined>) {
