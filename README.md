@@ -22,16 +22,24 @@ TGTLDR （Telegram Too Long, Don't Read）是一个单用户自部署的 Telegra
 
 ## 本地启动
 
-### 推荐：使用 Docker 启动（同时启动前端、后端和数据库）
+### 推荐：使用预构建镜像启动（同时启动前端、后端和数据库）
 
 ```bash
-awk -v key="$(openssl rand -base64 32)" '/^TGTLDR_MASTER_KEY=/ {$0="TGTLDR_MASTER_KEY=" key} {print}' .env.example > .env
-docker compose up --build
+cp .env.example .env
+docker compose up -d
 ```
 
-上面的命令会复制 `.env.example` 并自动写入随机生成的 `TGTLDR_MASTER_KEY`。如果你手动创建 `.env` 且不填写这个值，系统也能启动，但会使用内置默认 key；这只适合快速试用，不建议长期使用。
+如果你没有显式设置 `TGTLDR_MASTER_KEY`，系统会在首次启动时自动生成一把随机主密钥，并把它持久化到 app 容器的数据卷中。
 
-`TGTLDR_MASTER_KEY` 是本地数据加密主密钥，用来加密保存 Telegram 登录 session、OpenAI API Key 和 Bot Token。它不会发送给外部服务，但必须在后续重启、升级和备份恢复时保持不变；如果更换或丢失，已经保存的这些敏感数据将无法解密。
+如果你想拉取指定版本的镜像，可以在启动前设置：
+
+```bash
+export TGTLDR_IMAGE_NAMESPACE=fr0der1c
+export TGTLDR_IMAGE_TAG=latest
+docker compose up -d
+```
+
+`TGTLDR_MASTER_KEY` 是本地数据加密主密钥，用来加密保存 Telegram 登录 session、OpenAI API Key 和 Bot Token。它不会发送给外部服务。默认情况下，这把 key 会保存在 app 数据卷中的 `/var/lib/tgtldr/master.key`；如果你删除了这个数据卷，已经保存的这些敏感数据将无法解密。
 
 启动后访问：
 
@@ -39,6 +47,15 @@ docker compose up --build
 - 后端 API：http://localhost:8080
 
 首次访问前端后，按照页面向导完成访问密码、Telegram、OpenAI 和群组摘要配置即可。
+
+### 开发者：本地 Docker 构建启动
+
+如果你需要在本地修改代码并重新构建镜像，请使用开发 override：
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
 
 ### 手动开发启动
 
@@ -49,7 +66,7 @@ docker compose up --build
 ```bash
 cd app
 export TGTLDR_DATABASE_URL='postgres://postgres:postgres@localhost:5432/tgtldr?sslmode=disable'
-# 推荐设置；不设置时会使用内置默认 key。
+export TGTLDR_MASTER_KEY_FILE="$HOME/.tgtldr/master.key"
 export TGTLDR_MASTER_KEY='替换为 openssl rand -base64 32 生成的值'
 go run ./cmd/server
 ```
@@ -64,10 +81,18 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
 
 ## 安全提示
 
-- `TGTLDR_MASTER_KEY` 用于加密保存 Telegram session、OpenAI API Key 和 Bot Token。建议首次启动前生成自己的随机值，并在后续升级、重启和备份恢复时保持不变。
-- 请妥善保存 `TGTLDR_MASTER_KEY`。如果丢失，已经保存到数据库里的密钥和 Telegram session 将无法解密。
-- 如果不配置 `TGTLDR_MASTER_KEY`，系统会使用内置默认 key。这适合快速试用，但不适合长期使用或任何可被他人访问的环境。
+- `TGTLDR_MASTER_KEY` 用于加密保存 Telegram session、OpenAI API Key 和 Bot Token。
+- 如果你不显式设置 `TGTLDR_MASTER_KEY`，系统会自动生成一把随机 key，并持久化到 `/var/lib/tgtldr/master.key`。
+- 请妥善保存这把 key 或对应的数据卷；如果丢失，已经保存到数据库里的密钥和 Telegram session 将无法解密。
 - 建议只部署在本机或可信内网；如果要暴露到公网，请先确认已经完成访问密码设置，并放在可信反向代理之后。
+
+## 镜像发布
+
+- 默认 `docker-compose.yml` 面向普通用户，直接使用预构建镜像。
+- `docker-compose.dev.yml` 面向开发者，保留本地 build 工作流。
+- GitHub Actions 会在推送 `main` 或 `v*` tag 时，自动构建并推送：
+  - `fr0der1c/tgtldr-app`
+  - `fr0der1c/tgtldr-web`
 
 ## License
 

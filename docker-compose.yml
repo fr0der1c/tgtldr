@@ -9,23 +9,22 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   app:
-    build:
-      context: .
-      dockerfile: deploy/docker/app.Dockerfile
+    image: ${TGTLDR_IMAGE_NAMESPACE:-fr0der1c}/tgtldr-app:${TGTLDR_IMAGE_TAG:-latest}
     environment:
       TGTLDR_DATABASE_URL: postgres://postgres:postgres@postgres:5432/tgtldr?sslmode=disable
-      TGTLDR_MASTER_KEY: ${TGTLDR_MASTER_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      TGTLDR_MASTER_KEY: ${TGTLDR_MASTER_KEY:-}
+      TGTLDR_MASTER_KEY_FILE: /var/lib/tgtldr/master.key
       TGTLDR_WEB_ORIGIN: http://localhost:3000
       TGTLDR_HTTP_ADDR: :8080
     depends_on:
       - postgres
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - app-data:/var/lib/tgtldr
 
   web:
-    build:
-      context: .
-      dockerfile: deploy/docker/web.Dockerfile
+    image: ${TGTLDR_IMAGE_NAMESPACE:-fr0der1c}/tgtldr-web:${TGTLDR_IMAGE_TAG:-latest}
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
     depends_on:
@@ -34,4 +33,5 @@ services:
       - "127.0.0.1:3000:3000"
 
 volumes:
+  app-data:
   postgres-data:

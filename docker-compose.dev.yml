@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/docker/app.Dockerfile
+    image: tgtldr-app:dev
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+    image: tgtldr-web:dev
