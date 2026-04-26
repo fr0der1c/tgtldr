@@ -39,13 +39,12 @@ export TGTLDR_IMAGE_TAG=latest
 docker compose up -d
 ```
 
-如果宿主机的 `3000` 或 `8080` 端口已被占用，可以在 `.env` 中覆盖：
+如果宿主机的 `3000` 端口已被占用，可以在 `.env` 中覆盖：
 
 ```bash
 cp .env.example .env
-# 编辑 .env，将下面两项改成你想使用的端口：
+# 编辑 .env，将下面一项改成你想使用的端口：
 # TGTLDR_HOST_WEB_PORT=13000
-# TGTLDR_HOST_APP_PORT=18080
 docker compose up -d
 ```
 
@@ -54,7 +53,6 @@ docker compose up -d
 启动后访问：
 
 - 前端：`http://localhost:${TGTLDR_HOST_WEB_PORT}`（默认 `http://localhost:3000`）
-- 后端 API：`http://localhost:${TGTLDR_HOST_APP_PORT}`（默认 `http://localhost:8080`）
 
 首次访问前端后，按照页面向导完成访问密码、Telegram、OpenAI 和群组摘要配置即可。
 
@@ -112,14 +110,12 @@ cp .env.example .env
 # 编辑 .env，将下面几项改成你的实际值：
 # TGTLDR_WEB_ORIGIN=https://tgtldr.example.com
 # TGTLDR_HOST_WEB_PORT=13000
-# TGTLDR_HOST_APP_PORT=18080
 ```
 
 其中：
 
 - `TGTLDR_WEB_ORIGIN` 用于后端校验允许的网页来源
 - `TGTLDR_HOST_WEB_PORT` 是反向代理实际连接的前端端口
-- `TGTLDR_HOST_APP_PORT` 仍然可以保留，仅用于本机调试或直接访问后端 API
 
 Nginx 示例：
 
@@ -145,8 +141,6 @@ server {
     }
 }
 ```
-
-如果你更希望让反向代理自己处理 `/api/`，也可以把 `/api/` 直接转发到 `127.0.0.1:${TGTLDR_HOST_APP_PORT}`。不过默认情况下，不额外拆分 `/api/` 会更简单。
 
 ## 镜像发布
 
