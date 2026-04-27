@@ -102,30 +102,31 @@ TGTLDR_INTERNAL_API_BASE_URL=http://127.0.0.1:8080 npm run dev
 
 ## 反向代理部署
 
-TGTLDR 现在支持同域名部署：
+如果你准备通过反向代理对外提供服务，请先在 `.env` 中配置这些值：
 
-- `https://tgtldr.example.com/` -> 前端页面
-- `https://tgtldr.example.com/api/` -> 由前端容器内部继续代理到后端
-
-在 Docker Compose 模式下，最简单的做法是让反向代理只转发到 `web` 服务对应的宿主机端口；浏览器里的 `/api/*` 请求会先到前端容器，再由前端容器转发到内部的 `app` 服务。
-
-推荐 `.env`：
-
-```bash
-cp .env.example .env
-# 编辑 .env，将下面几项改成你的实际值：
-# TGTLDR_HOST_BIND=0.0.0.0
-# TGTLDR_WEB_ORIGIN=https://tgtldr.example.com
-# TGTLDR_HOST_WEB_PORT=13000
+```env
+TGTLDR_HOST_BIND=0.0.0.0
+TGTLDR_WEB_ORIGIN=https://tgtldr.example.com
+TGTLDR_HOST_WEB_PORT=13000
 ```
 
 其中：
 
-- `TGTLDR_WEB_ORIGIN` 用于后端校验允许的网页来源
-- `TGTLDR_HOST_BIND` 控制 Docker 对宿主机的监听地址
-- `TGTLDR_HOST_WEB_PORT` 是反向代理实际连接的前端端口
+- `TGTLDR_HOST_BIND`：让容器监听服务器上的所有网卡
+- `TGTLDR_WEB_ORIGIN`：填写用户实际访问的公网地址
+- `TGTLDR_HOST_WEB_PORT`：反向代理转发到的本机端口
 
-Nginx 示例：
+然后启动服务：
+
+```bash
+cp .env.example .env
+# 编辑 .env
+docker compose up -d
+```
+
+反向代理只需要转发到 `TGTLDR_HOST_WEB_PORT` 对应的本机端口即可。
+
+Nginx 示例（假设 `TGTLDR_HOST_WEB_PORT=13000`）：
 
 ```nginx
 server {
