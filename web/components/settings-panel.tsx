@@ -15,6 +15,7 @@ import {
   describeBotChatCandidate,
   hasAvailableBotToken,
 } from "@/lib/bot-target-chat";
+import { notifyBootstrapRefresh } from "@/lib/bootstrap-sync";
 import { DashboardPage, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill } from "@/components/ui";
@@ -110,6 +111,7 @@ export function SettingsPanel() {
         toast.showSuccess("系统配置已保存。");
       }
       await load();
+      notifyBootstrapRefresh();
       return true;
     } catch (err) {
       toast.showError(asMessage(err));
@@ -211,6 +213,7 @@ export function SettingsPanel() {
     setPassword("");
     const chats = await api.syncChats();
     await load();
+    notifyBootstrapRefresh();
     setAuthEditorOpen(false);
     if (chats.length > 0) {
       toast.showSuccess(`${prefix} 已同步 ${chats.length} 个群组。`);
@@ -223,6 +226,7 @@ export function SettingsPanel() {
     try {
       const chats = await api.syncChats();
       await load();
+      notifyBootstrapRefresh();
       if (chats.length > 0) {
         toast.showSuccess(`已同步 ${chats.length} 个群组。`);
         return;
@@ -309,6 +313,7 @@ export function SettingsPanel() {
         botToken: saved.botToken || current.botToken,
       }));
       setBotTargetChatCandidates([]);
+      notifyBootstrapRefresh();
       toast.showSuccess("已自动绑定并保存 Chat ID。");
       return true;
     } catch (err) {

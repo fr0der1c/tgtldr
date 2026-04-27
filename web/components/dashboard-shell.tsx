@@ -4,6 +4,7 @@ import { PropsWithChildren, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Bootstrap } from "@/lib/types";
+import { onBootstrapRefresh } from "@/lib/bootstrap-sync";
 import { NavLink, StatusPill } from "@/components/ui";
 
 export function DashboardShell({ children }: PropsWithChildren) {
@@ -11,15 +12,20 @@ export function DashboardShell({ children }: PropsWithChildren) {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
 
   useEffect(() => {
-    void api
-      .bootstrap()
-      .then((data) => {
-        setBootstrap(data);
-        if (data.passwordConfigured && !data.authenticated) {
-          router.replace("/login");
-        }
-      })
-      .catch(() => null);
+    function refreshBootstrap() {
+      void api
+        .bootstrap()
+        .then((data) => {
+          setBootstrap(data);
+          if (data.passwordConfigured && !data.authenticated) {
+            router.replace("/login");
+          }
+        })
+        .catch(() => null);
+    }
+
+    refreshBootstrap();
+    return onBootstrapRefresh(refreshBootstrap);
   }, [router]);
 
   return (
