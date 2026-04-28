@@ -13,11 +13,32 @@ export const metadata: Metadata = {
   }
 };
 
+const languageBootScript = `
+(() => {
+  try {
+    const match = document.cookie.match(/(?:^|; )tgtldr_language=([^;]+)/);
+    const saved = match ? decodeURIComponent(match[1]) : "";
+    const browser = navigator.language.toLowerCase().startsWith("en")
+      ? "en"
+      : "zh-CN";
+    const language = saved === "en" || saved === "zh-CN" ? saved : browser;
+    document.documentElement.lang = language;
+    if (language === "en") {
+      document.documentElement.classList.add("i18n-pending");
+    }
+  } catch {
+  }
+})();
+`;
+
 export default function RootLayout({
   children
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: languageBootScript }} />
+      </head>
       <body>
         <I18nProvider>
           <ToastProvider>{children}</ToastProvider>
