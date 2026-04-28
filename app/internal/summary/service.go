@@ -53,8 +53,8 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
-	stagePrompt := buildStagePrompt(chat.SummaryContext, chat.SummaryPrompt)
-	finalPrompt := buildFinalPrompt(chat.SummaryContext, chat.SummaryPrompt)
+	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
 	budget := resolveSummaryBudget(settings, resolveSummaryModel(chat, settings), stagePrompt)
 	chunks := SplitMessages(filteredMessages, budget.ChunkTokenBudget)
 	preview := model.SummaryContextPreview{
@@ -66,15 +66,15 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 		FinalPrompt:      finalPrompt,
 		MessageCount:     len(filteredMessages),
 		ChunkCount:       len(chunks),
-		FinalInputNotice: "最终合并输入来自各分块的阶段摘要。由于系统当前不会持久化阶段摘要快照，这里无法精确回放合并输入。",
-		PreviewNotice:    "该预览会基于当前规则重建每个分块发送给 AI 的原始消息上下文。",
+		FinalInputNotice: finalInputNotice(settings.Language),
+		PreviewNotice:    previewNotice(settings.Language),
 	}
 
 	for _, chunk := range chunks {
 		preview.Chunks = append(preview.Chunks, model.SummaryContextChunk{
 			Index:        chunk.Index,
 			MessageCount: len(chunk.Messages),
-			Content:      BuildTranscript(chunk.Messages, messageLookup, location),
+			Content:      BuildTranscript(chunk.Messages, messageLookup, location, settings.Language),
 		})
 	}
 	if len(chunks) <= 1 {
@@ -118,7 +118,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		GeneratedAt:        s.clock.Now(),
 	}
 	if len(filteredMessages) == 0 {
-		summary.Content = "该日期没有可用于生成摘要的消息。"
+		summary.Content = emptySummaryContent(settings.Language)
 		return summary, nil
 	}
 
@@ -129,8 +129,8 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		Timeout: s.openAITimeout,
 	})
 
-	stagePrompt := buildStagePrompt(chat.SummaryContext, chat.SummaryPrompt)
-	finalPrompt := buildFinalPrompt(chat.SummaryContext, chat.SummaryPrompt)
+	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
 	budget := resolveSummaryBudget(settings, resolveSummaryModel(chat, settings), stagePrompt)
 	chunks := SplitMessages(filteredMessages, budget.ChunkTokenBudget)
 	summary.ChunkCount = len(chunks)
@@ -143,7 +143,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		index := index
 		chunk := chunk
 		group.Go(func() error {
-			transcript := BuildTranscript(chunk.Messages, messageLookup, location)
+			transcript := BuildTranscript(chunk.Messages, messageLookup, location, settings.Language)
 			resp, err := client.Chat(groupCtx, openai.ChatRequest{
 				SystemPrompt: stagePrompt,
 				UserPrompt:   transcript,
@@ -221,112 +221,6 @@ func dayRange(date string, timezone string) (time.Time, time.Time, error) {
 	}
 	end := start.Add(24 * time.Hour)
 	return start.UTC(), end.UTC(), nil
-}
-
-func buildStagePrompt(summaryContext string, prompt string) string {
-	base := `
-你是 TGTLDR 的阶段摘要器。你将阅读一段 Telegram 群聊记录，并提炼其中真正有信息价值的讨论内容。
-
-这个群聊可能是自由发散讨论，而不是正式协作场景。你的目标不是机械复述聊天内容，而是提炼：
-1. 这一段里主要在讨论哪些话题
-2. 每个话题中大家表达了哪些观点和判断
-3. 是否形成了相对明确的共识
-4. 是否存在明显分歧或尚无定论的内容
-5. 哪些信息只是零散提及，但可能值得注意
-
-请优先关注：
-- 被多人讨论的话题
-- 对某个对象、现象、产品、服务、事件或观点的评价
-- 群体判断、经验结论、使用反馈、倾向性意见
-- 明显的正面反馈、负面反馈和变化趋势
-- 带有上下文承接关系的回复消息
-
-请忽略或弱化：
-- 寒暄、玩笑、表情、灌水
-- 没有信息增量的短回复
-- 无法独立理解、且没有补充信息的碎片化内容
-- 纯重复表达
-
-如果消息带有 reply_to 和 reply_excerpt，请结合它理解上下文，不要孤立理解回复内容。
-
-请使用中文输出，并按以下结构整理：
-
-## 主要话题
-- 列出这一段中出现的主要话题
-
-## 分话题讨论摘要
-### 话题：<名称>
-- 讨论焦点：
-- 主要观点：
-- 初步判断：
-- 分歧或未定点：
-
-## 零散但值得注意的信息
-- 列出提及较少但可能有参考价值的信息
-`
-	return buildSystemPrompt(base, summaryContext, prompt)
-}
-
-func buildFinalPrompt(summaryContext string, prompt string) string {
-	base := `
-你是 TGTLDR 的最终摘要器。你会收到多个阶段摘要，请将它们整理成一份适合用户快速阅读的中文群聊日报。
-
-这个群聊可能是自由讨论群，而不是任务协作群。请不要强行提炼待办事项、行动项或正式结论，除非讨论中确实已经形成明确结果。
-
-你的目标是帮助用户快速了解：
-1. 今天主要讨论了哪些话题
-2. 每个话题下，大家的主要观点和群体判断是什么
-3. 哪些内容已经形成较明确的共识
-4. 哪些内容存在分歧或信息不足
-5. 哪些零散信息值得顺带关注
-
-写作要求：
-1. 优先提炼“话题”和“判断”，不要机械复述聊天过程
-2. 合并重复信息，避免重复表达
-3. 如果某个判断样本不足或存在明显争议，要明确说明
-4. 不要把零散消息包装成确定事实
-5. 语言简洁、直接，适合日报阅读
-
-请按以下格式输出：
-
-## 今日主要结论
-- 用 3-6 条总结今天最值得关注的信息和判断
-
-## 分话题总结
-
-### <话题名称>
-- 讨论内容：
-- 群内主要观点：
-- 当前判断：
-- 分歧或不确定点：
-
-### <话题名称>
-- 讨论内容：
-- 群内主要观点：
-- 当前判断：
-- 分歧或不确定点：
-
-## 零散但值得注意的信息
-- 列出提及较少但可能有参考价值的信息
-
-## 仍不确定的信息
-- 列出样本不足、无法形成稳定判断的内容
-`
-	return buildSystemPrompt(base, summaryContext, prompt)
-}
-
-func buildSystemPrompt(base string, summaryContext string, prompt string) string {
-	sections := []string{strings.TrimSpace(base)}
-
-	if contextText := strings.TrimSpace(summaryContext); contextText != "" {
-		sections = append(sections, "群聊背景：\n"+contextText)
-	}
-
-	if extraPrompt := strings.TrimSpace(prompt); extraPrompt != "" {
-		sections = append(sections, "额外要求：\n"+extraPrompt)
-	}
-
-	return strings.Join(sections, "\n\n")
 }
 
 func min(a, b int) int {

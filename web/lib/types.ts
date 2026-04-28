@@ -1,4 +1,5 @@
 export type AuthStep = "idle" | "code" | "password" | "done";
+export type Language = "zh-CN" | "en";
 
 export type AppSettings = {
   id: number;
@@ -12,6 +13,7 @@ export type AppSettings = {
   openAIMaxOutputTokens: number;
   summaryParallelism: number;
   defaultTimezone: string;
+  language: Language;
   botEnabled: boolean;
   botToken?: string;
   botTargetChatId: string;
@@ -40,6 +42,7 @@ export type Bootstrap = {
   telegramAuthorized: boolean;
   enabledChatCount: number;
   botEnabled: boolean;
+  language: Language;
   settings: AppSettings;
   auth?: TelegramAuth;
   pendingAuth?: PendingAuth;

@@ -1634,9 +1634,6 @@ select {
 .entity-list {
   display: grid;
   gap: 10px;
-  max-height: 72vh;
-  overflow: auto;
-  padding-right: 4px;
 }
 
 .entity-row {
@@ -2180,10 +2177,6 @@ select {
 
   .setup-config-head {
     flex-direction: column;
-  }
-
-  .entity-list {
-    max-height: none;
   }
 
   .drawer-panel {

@@ -28,11 +28,20 @@ import {
   PasswordStep,
 } from "@/components/setup-step-content";
 import { SetupStepper } from "@/components/setup-stepper";
+import {
+  detectBrowserLanguage,
+  normalizeLanguage,
+  useI18n,
+} from "@/lib/i18n";
 
 export function SetupWizard() {
   const router = useRouter();
+  const { setLanguage } = useI18n();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [settings, setSettings] = useState(emptySettings);
+  const [settings, setSettings] = useState(() => ({
+    ...emptySettings,
+    language: detectBrowserLanguage(),
+  }));
   const [currentStep, setCurrentStep] = useState<SetupStep>("password");
   const [countryCode, setCountryCode] = useState("+86");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -98,14 +107,23 @@ export function SetupWizard() {
   async function refresh(nextStep: SetupStep | "auto" = "auto") {
     try {
       const data = await api.bootstrap();
+      setLanguage(normalizeLanguage(data.language));
       setBootstrap(data);
       if (!data.passwordConfigured) {
         setCurrentStep("password");
-        return { data, fullSettings: emptySettings, discovered: 0 };
+        return {
+          data,
+          fullSettings: { ...emptySettings, language: detectBrowserLanguage() },
+          discovered: 0,
+        };
       }
       if (!data.authenticated) {
         router.replace("/login");
-        return { data, fullSettings: emptySettings, discovered: 0 };
+        return {
+          data,
+          fullSettings: { ...emptySettings, language: detectBrowserLanguage() },
+          discovered: 0,
+        };
       }
 
       const [fullSettings, chats] = await Promise.all([
@@ -113,10 +131,15 @@ export function SetupWizard() {
         api.listChats().catch(() => [] as Chat[]),
       ]);
       const discovered = Array.isArray(chats) ? chats.length : 0;
+      const language = data.settingsConfigured
+        ? normalizeLanguage(fullSettings.language)
+        : detectBrowserLanguage();
+      setLanguage(language);
       setBotTokenPlaceholder(fullSettings.botToken || "");
       setSettings({
         ...emptySettings,
         ...fullSettings,
+        language,
         botToken: "",
       });
       setPendingAuth(data.pendingAuth ?? null);
@@ -142,6 +165,7 @@ export function SetupWizard() {
 
     try {
       const saved = await api.saveSettings(settings);
+      setLanguage(normalizeLanguage(saved.language));
       setSettings(saved);
       setNotice(noticeText ?? "配置已保存。");
       await refresh(nextStep ?? "auto");

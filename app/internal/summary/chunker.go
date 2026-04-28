@@ -13,7 +13,7 @@ type Chunk struct {
 	Messages []model.Message
 }
 
-func BuildTranscript(messages []model.Message, lookup map[int]model.Message, location *time.Location) string {
+func BuildTranscript(messages []model.Message, lookup map[int]model.Message, location *time.Location, language model.Language) string {
 	if len(messages) == 0 {
 		return ""
 	}
@@ -38,7 +38,7 @@ func BuildTranscript(messages []model.Message, lookup map[int]model.Message, loc
 		}
 
 		if message.ReplyToMessageID > 0 {
-			replyRef, replyExcerpt := resolveReplyReference(message.ReplyToMessageID, localRefs, lookup, externalRefs, &externalOrder)
+			replyRef, replyExcerpt := resolveReplyReference(message.ReplyToMessageID, localRefs, lookup, externalRefs, &externalOrder, language)
 			if replyRef != "" {
 				blockLines = append(blockLines, fmt.Sprintf("reply_to=[%s]", replyRef))
 			}
@@ -61,7 +61,7 @@ func BuildTranscript(messages []model.Message, lookup map[int]model.Message, loc
 			referenced = append(
 				referenced,
 				fmt.Sprintf("[%s] %s %s", label, formatTranscriptTime(reference.MessageTime, location), fallback(reference.SenderName, "Unknown")),
-				referenceSummaryText(reference),
+				referenceSummaryText(reference, language),
 			)
 		}
 		sections = append(sections, strings.Join(referenced, "\n"))
@@ -151,25 +151,26 @@ func resolveReplyReference(
 	lookup map[int]model.Message,
 	externalRefs map[int]string,
 	externalOrder *[]int,
+	language model.Language,
 ) (string, string) {
 	if localRef, ok := localRefs[replyToMessageID]; ok {
 		reference := lookup[replyToMessageID]
-		return localRef, compactReplyExcerpt(referenceSummaryText(reference))
+		return localRef, compactReplyExcerpt(referenceSummaryText(reference, language))
 	}
 
 	reference, ok := lookup[replyToMessageID]
 	if !ok {
-		return fmt.Sprintf("msg:%d", replyToMessageID), "[原始消息未在当前数据库中找到]"
+		return fmt.Sprintf("msg:%d", replyToMessageID), missingReplyMessage(language)
 	}
 
 	if externalRef, ok := externalRefs[replyToMessageID]; ok {
-		return externalRef, compactReplyExcerpt(referenceSummaryText(reference))
+		return externalRef, compactReplyExcerpt(referenceSummaryText(reference, language))
 	}
 
 	externalRef := fmt.Sprintf("ref%03d", len(externalRefs)+1)
 	externalRefs[replyToMessageID] = externalRef
 	*externalOrder = append(*externalOrder, replyToMessageID)
-	return externalRef, compactReplyExcerpt(referenceSummaryText(reference))
+	return externalRef, compactReplyExcerpt(referenceSummaryText(reference, language))
 }
 
 func compactReplyExcerpt(text string) string {
@@ -186,21 +187,56 @@ func compactReplyExcerpt(text string) string {
 	return string(runes[:96]) + "…"
 }
 
-func referenceSummaryText(message model.Message) string {
+func referenceSummaryText(message model.Message, language model.Language) string {
 	if text := strings.TrimSpace(message.SummaryText()); text != "" {
 		return text
 	}
 
 	switch strings.TrimSpace(message.MediaKind) {
 	case "photo":
-		return "[图片消息，无文字说明]"
+		return photoPlaceholder(language)
 	case "document":
-		return "[文件消息，无文字说明]"
+		return documentPlaceholder(language)
 	}
 
 	if strings.TrimSpace(message.MessageType) != "" && strings.TrimSpace(message.MessageType) != "text" {
-		return "[非文本消息，无文字说明]"
+		return nonTextPlaceholder(language)
 	}
 
+	return emptyTextPlaceholder(language)
+}
+
+func missingReplyMessage(language model.Language) string {
+	if language == model.LanguageEN {
+		return "[Original message was not found in the current database]"
+	}
+	return "[原始消息未在当前数据库中找到]"
+}
+
+func photoPlaceholder(language model.Language) string {
+	if language == model.LanguageEN {
+		return "[Photo message without text]"
+	}
+	return "[图片消息，无文字说明]"
+}
+
+func documentPlaceholder(language model.Language) string {
+	if language == model.LanguageEN {
+		return "[File message without text]"
+	}
+	return "[文件消息，无文字说明]"
+}
+
+func nonTextPlaceholder(language model.Language) string {
+	if language == model.LanguageEN {
+		return "[Non-text message without text]"
+	}
+	return "[非文本消息，无文字说明]"
+}
+
+func emptyTextPlaceholder(language model.Language) string {
+	if language == model.LanguageEN {
+		return "[No readable text content]"
+	}
 	return "[无可读文本内容]"
 }

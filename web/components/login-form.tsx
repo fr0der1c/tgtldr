@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { Bootstrap } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 export function LoginForm() {
   const router = useRouter();
+  const { setLanguage } = useI18n();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,6 +24,7 @@ export function LoginForm() {
         if (cancelled) {
           return;
         }
+        setLanguage(data.language);
         setBootstrap(data);
         if (!data.passwordConfigured) {
           router.replace("/setup");
@@ -46,7 +49,7 @@ export function LoginForm() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, setLanguage]);
 
   async function submit() {
     if (submitting) {

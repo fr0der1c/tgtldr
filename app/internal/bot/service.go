@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/frederic/tgtldr/app/internal/model"
 )
 
 type Service struct {
@@ -20,11 +22,15 @@ func New() *Service {
 }
 
 func (s *Service) SendMessage(ctx context.Context, token, chatID, text string) error {
+	return s.SendMessageWithLanguage(ctx, token, chatID, text, model.LanguageZhCN)
+}
+
+func (s *Service) SendMessageWithLanguage(ctx context.Context, token, chatID, text string, language model.Language) error {
 	if strings.TrimSpace(token) == "" || strings.TrimSpace(chatID) == "" {
 		return fmt.Errorf("missing bot token or chat id")
 	}
 
-	formatted := formatTelegramMessage(text)
+	formatted := formatTelegramMessage(text, language)
 	payload, err := json.Marshal(map[string]any{
 		"chat_id":                  chatID,
 		"text":                     formatted,

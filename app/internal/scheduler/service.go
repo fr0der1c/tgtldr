@@ -264,7 +264,7 @@ func (s *Service) deliverSummary(ctx context.Context, chat model.Chat, result mo
 	}
 
 	message := buildBotDeliveryMessage(chat, result)
-	return s.botService.SendMessage(ctx, settings.BotToken, settings.BotTargetChatID, message)
+	return s.botService.SendMessageWithLanguage(ctx, settings.BotToken, settings.BotTargetChatID, message, settings.Language)
 }
 
 func buildBotDeliveryMessage(chat model.Chat, result model.Summary) string {

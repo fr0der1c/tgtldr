@@ -14,6 +14,8 @@ import {
 } from "@/lib/bot-target-chat";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { knownOpenAIModels, LoginStage } from "@/components/setup-wizard-types";
+import { Language } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 type ConfigStepProps = {
   settings: AppSettings;
@@ -28,6 +30,7 @@ export function ConfigStep({
   canSave,
   onSaveAndContinue,
 }: ConfigStepProps) {
+  const { dict } = useI18n();
   const customModel = !knownOpenAIModels.includes(
     settings.openAIModel as (typeof knownOpenAIModels)[number],
   );
@@ -39,16 +42,16 @@ export function ConfigStep({
           <section className="setup-config-panel">
             <div className="setup-config-head">
               <div>
-                <h3>Telegram 接入</h3>
+                <h3>Telegram App</h3>
                 <p className="setup-panel-note">
-                  用于登录你的 Telegram 账号并读取已加入群组的消息。
+                  TGTLDR 会作为第三方 Telegram 客户端登录你的账号。请先创建 Telegram App，再在这里填写 API 凭据。
                 </p>
               </div>
               <ExternalLink href="https://my.telegram.org/apps">
                 申请 API ID / Hash
               </ExternalLink>
             </div>
-            <div className="form-grid compact">
+            <div className="form-stack">
               <Field label="Telegram API ID" required>
                 <Input
                   aria-invalid={settings.telegramApiId === 0}
@@ -86,7 +89,7 @@ export function ConfigStep({
                 创建 API Key
               </ExternalLink>
             </div>
-            <div className="form-grid compact">
+            <div className="form-stack">
               <Field label="OpenAI Base URL">
                 <Input
                   value={settings.openAIBaseUrl}
@@ -150,7 +153,7 @@ export function ConfigStep({
 
             <details className="setup-details">
               <summary>高级参数</summary>
-              <div className="form-grid compact">
+              <div className="form-stack">
                 <Field label="Temperature">
                   <Input
                     type="number"
@@ -166,7 +169,7 @@ export function ConfigStep({
                 </Field>
                 <Field
                   label="输出长度"
-                  hint="自动模式会让系统不显式限制输出长度，自定义模式才会传 Max Output Tokens。"
+                  hint="自动模式不设置显式输出上限；自定义模式会应用 Max Output Tokens 限制。"
                 >
                   <AppSelect
                     onChange={(value) =>
@@ -199,8 +202,8 @@ export function ConfigStep({
                   </Field>
                 ) : null}
                 <Field
-                  label="摘要并行度"
-                  hint="当一天消息被拆成多个分块时，最多同时生成多少个阶段摘要。"
+                  label="并发摘要数"
+                  hint="最多同时总结多少个消息分块。"
                 >
                   <AppSelect
                     onChange={(value) =>
@@ -222,6 +225,43 @@ export function ConfigStep({
                 </Field>
               </div>
             </details>
+          </section>
+
+          <section className="setup-config-panel">
+            <div className="setup-config-head">
+              <div>
+                <h3>偏好设置</h3>
+                <p className="setup-panel-note">
+                  这些设置会控制摘要日期、定时任务和默认输出语言。
+                </p>
+              </div>
+            </div>
+            <div className="form-grid compact">
+              <Field label="默认时区">
+                <Input
+                  value={settings.defaultTimezone}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      defaultTimezone: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label={dict.language.label} hint={dict.language.hint}>
+                <AppSelect
+                  onChange={(value) => {
+                    const language = value as Language;
+                    setSettings({ ...settings, language });
+                  }}
+                  options={[
+                    { value: "zh-CN", label: dict.language.zhCN },
+                    { value: "en", label: dict.language.en },
+                  ]}
+                  value={settings.language}
+                />
+              </Field>
+            </div>
           </section>
         </div>
 

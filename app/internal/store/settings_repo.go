@@ -17,6 +17,7 @@ func normalizeAppSettings(settings model.AppSettings) model.AppSettings {
 	if settings.OpenAIBaseURL == "" {
 		settings.OpenAIBaseURL = model.DefaultOpenAIBaseURL
 	}
+	settings.Language = model.NormalizeLanguage(settings.Language)
 	return settings
 }
 
@@ -29,7 +30,7 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 	err := r.pool.QueryRow(ctx, `
 		select id, telegram_api_id, telegram_api_hash, openai_base_url, openai_api_key,
 		       openai_model, openai_temperature, openai_output_mode, openai_max_output_tokens,
-		       summary_parallelism, default_timezone, bot_enabled, bot_token,
+		       summary_parallelism, default_timezone, language, bot_enabled, bot_token,
 		       bot_target_chat_id, created_at, updated_at
 		from app_settings
 		order by id
@@ -46,6 +47,7 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		&row.OpenAIMaxOutputToken,
 		&row.SummaryParallelism,
 		&row.DefaultTimezone,
+		&row.Language,
 		&row.BotEnabled,
 		&encBotToken,
 		&row.BotTargetChatID,
@@ -97,9 +99,10 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		    openai_max_output_tokens = $8,
 		    summary_parallelism = $9,
 		    default_timezone = $10,
-		    bot_enabled = $11,
-		    bot_token = $12,
-		    bot_target_chat_id = $13,
+		    language = $11,
+		    bot_enabled = $12,
+		    bot_token = $13,
+		    bot_target_chat_id = $14,
 		    updated_at = now()
 		where id = (select id from app_settings order by id limit 1)
 		returning id, created_at, updated_at
@@ -114,6 +117,7 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		settings.OpenAIMaxOutputToken,
 		settings.SummaryParallelism,
 		settings.DefaultTimezone,
+		settings.Language,
 		settings.BotEnabled,
 		encBotToken,
 		settings.BotTargetChatID,
@@ -132,6 +136,7 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	saved.OpenAIMaxOutputToken = settings.OpenAIMaxOutputToken
 	saved.SummaryParallelism = settings.SummaryParallelism
 	saved.DefaultTimezone = settings.DefaultTimezone
+	saved.Language = settings.Language
 	saved.BotEnabled = settings.BotEnabled
 	saved.BotToken = settings.BotToken
 	saved.BotTargetChatID = settings.BotTargetChatID

@@ -20,6 +20,7 @@ import { DashboardPage, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill } from "@/components/ui";
 import { listTimezoneOptions } from "@/lib/timezones";
+import { normalizeLanguage, useI18n } from "@/lib/i18n";
 
 type SecretPlaceholders = {
   botToken: string;
@@ -31,6 +32,7 @@ type AuthStage = "summary" | "phone" | "code" | "password";
 
 export function SettingsPanel() {
   const router = useRouter();
+  const { dict, setLanguage } = useI18n();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
@@ -84,12 +86,14 @@ export function SettingsPanel() {
       });
       setSettings({
         ...settingsData,
+        language: normalizeLanguage(settingsData.language),
         openAIOutputMode: settingsData.openAIOutputMode || "auto",
         summaryParallelism: settingsData.summaryParallelism || 2,
         botToken: "",
         openAIApiKey: "",
         telegramApiHash: "",
       });
+      setLanguage(normalizeLanguage(settingsData.language));
       setBootstrap(bootstrapData);
       setPendingAuth(bootstrapData.pendingAuth ?? null);
       if (!bootstrapData.pendingAuth && bootstrapData.telegramAuthorized) {
@@ -106,7 +110,8 @@ export function SettingsPanel() {
     }
 
     try {
-      await api.saveSettings(settings);
+      const saved = await api.saveSettings(settings);
+      setLanguage(normalizeLanguage(saved.language));
       if (showToast) {
         toast.showSuccess("系统配置已保存。");
       }
@@ -342,7 +347,7 @@ export function SettingsPanel() {
     return (
       <DashboardPage
         title="系统配置"
-        description="管理 Telegram 接入、摘要引擎和 Bot 推送。"
+        description="管理 Telegram App、摘要引擎、偏好设置和 Bot 推送。"
       />
     );
   }
@@ -354,18 +359,18 @@ export function SettingsPanel() {
   return (
     <DashboardPage
       title="系统配置"
-      description="在这里管理 Telegram 接入、摘要模型、默认时区和 Bot 推送。"
+      description="在这里管理 Telegram App、摘要引擎、偏好设置和 Bot 推送。"
     >
       <div className="dashboard-workspace settings-workspace">
         <div className="settings-column">
           <Surface
-            title="Telegram 接入"
-            description="用于登录 Telegram 账号并读取群组消息。"
+            title="Telegram App"
+            description="TGTLDR 会作为第三方 Telegram 客户端登录你的账号。请先创建 Telegram App，再在这里填写 API 凭据。"
           >
-            <div className="form-grid">
+            <div className="form-stack">
               <Field
                 label="Telegram API ID"
-                hint="在 my.telegram.org/apps 申请后获得。"
+                hint="在 my.telegram.org/apps 创建后获得。"
               >
                 <Input
                   value={settings.telegramApiId || ""}
@@ -400,9 +405,9 @@ export function SettingsPanel() {
 
           <Surface
             title="摘要引擎"
-            description="这些参数决定摘要模型、接口地址、输出策略和并行处理方式。"
+            description="配置模型、API 地址、输出长度和并行处理方式。"
           >
-            <div className="form-grid">
+            <div className="form-stack">
               <Field label="Base URL">
                 <Input
                   value={settings.openAIBaseUrl}
@@ -445,7 +450,7 @@ export function SettingsPanel() {
               </Field>
               <Field
                 label="Temperature"
-                hint="建议范围 0.0 - 2.0；摘要场景通常建议 0.1 - 0.7。"
+                hint="建议范围：0.0-2.0。摘要场景通常建议 0.1-0.7。"
               >
                 <Input
                   max="2"
@@ -463,7 +468,7 @@ export function SettingsPanel() {
               </Field>
               <Field
                 label="输出长度"
-                hint="自动模式会让系统不显式限制输出长度，自定义模式才会传 Max Output Tokens。"
+                hint="自动模式不设置显式输出上限；自定义模式会应用 Max Output Tokens 限制。"
               >
                 <AppSelect
                   onChange={(value) =>
@@ -496,8 +501,8 @@ export function SettingsPanel() {
                 </Field>
               ) : null}
               <Field
-                label="摘要并行度"
-                hint="当一天消息被拆成多个分块时，最多同时生成多少个阶段摘要。"
+                label="并发摘要数"
+                hint="最多同时总结多少个消息分块。"
               >
                 <AppSelect
                   onChange={(value) =>
@@ -521,10 +526,10 @@ export function SettingsPanel() {
           </Surface>
 
           <Surface
-            title="系统行为"
-            description="这些设置会影响摘要日期计算和系统调度行为。"
+            title="偏好设置"
+            description="这些设置会控制摘要日期和定时任务使用的时区。"
           >
-            <div className="form-grid">
+            <div className="form-stack">
               <Field label="默认时区">
                 <SearchSelect
                   emptyText="没有匹配的时区"
@@ -535,6 +540,19 @@ export function SettingsPanel() {
                   placeholder="选择默认时区"
                   searchPlaceholder="搜索时区，例如 Asia/Shanghai"
                   value={settings.defaultTimezone}
+                />
+              </Field>
+              <Field label={dict.language.label} hint={dict.language.hint}>
+                <AppSelect
+                  onChange={(value) => {
+                    const language = normalizeLanguage(value);
+                    setSettings({ ...settings, language });
+                  }}
+                  options={[
+                    { value: "zh-CN", label: dict.language.zhCN },
+                    { value: "en", label: dict.language.en },
+                  ]}
+                  value={settings.language}
                 />
               </Field>
             </div>
@@ -635,18 +653,18 @@ export function SettingsPanel() {
           </Surface>
 
           <Surface
-            title="Bot 推送"
+            title="Telegram Bot 推送"
             description="如果你只在网页端看摘要，这一块可以保持关闭。"
           >
             <div className="form-grid">
-              <Field label="是否启用">
+              <Field label="投递方式">
                 <AppSelect
                   onChange={(value) =>
                     setSettings({ ...settings, botEnabled: value === "yes" })
                   }
                   options={[
-                    { value: "no", label: "关闭" },
-                    { value: "yes", label: "开启" },
+                    { value: "no", label: "仅网页端查看" },
+                    { value: "yes", label: "通过 Telegram Bot 推送" },
                   ]}
                   value={settings.botEnabled ? "yes" : "no"}
                 />

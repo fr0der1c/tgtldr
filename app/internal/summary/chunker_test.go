@@ -63,6 +63,7 @@ func TestBuildTranscriptReferenceFallback(t *testing.T) {
 				101: reply,
 			},
 			time.Local,
+			model.LanguageZhCN,
 		)
 
 		So(transcript, ShouldContainSubstring, "[Referenced Messages]")
@@ -86,10 +87,31 @@ func TestBuildTranscriptReferenceFallback(t *testing.T) {
 				101: reply,
 			},
 			time.Local,
+			model.LanguageZhCN,
 		)
 
 		So(transcript, ShouldContainSubstring, "reply_to=[msg:999]")
 		So(transcript, ShouldContainSubstring, `reply_excerpt="[原始消息未在当前数据库中找到]"`)
+	})
+
+	Convey("英文语言下引用占位也使用英文", t, func() {
+		base := time.Date(2026, 4, 16, 9, 0, 0, 0, time.Local)
+		reply := model.Message{
+			TelegramMessageID: 101,
+			SenderName:        "Bob",
+			MessageTime:       base,
+			TextContent:       "saw it",
+			ReplyToMessageID:  999,
+		}
+
+		transcript := BuildTranscript(
+			[]model.Message{reply},
+			map[int]model.Message{101: reply},
+			time.Local,
+			model.LanguageEN,
+		)
+
+		So(transcript, ShouldContainSubstring, `reply_excerpt="[Original message was not found in the current database]"`)
 	})
 }
 

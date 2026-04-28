@@ -27,7 +27,7 @@ func (r *Router) handleStartHistoryBackfill(w http.ResponseWriter, req *http.Req
 		return
 	}
 	if strings.TrimSpace(payload.FromDate) == "" || strings.TrimSpace(payload.ToDate) == "" {
-		httpx.Error(w, http.StatusBadRequest, "请填写回补的开始和结束日期。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请填写回补的开始和结束日期。", "Enter the backfill start and end dates."))
 		return
 	}
 

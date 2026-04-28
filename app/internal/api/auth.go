@@ -24,7 +24,7 @@ func (r *Router) authorizeRequest(w http.ResponseWriter, req *http.Request) (*ht
 		return req, true
 	}
 	if sessionID == "" {
-		httpx.ErrorWithCode(w, http.StatusUnauthorized, "请先登录。", "unauthorized", 0)
+		httpx.ErrorWithCode(w, http.StatusUnauthorized, r.localized(req.Context(), "请先登录。", "Log in first."), "unauthorized", 0)
 		return nil, false
 	}
 
@@ -35,7 +35,7 @@ func (r *Router) authorizeRequest(w http.ResponseWriter, req *http.Request) (*ht
 			if allowAnonymous {
 				return req, true
 			}
-			httpx.ErrorWithCode(w, http.StatusUnauthorized, "登录状态已失效，请重新登录。", "unauthorized", 0)
+			httpx.ErrorWithCode(w, http.StatusUnauthorized, r.localized(req.Context(), "登录状态已失效，请重新登录。", "Login session expired. Log in again."), "unauthorized", 0)
 			return nil, false
 		}
 		if allowAnonymous {
@@ -119,9 +119,9 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 		case errors.As(err, &rateLimitErr):
 			httpx.ErrorWithCode(w, http.StatusTooManyRequests, rateLimitErr.Error(), "login_rate_limited", rateLimitErr.RetryAfterSeconds())
 		case errors.Is(err, localauth.ErrPasswordNotConfigured):
-			httpx.Error(w, http.StatusBadRequest, "请先完成首次设置向导。")
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请先完成首次设置向导。", "Complete the first-time setup wizard first."))
 		case errors.Is(err, localauth.ErrInvalidPassword):
-			httpx.ErrorWithCode(w, http.StatusUnauthorized, "密码错误。", "invalid_password", 0)
+			httpx.ErrorWithCode(w, http.StatusUnauthorized, r.localized(req.Context(), "密码错误。", "Incorrect password."), "invalid_password", 0)
 		default:
 			httpx.Error(w, http.StatusInternalServerError, err.Error())
 		}
@@ -160,11 +160,11 @@ func (r *Router) handleSetupPassword(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, localauth.ErrPasswordAlreadySet):
-			httpx.Error(w, http.StatusConflict, "访问密码已经设置完成。")
+			httpx.Error(w, http.StatusConflict, r.localized(req.Context(), "访问密码已经设置完成。", "Access password has already been set."))
 		case errors.Is(err, localauth.ErrPasswordTooShort):
-			httpx.Error(w, http.StatusBadRequest, "访问密码至少需要 8 位。")
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "访问密码至少需要 8 位。", "Access password must be at least 8 characters."))
 		case errors.Is(err, localauth.ErrPasswordTooLong):
-			httpx.Error(w, http.StatusBadRequest, "访问密码不能超过 128 位。")
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "访问密码不能超过 128 位。", "Access password cannot exceed 128 characters."))
 		default:
 			httpx.Error(w, http.StatusBadRequest, err.Error())
 		}
@@ -194,11 +194,11 @@ func (r *Router) handleChangePassword(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		switch {
 		case errors.Is(err, localauth.ErrInvalidPassword):
-			httpx.ErrorWithCode(w, http.StatusBadRequest, "当前密码不正确。", "invalid_password", 0)
+			httpx.ErrorWithCode(w, http.StatusBadRequest, r.localized(req.Context(), "当前密码不正确。", "Current password is incorrect."), "invalid_password", 0)
 		case errors.Is(err, localauth.ErrPasswordTooShort):
-			httpx.Error(w, http.StatusBadRequest, "访问密码至少需要 8 位。")
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "访问密码至少需要 8 位。", "Access password must be at least 8 characters."))
 		case errors.Is(err, localauth.ErrPasswordTooLong):
-			httpx.Error(w, http.StatusBadRequest, "访问密码不能超过 128 位。")
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "访问密码不能超过 128 位。", "Access password cannot exceed 128 characters."))
 		default:
 			httpx.Error(w, http.StatusInternalServerError, err.Error())
 		}

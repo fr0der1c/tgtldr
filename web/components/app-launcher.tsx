@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Bootstrap } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 function resolveEntryRoute(bootstrap: Bootstrap) {
   if (!bootstrap.passwordConfigured) {
@@ -23,6 +24,7 @@ function resolveEntryRoute(bootstrap: Bootstrap) {
 
 export function AppLauncher() {
   const router = useRouter();
+  const { setLanguage } = useI18n();
   const [message, setMessage] = useState("正在检查当前状态...");
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export function AppLauncher() {
         if (cancelled) {
           return;
         }
+        setLanguage(bootstrap.language);
 
         const target = resolveEntryRoute(bootstrap);
         if (target === "/setup") {
@@ -58,7 +61,7 @@ export function AppLauncher() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, setLanguage]);
 
   return (
     <main aria-busy="true" className="app-launch">

@@ -19,12 +19,22 @@ const (
 )
 
 type OutputMode string
+type Language string
 
 const (
 	OutputModeAuto       OutputMode = "auto"
 	OutputModeManual     OutputMode = "manual"
+	LanguageZhCN         Language   = "zh-CN"
+	LanguageEN           Language   = "en"
 	DefaultOpenAIBaseURL            = "https://api.openai.com/v1"
 )
+
+func NormalizeLanguage(language Language) Language {
+	if language == LanguageEN {
+		return LanguageEN
+	}
+	return LanguageZhCN
+}
 
 type AppSettings struct {
 	ID                   int64      `json:"id"`
@@ -38,6 +48,7 @@ type AppSettings struct {
 	OpenAIMaxOutputToken int        `json:"openAIMaxOutputTokens"`
 	SummaryParallelism   int        `json:"summaryParallelism"`
 	DefaultTimezone      string     `json:"defaultTimezone"`
+	Language             Language   `json:"language"`
 	BotEnabled           bool       `json:"botEnabled"`
 	BotToken             string     `json:"botToken,omitempty"`
 	BotTargetChatID      string     `json:"botTargetChatId"`

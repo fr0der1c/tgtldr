@@ -138,6 +138,21 @@ func settingsConfigured(settings model.AppSettings) bool {
 		strings.TrimSpace(settings.OpenAIModel) != ""
 }
 
+func (r *Router) currentLanguage(ctx context.Context) model.Language {
+	settings, err := r.store.Settings.Get(ctx)
+	if err != nil {
+		return model.LanguageZhCN
+	}
+	return model.NormalizeLanguage(settings.Language)
+}
+
+func (r *Router) localized(ctx context.Context, zh string, en string) string {
+	if r.currentLanguage(ctx) == model.LanguageEN {
+		return en
+	}
+	return zh
+}
+
 func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -153,6 +168,7 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	language := r.currentLanguage(req.Context())
 	authenticated := currentSessionID(req.Context()) != ""
 	if !authenticated {
 		httpx.JSON(w, http.StatusOK, map[string]any{
@@ -162,6 +178,7 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 			"telegramAuthorized": false,
 			"enabledChatCount":   0,
 			"botEnabled":         false,
+			"language":           language,
 		})
 		return
 	}
@@ -189,6 +206,7 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 		"telegramAuthorized": auth != nil && auth.Status == "authorized",
 		"enabledChatCount":   count,
 		"botEnabled":         settings.BotEnabled,
+		"language":           model.NormalizeLanguage(settings.Language),
 		"settings":           settings.Sanitized(),
 		"auth":               auth,
 		"pendingAuth":        r.telegram.PendingAuthState(),
@@ -225,51 +243,58 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 	payload.OpenAIAPIKey = preservedSecret(payload.OpenAIAPIKey, current.OpenAIAPIKey)
 	payload.BotToken = preservedSecret(payload.BotToken, current.BotToken)
 	if payload.TelegramAPIID == 0 {
-		httpx.Error(w, http.StatusBadRequest, "请填写 Telegram API ID。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请填写 Telegram API ID。", "Enter Telegram API ID."))
 		return
 	}
 	if strings.TrimSpace(payload.TelegramAPIHash) == "" {
-		httpx.Error(w, http.StatusBadRequest, "请填写 Telegram API Hash。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请填写 Telegram API Hash。", "Enter Telegram API Hash."))
 		return
 	}
 	if strings.TrimSpace(payload.OpenAIAPIKey) == "" {
-		httpx.Error(w, http.StatusBadRequest, "请填写 OpenAI API Key。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请填写 OpenAI API Key。", "Enter OpenAI API Key."))
 		return
 	}
 	if strings.TrimSpace(payload.OpenAIBaseURL) == "" {
 		payload.OpenAIBaseURL = model.DefaultOpenAIBaseURL
 	}
 	if strings.TrimSpace(payload.OpenAIModel) == "" {
-		httpx.Error(w, http.StatusBadRequest, "请填写 Model。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请填写 Model。", "Enter Model."))
 		return
 	}
 	if payload.OpenAITemperature < 0 || payload.OpenAITemperature > 2 {
-		httpx.Error(w, http.StatusBadRequest, "Temperature 必须在 0.0 到 2.0 之间。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "Temperature 必须在 0.0 到 2.0 之间。", "Temperature must be between 0.0 and 2.0."))
 		return
 	}
 	if strings.TrimSpace(payload.DefaultTimezone) == "" {
 		payload.DefaultTimezone = "Asia/Shanghai"
 	}
+	if payload.Language == "" {
+		payload.Language = model.LanguageZhCN
+	}
+	if payload.Language != model.LanguageZhCN && payload.Language != model.LanguageEN {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "语言必须是 zh-CN 或 en。", "Language must be zh-CN or en."))
+		return
+	}
 	if payload.OpenAIOutputMode == "" {
 		payload.OpenAIOutputMode = model.OutputModeAuto
 	}
 	if payload.OpenAIOutputMode != model.OutputModeAuto && payload.OpenAIOutputMode != model.OutputModeManual {
-		httpx.Error(w, http.StatusBadRequest, "输出长度模式必须是 auto 或 manual。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "输出长度模式必须是 auto 或 manual。", "Output length mode must be auto or manual."))
 		return
 	}
 	if payload.OpenAIOutputMode == model.OutputModeManual && payload.OpenAIMaxOutputToken <= 0 {
-		httpx.Error(w, http.StatusBadRequest, "自定义输出长度时必须填写 Max Output Tokens。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "自定义输出长度时必须填写 Max Output Tokens。", "Max Output Tokens is required when output length is custom."))
 		return
 	}
 	if payload.SummaryParallelism <= 0 {
 		payload.SummaryParallelism = 2
 	}
 	if payload.SummaryParallelism < 1 || payload.SummaryParallelism > 6 {
-		httpx.Error(w, http.StatusBadRequest, "摘要并行度必须在 1 到 6 之间。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "摘要并行度必须在 1 到 6 之间。", "Summary parallelism must be between 1 and 6."))
 		return
 	}
 	if payload.BotEnabled && strings.TrimSpace(payload.BotToken) == "" {
-		httpx.Error(w, http.StatusBadRequest, "启用 Bot 推送时必须填写 Bot Token。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "启用 Bot 推送时必须填写 Bot Token。", "Bot Token is required when Bot delivery is enabled."))
 		return
 	}
 
@@ -301,7 +326,7 @@ func (r *Router) handleResolveBotTargetChat(w http.ResponseWriter, req *http.Req
 		return
 	}
 	if auth == nil || auth.Status != "authorized" {
-		httpx.Error(w, http.StatusBadRequest, "请先完成 Telegram 登录。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请先完成 Telegram 登录。", "Complete Telegram login first."))
 		return
 	}
 
@@ -315,7 +340,7 @@ func (r *Router) handleResolveBotTargetChat(w http.ResponseWriter, req *http.Req
 		botToken = strings.TrimSpace(settings.BotToken)
 	}
 	if botToken == "" {
-		httpx.Error(w, http.StatusBadRequest, "请先填写 Bot Token。")
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请先填写 Bot Token。", "Enter the Bot Token first."))
 		return
 	}
 

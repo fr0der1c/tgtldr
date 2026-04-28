@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/frederic/tgtldr/app/internal/model"
 )
 
 var (
@@ -20,7 +22,6 @@ var (
 
 const (
 	telegramMessageVisibleLimit = 4096
-	telegramTruncationNotice    = "注：由于 Telegram 单条消息长度限制，后续内容已截断，请到网页端查看完整摘要。"
 )
 
 func formatTelegramHTML(markdown string) string {
@@ -114,9 +115,9 @@ func formatInlineTelegramHTML(input string) string {
 	return escaped
 }
 
-func formatTelegramMessage(markdown string) string {
+func formatTelegramMessage(markdown string, language model.Language) string {
 	formatted := formatTelegramHTML(markdown)
-	truncated, _ := truncateTelegramHTML(formatted, telegramMessageVisibleLimit)
+	truncated, _ := truncateTelegramHTML(formatted, telegramMessageVisibleLimit, language)
 	return truncated
 }
 
@@ -126,12 +127,12 @@ func telegramVisibleLength(input string) int {
 	return utf8.RuneCountInString(plain)
 }
 
-func truncateTelegramHTML(input string, limit int) (string, bool) {
+func truncateTelegramHTML(input string, limit int, language model.Language) (string, bool) {
 	if telegramVisibleLength(input) <= limit {
 		return input, false
 	}
 
-	suffix := "\n\n" + html.EscapeString(telegramTruncationNotice)
+	suffix := "\n\n" + html.EscapeString(telegramTruncationNotice(language))
 	contentBudget := limit - telegramVisibleLength(suffix)
 	if contentBudget <= 0 {
 		return suffix, true
@@ -172,6 +173,13 @@ func truncateTelegramHTML(input string, limit int) (string, bool) {
 	}
 
 	return strings.TrimSpace(strings.Join(kept, "\n\n") + suffix), true
+}
+
+func telegramTruncationNotice(language model.Language) string {
+	if language == model.LanguageEN {
+		return "Note: This Telegram message was truncated because of the single-message length limit. Open the web app to read the full summary."
+	}
+	return "注：由于 Telegram 单条消息长度限制，后续内容已截断，请到网页端查看完整摘要。"
 }
 
 func truncateTelegramHTMLVisible(input string, limit int) string {

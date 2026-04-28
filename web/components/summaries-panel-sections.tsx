@@ -10,6 +10,7 @@ import {
 import { Button, Field, Input, StatusPill } from "@/components/ui";
 import { TextHighlight } from "@/components/text-highlight";
 import { Chat, Summary } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 export type SummaryFilter = "all" | Summary["status"];
 export type DeliveryFilter = "all" | "sent" | "pending" | "failed" | "disabled";
@@ -57,6 +58,7 @@ type SummaryListSectionProps = {
 };
 
 export function SummaryListSection(props: SummaryListSectionProps) {
+	const { language } = useI18n();
 	const {
 		allChats,
 		botReady,
@@ -153,10 +155,8 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 
 			<div className="summary-toolbar">
 				<div className="summary-toolbar-meta">
-					<span>
-						第 {page} / {totalPages} 页
-					</span>
-					<span>共 {total} 条摘要</span>
+					<span>{language === "en" ? `Page ${page} / ${totalPages}` : `第 ${page} / ${totalPages} 页`}</span>
+					<span>{language === "en" ? `${total} summaries` : `共 ${total} 条摘要`}</span>
 				</div>
 				<Button className="summary-toolbar-button" onClick={onManualEditorToggle} type="button" variant="secondary">
 					{manualEditorOpen ? "收起补跑" : "手动补跑"}
@@ -245,7 +245,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 							上一页
 						</Button>
 						<span>
-							第 {page} 页，共 {totalPages} 页
+							{language === "en" ? `Page ${page} of ${totalPages}` : `第 ${page} 页，共 ${totalPages} 页`}
 						</span>
 						<Button
 							disabled={page >= totalPages}

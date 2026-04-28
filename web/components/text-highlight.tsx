@@ -12,7 +12,7 @@ export function TextHighlight({
   const tokens = tokenizeHighlights(text, terms);
 
   return (
-    <>
+    <span data-i18n-skip="true">
       {tokens.map((token, index) =>
         token.highlight ? (
           <mark className="search-highlight" key={`${token.value}-${index}`}>
@@ -22,7 +22,7 @@ export function TextHighlight({
           <Fragment key={`${token.value}-${index}`}>{token.value}</Fragment>
         )
       )}
-    </>
+    </span>
   );
 }
 

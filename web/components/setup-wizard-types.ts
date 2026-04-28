@@ -53,6 +53,7 @@ export const emptySettings: AppSettings = {
   openAIMaxOutputTokens: 2000,
   summaryParallelism: 2,
   defaultTimezone: "Asia/Shanghai",
+  language: "zh-CN",
   botEnabled: false,
   botToken: "",
   botTargetChatId: "",

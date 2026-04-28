@@ -6,9 +6,11 @@ import { api } from "@/lib/api";
 import { Bootstrap } from "@/lib/types";
 import { onBootstrapRefresh } from "@/lib/bootstrap-sync";
 import { NavLink, StatusPill } from "@/components/ui";
+import { useI18n } from "@/lib/i18n";
 
 export function DashboardShell({ children }: PropsWithChildren) {
   const router = useRouter();
+  const { setLanguage } = useI18n();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
 
   useEffect(() => {
@@ -17,6 +19,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
         .bootstrap()
         .then((data) => {
           setBootstrap(data);
+          setLanguage(data.language);
           if (data.passwordConfigured && !data.authenticated) {
             router.replace("/login");
           }
@@ -26,7 +29,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
 
     refreshBootstrap();
     return onBootstrapRefresh(refreshBootstrap);
-  }, [router]);
+  }, [router, setLanguage]);
 
   return (
     <div className="dashboard-layout">

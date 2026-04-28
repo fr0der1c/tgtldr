@@ -11,6 +11,7 @@ import {
   SelectHTMLAttributes,
   TextareaHTMLAttributes
 } from "react";
+import { useI18n } from "@/lib/i18n";
 
 export function PageShell({
   title,
@@ -92,6 +93,20 @@ export function Button({
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input(props, ref) {
+    const { language } = useI18n();
+    if (props.type === "date" && language === "en") {
+      const { type, placeholder, ...rest } = props;
+      return (
+        <input
+          className="input"
+          inputMode="numeric"
+          placeholder={placeholder ?? "YYYY-MM-DD"}
+          ref={ref}
+          type="text"
+          {...rest}
+        />
+      );
+    }
     return <input className="input" ref={ref} {...props} />;
   }
 );

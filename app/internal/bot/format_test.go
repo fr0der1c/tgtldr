@@ -4,6 +4,7 @@ import (
 	"html"
 	"testing"
 
+	"github.com/frederic/tgtldr/app/internal/model"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -48,19 +49,28 @@ func TestFormatTelegramHTML(t *testing.T) {
 			"- "+repeatText("第二段内容。", 500),
 		)
 
-		output := formatTelegramMessage(body)
+		output := formatTelegramMessage(body, model.LanguageZhCN)
 
 		So(telegramVisibleLength(output) <= telegramMessageVisibleLimit, ShouldBeTrue)
-		So(output, ShouldContainSubstring, htmlEscape(telegramTruncationNotice))
+		So(output, ShouldContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageZhCN)))
 		So(output, ShouldContainSubstring, "<b>【今日主要结论】</b>")
 		So(output, ShouldContainSubstring, "</b>")
 	})
 
 	Convey("短消息不会追加截断提示", t, func() {
-		output := formatTelegramMessage("## 今日主要结论\n\n- 一切正常")
+		output := formatTelegramMessage("## 今日主要结论\n\n- 一切正常", model.LanguageZhCN)
 
-		So(output, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice))
+		So(output, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageZhCN)))
 		So(output, ShouldContainSubstring, "<b>【今日主要结论】</b>")
+	})
+
+	Convey("英文语言下截断提示使用英文", t, func() {
+		body := "## Key Takeaways\n\n- " + repeatText("Long summary content. ", 500)
+
+		output := formatTelegramMessage(body, model.LanguageEN)
+
+		So(output, ShouldContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageEN)))
+		So(output, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageZhCN)))
 	})
 }
 
