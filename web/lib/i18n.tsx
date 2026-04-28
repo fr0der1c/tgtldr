@@ -3,13 +3,20 @@
 import {
   createContext,
   PropsWithChildren,
+  useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 
 export type Language = "zh-CN" | "en";
+
+const languageCookieName = "tgtldr_language";
+const languageCookieMaxAge = 60 * 60 * 24 * 365;
+const useDOMEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type DictShape<T> = {
   [K in keyof T]: T[K] extends string ? string : DictShape<T[K]>;
@@ -428,21 +435,41 @@ function translateExact(text: string) {
   return text.replace(trimmed, translated);
 }
 
-export function I18nProvider({ children }: PropsWithChildren) {
-  const [language, setLanguageState] = useState<Language>("zh-CN");
+type I18nProviderProps = PropsWithChildren<{
+  initialLanguage?: Language;
+}>;
+
+export function I18nProvider({
+  children,
+  initialLanguage,
+}: I18nProviderProps) {
+  const [language, setLanguageState] = useState<Language>(() =>
+    normalizeLanguage(
+      initialLanguage ?? readCookieLanguage() ?? detectBrowserLanguage(),
+    ),
+  );
+
+  const setLanguage = useCallback((nextLanguage: Language) => {
+    const normalized = normalizeLanguage(nextLanguage);
+    persistCookieLanguage(normalized);
+    setLanguageState(normalized);
+  }, []);
 
   useEffect(() => {
-    setLanguageState(detectBrowserLanguage());
-  }, []);
+    if (initialLanguage) {
+      return;
+    }
+    setLanguage(readCookieLanguage() ?? detectBrowserLanguage());
+  }, [initialLanguage, setLanguage]);
 
   const dict = useMemo(() => (language === "en" ? en : zh), [language]);
   const value = useMemo<I18nContextValue>(
     () => ({
       language,
-      setLanguage: setLanguageState,
+      setLanguage,
       dict,
     }),
-    [dict, language],
+    [dict, language, setLanguage],
   );
 
   return (
@@ -462,9 +489,10 @@ export function useI18n() {
 }
 
 function DOMTranslator({ language }: { language: Language }) {
-  useEffect(() => {
+  useDOMEffect(() => {
     document.documentElement.lang = language;
     translateDocument(language);
+    document.documentElement.classList.remove("i18n-pending");
     const observer = new MutationObserver(() => translateDocument(language));
     observer.observe(document.body, {
       childList: true,
@@ -477,6 +505,31 @@ function DOMTranslator({ language }: { language: Language }) {
   }, [language]);
 
   return null;
+}
+
+function readCookieLanguage(): Language | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const cookie = document.cookie
+    .split("; ")
+    .find((part) => part.startsWith(`${languageCookieName}=`));
+  if (!cookie) {
+    return null;
+  }
+  return normalizeLanguage(decodeURIComponent(cookie.split("=")[1] ?? ""));
+}
+
+function persistCookieLanguage(language: Language) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  document.cookie = [
+    `${languageCookieName}=${encodeURIComponent(language)}`,
+    "path=/",
+    `max-age=${languageCookieMaxAge}`,
+    "samesite=lax",
+  ].join("; ");
 }
 
 const originalText = new WeakMap<Text, string>();

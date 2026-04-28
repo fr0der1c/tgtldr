@@ -6,6 +6,8 @@ TGTLDR (Telegram Too Long, Don't Read) is a single-user, self-hosted Telegram gr
 
 This project exists because many Telegram groups are large, noisy communities that can produce thousands of messages per day. Sometimes you only want the latest useful signals without spending a lot of time reading through the chat. TGTLDR can push the previous day's key conclusions to you at a fixed time every day.
 
+![TGTLDR home screen](docs/images/home-en.png)
+
 ## Features
 
 - Monitor Telegram groups you have joined and store messages in a local database

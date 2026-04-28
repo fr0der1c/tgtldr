@@ -6,6 +6,8 @@ TGTLDR （Telegram Too Long, Don't Read）是一个单用户自部署的 Telegra
 
 这个项目被构建出来的原因是：许多 Telegram 群聊都是超级大群，每天会产生数千条消息。有时我们只想了解一些最新的情报，而并不希望花大量的时间在水群上。使用这个工具，就能为你在每天的固定时间推送前一天的最新群聊结论。
 
+![TGTLDR 首页截图](docs/images/home-zh.png)
+
 ## 功能特性
 
 - 监听已加入的 Telegram 群组消息，并保存到本地数据库
