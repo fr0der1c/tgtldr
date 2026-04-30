@@ -8,5 +8,4 @@ app/bin
 app/.cache
 
 tmp_migration
-*.sql
 *.sql.gz

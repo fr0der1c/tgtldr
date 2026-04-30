@@ -3,7 +3,8 @@ FROM node:24-alpine AS deps
 WORKDIR /app
 COPY web/package.json ./package.json
 COPY web/package-lock.json ./package-lock.json
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 FROM node:24-alpine AS builder
 WORKDIR /app
