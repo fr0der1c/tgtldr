@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,8 @@ var (
 	ErrConfigIncomplete = errors.New("telegram api 配置不完整")
 	ErrAuthNotStarted   = errors.New("认证尚未开始")
 	ErrPasswordNeeded   = errors.New("需要 2FA 密码")
+
+	errTelegramUnauthorized = errors.New("telegram session not authorized")
 )
 
 type FloodWaitError struct {
@@ -218,7 +221,7 @@ func (s *Service) SyncChats(ctx context.Context) error {
 			return err
 		}
 		if !status.Authorized {
-			return fmt.Errorf("telegram session not authorized")
+			return s.markAuthLoggedOut(ctx)
 		}
 
 		builder := dialogsquery.NewQueryBuilder(client.API()).GetDialogs().BatchSize(100)
@@ -281,6 +284,14 @@ func (s *Service) runListenerLoop(ctx context.Context) {
 		}
 
 		if err := s.runListener(ctx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			if errors.Is(err, errTelegramUnauthorized) {
+				log.Printf("telegram listener stopped: %v", err)
+				return
+			}
+			log.Printf("telegram listener error: %v; retrying in 5s", err)
 			select {
 			case <-time.After(5 * time.Second):
 			case <-ctx.Done():
@@ -311,10 +322,46 @@ func (s *Service) runListener(ctx context.Context) error {
 			return err
 		}
 		if !status.Authorized || status.User == nil {
-			return nil
+			return s.markAuthLoggedOut(ctx)
 		}
-		return manager.Run(ctx, client.API(), status.User.ID, updates.AuthOptions{IsBot: false})
+		if err := manager.Run(ctx, client.API(), status.User.ID, updates.AuthOptions{IsBot: false}); err != nil {
+			if authorized := s.checkCurrentAuthStatus(ctx, client); !authorized {
+				return s.markAuthLoggedOut(ctx)
+			}
+			return err
+		}
+		return nil
 	})
+}
+
+func (s *Service) checkCurrentAuthStatus(ctx context.Context, client *telegram.Client) bool {
+	status, err := client.Auth().Status(ctx)
+	if err != nil {
+		log.Printf("telegram auth status check failed: %v", err)
+		return true
+	}
+	return status.Authorized && status.User != nil
+}
+
+func (s *Service) markAuthLoggedOut(ctx context.Context) error {
+	current, err := s.store.Auth.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("load telegram auth before logout: %w", err)
+	}
+	if current == nil {
+		return errTelegramUnauthorized
+	}
+	next := loggedOutAuth(*current)
+	if err := s.store.Auth.Save(ctx, next); err != nil {
+		return fmt.Errorf("mark telegram auth logged out: %w", err)
+	}
+	return errTelegramUnauthorized
+}
+
+func loggedOutAuth(current model.TelegramAuth) model.TelegramAuth {
+	current.Status = "logged_out"
+	current.SessionData = nil
+	return current
 }
 
 func (s *Service) onNewMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) error {
