@@ -3,6 +3,7 @@
 node_modules
 node_modules/
 artifacts/
+tmp_migration/
 
 app/bin/
 app/.cache/
@@ -10,5 +11,7 @@ web/.next/
 web/node_modules/
 
 *.log
+*.sql
+*.sql.gz
 .env
 .env.local
