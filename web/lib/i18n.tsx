@@ -131,6 +131,8 @@ const textTranslations = {
   "保存该群配置": "Save chat settings",
   "回补后，这个群较早时间段的消息也可以用于生成摘要。": "After backfill, older messages from this chat can also be used for summaries.",
   "时间范围": "Time range",
+  "最近 1 天": "Last 1 day",
+  "最近 3 天": "Last 3 days",
   "最近 7 天": "Last 7 days",
   "最近 30 天": "Last 30 days",
   "自定义日期范围": "Custom date range",

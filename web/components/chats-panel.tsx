@@ -10,6 +10,15 @@ import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
 
 type ChatTypeFilter = "all" | Chat["chatType"];
 type SwitchFilter = "all" | "yes" | "no";
+type HistoryMode = "1d" | "3d" | "7d" | "30d" | "custom";
+
+const historyRangeOptions = [
+  { value: "1d", label: "最近 1 天" },
+  { value: "3d", label: "最近 3 天" },
+  { value: "7d", label: "最近 7 天" },
+  { value: "30d", label: "最近 30 天" },
+  { value: "custom", label: "自定义日期范围" }
+];
 
 export function ChatsPanel() {
   const [items, setItems] = useState<Chat[]>([]);
@@ -253,7 +262,7 @@ function ChatTableRow({
   onEdit: () => void;
   onSave: () => void;
 }) {
-  const [historyMode, setHistoryMode] = useState<"7d" | "30d" | "custom">("30d");
+  const [historyMode, setHistoryMode] = useState<HistoryMode>("30d");
   const [historyFromDate, setHistoryFromDate] = useState(localDateOffset(-29));
   const [historyToDate, setHistoryToDate] = useState(localDateInputValue());
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -469,12 +478,8 @@ function ChatTableRow({
                   <div className="form-grid">
                     <Field label="时间范围">
                       <AppSelect
-                        onChange={(value) => setHistoryMode(value as "7d" | "30d" | "custom")}
-                        options={[
-                          { value: "7d", label: "最近 7 天" },
-                          { value: "30d", label: "最近 30 天" },
-                          { value: "custom", label: "自定义日期范围" }
-                        ]}
+                        onChange={(value) => setHistoryMode(value as HistoryMode)}
+                        options={historyRangeOptions}
                         value={historyMode}
                       />
                     </Field>
@@ -522,17 +527,15 @@ function ChatTableRow({
 }
 
 function resolveHistoryRange(
-  mode: "7d" | "30d" | "custom",
+  mode: HistoryMode,
   customFromDate: string,
   customToDate: string
 ) {
   if (mode === "custom") {
     return { fromDate: customFromDate, toDate: customToDate };
   }
-  if (mode === "7d") {
-    return { fromDate: localDateOffset(-6), toDate: localDateInputValue() };
-  }
-  return { fromDate: localDateOffset(-29), toDate: localDateInputValue() };
+  const days = Number.parseInt(mode, 10);
+  return { fromDate: localDateOffset(1 - days), toDate: localDateInputValue() };
 }
 
 function localDateOffset(offsetDays: number) {
