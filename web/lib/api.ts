@@ -170,6 +170,8 @@ export const api = {
         keepBotMessages: chat.keepBotMessages,
         filteredSenders: chat.filteredSenders,
         filteredKeywords: chat.filteredKeywords,
+        alertEnabled: chat.alertEnabled,
+        alertKeywords: chat.alertKeywords,
       }),
     }),
   startHistoryBackfill: (chatId: number, fromDate: string, toDate: string) =>

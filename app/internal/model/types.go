@@ -112,6 +112,8 @@ type Chat struct {
 	KeepBotMessages  bool         `json:"keepBotMessages"`
 	FilteredSenders  []string     `json:"filteredSenders"`
 	FilteredKeywords []string     `json:"filteredKeywords"`
+	AlertEnabled     bool         `json:"alertEnabled"`
+	AlertKeywords    []string     `json:"alertKeywords"`
 	CreatedAt        time.Time    `json:"createdAt"`
 	UpdatedAt        time.Time    `json:"updatedAt"`
 }
