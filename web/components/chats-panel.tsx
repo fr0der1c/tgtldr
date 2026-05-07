@@ -111,7 +111,7 @@ export function ChatsPanel() {
           label="已同步群组"
           value={syncedCount}
           badge="最新"
-          detail="当前 Telegram 账号下可管理的群组与超级群组。"
+          detail="当前 Telegram 账号下可管理的群组、超级群组与频道。"
         />
         <MetricCard
           label="已启用消息保存"
@@ -147,7 +147,8 @@ export function ChatsPanel() {
               options={[
                 { value: "all", label: "全部" },
                 { value: "group", label: "群组" },
-                { value: "supergroup", label: "超级群组" }
+                { value: "supergroup", label: "超级群组" },
+                { value: "channel", label: "频道" }
               ]}
               value={chatType}
             />
@@ -232,6 +233,8 @@ function normalizeChat(chat: Chat): Chat {
     summaryContext: chat.summaryContext ?? "",
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
+    alertEnabled: chat.alertEnabled ?? false,
+    alertKeywords: Array.isArray(chat.alertKeywords) ? chat.alertKeywords : [],
     keepBotMessages: chat.keepBotMessages ?? true
   };
 }
@@ -278,7 +281,7 @@ function ChatTableRow({
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
           </div>
         </td>
-        <td>{chat.chatType === "supergroup" ? "超级群组" : "群组"}</td>
+        <td>{chatTypeLabel(chat.chatType)}</td>
         <td>
           <StatusPill tone={chat.enabled ? "good" : "neutral"}>
             {chat.enabled ? "已启用" : "未启用"}
@@ -346,6 +349,36 @@ function ChatTableRow({
                       />
                     </Field>
                   </div>
+
+                  <div className="form-grid table-editor-primary-grid">
+                    <Field label="关键词实时提醒">
+                      <AppSelect
+                        onChange={(value) => onPatch({ alertEnabled: value === "yes" })}
+                        options={[
+                          { value: "yes", label: "启用" },
+                          { value: "no", label: "停用" }
+                        ]}
+                        value={chat.alertEnabled ? "yes" : "no"}
+                      />
+                    </Field>
+                    <Field
+                      label="提醒关键词"
+                      hint="每行一个，匹配到会立即通过 Bot 推送；同群同关键词 10 分钟内只提醒一次。"
+                    >
+                      <Textarea
+                        rows={3}
+                        placeholder={"空投\n上线\n崩盘"}
+                        value={joinLines(chat.alertKeywords)}
+                        onChange={(event) =>
+                          onPatch({ alertKeywords: splitLines(event.target.value) })
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  <p className="table-editor-note">
+                    关键词实时提醒依赖 Bot 推送配置，并且需要先启用消息保存。
+                  </p>
 
                   {chat.summaryEnabled ? (
                     <>
@@ -460,7 +493,7 @@ function ChatTableRow({
 
                   <div className="editor-footer">
                     <p className="muted">
-                      当前群类型：{chat.chatType === "supergroup" ? "超级群组" : "群组"}
+                      当前群类型：{chatTypeLabel(chat.chatType)}
                     </p>
                     <Button onClick={onSave} type="button">
                       保存该群配置
@@ -549,6 +582,19 @@ function localDateInputValue() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+function chatTypeLabel(chatType: string) {
+  switch (chatType.trim()) {
+    case "supergroup":
+      return "超级群组";
+    case "channel":
+      return "频道";
+    case "group":
+      return "群组";
+    default:
+      return "会话";
+  }
 }
 
 function EditIcon() {
