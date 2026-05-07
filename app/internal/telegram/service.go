@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/frederic/tgtldr/app/internal/bot"
 	"github.com/frederic/tgtldr/app/internal/clock"
 	"github.com/frederic/tgtldr/app/internal/model"
 	"github.com/frederic/tgtldr/app/internal/store"
@@ -27,6 +29,8 @@ var (
 
 	errTelegramUnauthorized = errors.New("telegram session not authorized")
 )
+
+const keywordAlertCooldown = 10 * time.Minute
 
 type FloodWaitError struct {
 	Wait time.Duration
@@ -52,12 +56,15 @@ type Service struct {
 	store *store.Store
 	clock clock.Clock
 	root  context.Context
+	bot   *bot.Service
 
 	historyBackfills *historyBackfillStore
 
 	historyBackfillCompleted func(chat model.Chat, fromDate, toDate string)
 
 	mu             sync.Mutex
+	alertMu        sync.Mutex
+	alertLastSent  map[string]time.Time
 	pending        *model.AuthSessionState
 	listenerCancel context.CancelFunc
 	listenerRun    bool
@@ -68,7 +75,9 @@ func NewService(root context.Context, st *store.Store, c clock.Clock) *Service {
 		store:            st,
 		clock:            c,
 		root:             root,
+		bot:              bot.New(),
 		historyBackfills: newHistoryBackfillStore(),
+		alertLastSent:    map[string]time.Time{},
 	}
 }
 
@@ -378,8 +387,8 @@ func (s *Service) storeIncomingMessage(ctx context.Context, entities tg.Entities
 		return nil
 	}
 
-	telegramChatID, chatType, ok := extractChat(msg.PeerID)
-	if !ok || (chatType != "group" && chatType != "supergroup") {
+	telegramChatID, _, ok := extractChat(msg.PeerID)
+	if !ok {
 		return nil
 	}
 
@@ -411,7 +420,11 @@ func (s *Service) storeIncomingMessage(ctx context.Context, entities tg.Entities
 		MessageTime:       time.Unix(int64(msg.Date), 0).UTC(),
 		RawJSON:           string(payload),
 	}
-	return s.store.Messages.Upsert(ctx, item)
+	if err := s.store.Messages.Upsert(ctx, item); err != nil {
+		return err
+	}
+	s.maybeSendKeywordAlert(ctx, chat, item)
+	return nil
 }
 
 func (s *Service) persistAuthorizedUser(ctx context.Context, client *telegram.Client, phone string) error {
@@ -495,4 +508,105 @@ func (s *Service) requirePending(step model.AuthStep) (*model.AuthSessionState, 
 	}
 	state := *s.pending
 	return &state, nil
+}
+
+func (s *Service) maybeSendKeywordAlert(ctx context.Context, chat model.Chat, item model.Message) {
+	if !chat.AlertEnabled || len(chat.AlertKeywords) == 0 {
+		return
+	}
+	if item.SenderIsBot {
+		return
+	}
+
+	text := strings.TrimSpace(item.SummaryText())
+	if text == "" {
+		return
+	}
+
+	matched, ok := matchAlertKeyword(text, chat.AlertKeywords)
+	if !ok {
+		return
+	}
+	if !s.allowKeywordAlert(chat.ID, matched) {
+		return
+	}
+
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		log.Printf("keyword alert skipped: load settings failed: %v", err)
+		return
+	}
+	if !settings.BotEnabled || strings.TrimSpace(settings.BotToken) == "" || strings.TrimSpace(settings.BotTargetChatID) == "" {
+		return
+	}
+
+	message := formatKeywordAlertMessage(chat, item, matched)
+	if err := s.bot.SendMessageWithLanguage(
+		ctx,
+		settings.BotToken,
+		settings.BotTargetChatID,
+		message,
+		model.NormalizeLanguage(settings.Language),
+	); err != nil {
+		log.Printf("keyword alert send failed: chat=%d keyword=%q err=%v", chat.ID, matched, err)
+		return
+	}
+}
+
+func matchAlertKeyword(text string, keywords []string) (string, bool) {
+	lower := strings.ToLower(text)
+	for _, keyword := range keywords {
+		trimmed := strings.TrimSpace(keyword)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(lower, strings.ToLower(trimmed)) {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+func (s *Service) allowKeywordAlert(chatID int64, keyword string) bool {
+	key := strconv.FormatInt(chatID, 10) + "|" + strings.ToLower(strings.TrimSpace(keyword))
+	now := s.clock.Now()
+
+	s.alertMu.Lock()
+	defer s.alertMu.Unlock()
+
+	last, ok := s.alertLastSent[key]
+	if ok && now.Sub(last) < keywordAlertCooldown {
+		return false
+	}
+	s.alertLastSent[key] = now
+	return true
+}
+
+func formatKeywordAlertMessage(chat model.Chat, item model.Message, keyword string) string {
+	content := strings.TrimSpace(item.SummaryText())
+	if len(content) > 300 {
+		content = content[:300] + "..."
+	}
+
+	lines := []string{
+		"关键词提醒",
+		"会话：" + strings.TrimSpace(chat.Title),
+		"关键词：" + strings.TrimSpace(keyword),
+		"发送者：" + strings.TrimSpace(item.SenderName),
+		"时间(UTC)：" + item.MessageTime.UTC().Format("2006-01-02 15:04:05"),
+		"内容：" + content,
+	}
+
+	if link := telegramMessageLink(chat, item.TelegramMessageID); link != "" {
+		lines = append(lines, "链接："+link)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func telegramMessageLink(chat model.Chat, messageID int) string {
+	username := strings.TrimSpace(chat.Username)
+	if username == "" || messageID <= 0 {
+		return ""
+	}
+	return "https://t.me/" + username + "/" + strconv.Itoa(messageID)
 }
