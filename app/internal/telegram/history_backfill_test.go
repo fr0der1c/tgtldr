@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/gotd/td/tg"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -21,5 +23,19 @@ func TestParseHistoryRange(t *testing.T) {
 
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldContainSubstring, "结束日期不能早于开始日期")
+	})
+
+	Convey("频道使用 channel 类型时历史回补可转换为 InputPeerChannel", t, func() {
+		peer, err := inputPeerForChat(model.Chat{
+			ChatType:       "channel",
+			TelegramChatID: 12345,
+			TelegramAccess: 67890,
+		})
+
+		So(err, ShouldBeNil)
+		inputPeer, ok := peer.(*tg.InputPeerChannel)
+		So(ok, ShouldBeTrue)
+		So(inputPeer.ChannelID, ShouldEqual, 12345)
+		So(inputPeer.AccessHash, ShouldEqual, 67890)
 	})
 }
