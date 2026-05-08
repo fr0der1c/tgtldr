@@ -9,6 +9,14 @@ const (
 	DeliveryModeBot       DeliveryMode = "bot"
 )
 
+type SummaryFrequency string
+
+const (
+	SummaryFrequencyDaily   SummaryFrequency = "daily"
+	SummaryFrequencyWeekly  SummaryFrequency = "weekly"
+	SummaryFrequencyMonthly SummaryFrequency = "monthly"
+)
+
 type SummaryStatus string
 
 const (
@@ -37,23 +45,27 @@ func NormalizeLanguage(language Language) Language {
 }
 
 type AppSettings struct {
-	ID                   int64      `json:"id"`
-	TelegramAPIID        int        `json:"telegramApiId"`
-	TelegramAPIHash      string     `json:"telegramApiHash,omitempty"`
-	OpenAIBaseURL        string     `json:"openAIBaseUrl"`
-	OpenAIAPIKey         string     `json:"openAIApiKey,omitempty"`
-	OpenAIModel          string     `json:"openAIModel"`
-	OpenAITemperature    float64    `json:"openAITemperature"`
-	OpenAIOutputMode     OutputMode `json:"openAIOutputMode"`
-	OpenAIMaxOutputToken int        `json:"openAIMaxOutputTokens"`
-	SummaryParallelism   int        `json:"summaryParallelism"`
-	DefaultTimezone      string     `json:"defaultTimezone"`
-	Language             Language   `json:"language"`
-	BotEnabled           bool       `json:"botEnabled"`
-	BotToken             string     `json:"botToken,omitempty"`
-	BotTargetChatID      string     `json:"botTargetChatId"`
-	CreatedAt            time.Time  `json:"createdAt"`
-	UpdatedAt            time.Time  `json:"updatedAt"`
+	ID                      int64        `json:"id"`
+	TelegramAPIID           int          `json:"telegramApiId"`
+	TelegramAPIHash         string       `json:"telegramApiHash,omitempty"`
+	OpenAIBaseURL           string       `json:"openAIBaseUrl"`
+	OpenAIAPIKey            string       `json:"openAIApiKey,omitempty"`
+	OpenAIModel             string       `json:"openAIModel"`
+	OpenAITemperature       float64      `json:"openAITemperature"`
+	OpenAIOutputMode        OutputMode   `json:"openAIOutputMode"`
+	OpenAIMaxOutputToken    int          `json:"openAIMaxOutputTokens"`
+	SummaryParallelism      int          `json:"summaryParallelism"`
+	DefaultTimezone         string       `json:"defaultTimezone"`
+	Language                Language     `json:"language"`
+	BotEnabled              bool         `json:"botEnabled"`
+	BotToken                string       `json:"botToken,omitempty"`
+	BotTargetChatID         string       `json:"botTargetChatId"`
+	DefaultDeliveryMode     DeliveryMode `json:"defaultDeliveryMode"`
+	DefaultSummaryTimeLocal string       `json:"defaultSummaryTimeLocal"`
+	DefaultKeepBotMessages  bool         `json:"defaultKeepBotMessages"`
+	DefaultModelOverride    string       `json:"defaultModelOverride"`
+	CreatedAt               time.Time    `json:"createdAt"`
+	UpdatedAt               time.Time    `json:"updatedAt"`
 }
 
 func (s AppSettings) Sanitized() AppSettings {
@@ -95,25 +107,28 @@ type TelegramAuth struct {
 }
 
 type Chat struct {
-	ID               int64        `json:"id"`
-	TelegramChatID   int64        `json:"telegramChatId"`
-	TelegramAccess   int64        `json:"telegramAccessHash"`
-	Title            string       `json:"title"`
-	Username         string       `json:"username"`
-	ChatType         string       `json:"chatType"`
-	Enabled          bool         `json:"enabled"`
-	SummaryEnabled   bool         `json:"summaryEnabled"`
-	SummaryContext   string       `json:"summaryContext"`
-	SummaryPrompt    string       `json:"summaryPrompt"`
-	SummaryTimeLocal string       `json:"summaryTimeLocal"`
-	SummaryTimezone  string       `json:"summaryTimezone"`
-	DeliveryMode     DeliveryMode `json:"deliveryMode"`
-	ModelOverride    string       `json:"modelOverride"`
-	KeepBotMessages  bool         `json:"keepBotMessages"`
-	FilteredSenders  []string     `json:"filteredSenders"`
-	FilteredKeywords []string     `json:"filteredKeywords"`
-	CreatedAt        time.Time    `json:"createdAt"`
-	UpdatedAt        time.Time    `json:"updatedAt"`
+	ID               int64            `json:"id"`
+	TelegramChatID   int64            `json:"telegramChatId"`
+	TelegramAccess   int64            `json:"telegramAccessHash"`
+	Title            string           `json:"title"`
+	Username         string           `json:"username"`
+	ChatType         string           `json:"chatType"`
+	Enabled          bool             `json:"enabled"`
+	SummaryEnabled   bool             `json:"summaryEnabled"`
+	SummaryContext   string           `json:"summaryContext"`
+	SummaryPrompt    string           `json:"summaryPrompt"`
+	SummaryTimeLocal string           `json:"summaryTimeLocal"`
+	SummaryTimezone  string           `json:"summaryTimezone"`
+	DeliveryMode     DeliveryMode     `json:"deliveryMode"`
+	ModelOverride    string           `json:"modelOverride"`
+	KeepBotMessages  bool             `json:"keepBotMessages"`
+	FilteredSenders  []string         `json:"filteredSenders"`
+	FilteredKeywords []string         `json:"filteredKeywords"`
+	AlertEnabled     bool             `json:"alertEnabled"`
+	AlertKeywords    []string         `json:"alertKeywords"`
+	SummaryFrequency SummaryFrequency `json:"summaryFrequency"`
+	CreatedAt        time.Time        `json:"createdAt"`
+	UpdatedAt        time.Time        `json:"updatedAt"`
 }
 
 type Message struct {
@@ -143,22 +158,24 @@ func (m Message) SummaryText() string {
 }
 
 type Summary struct {
-	ID                 int64         `json:"id"`
-	ChatID             int64         `json:"chatId"`
-	SummaryDate        string        `json:"summaryDate"`
-	Status             SummaryStatus `json:"status"`
-	Content            string        `json:"content"`
-	Model              string        `json:"model"`
-	SourceMessageCount int           `json:"sourceMessageCount"`
-	ChunkCount         int           `json:"chunkCount"`
-	GeneratedAt        time.Time     `json:"generatedAt"`
-	DeliveredAt        *time.Time    `json:"deliveredAt,omitempty"`
-	DeliveryError      string        `json:"deliveryError"`
-	ErrorMessage       string        `json:"errorMessage"`
-	MatchSnippet       string        `json:"matchSnippet,omitempty"`
-	MatchedFields      []string      `json:"matchedFields,omitempty"`
-	CreatedAt          time.Time     `json:"createdAt"`
-	UpdatedAt          time.Time     `json:"updatedAt"`
+	ID                   int64         `json:"id"`
+	ChatID               int64         `json:"chatId"`
+	SummaryDate          string        `json:"summaryDate"`
+	Status               SummaryStatus `json:"status"`
+	Content              string        `json:"content"`
+	Model                string        `json:"model"`
+	SourceMessageCount   int           `json:"sourceMessageCount"`
+	ChunkCount           int           `json:"chunkCount"`
+	GeneratedAt          time.Time     `json:"generatedAt"`
+	DeliveredAt          *time.Time    `json:"deliveredAt,omitempty"`
+	DeliveryError        string        `json:"deliveryError"`
+	DeliveryRetryCount   int           `json:"deliveryRetryCount"`
+	NextDeliveryRetryAt  *time.Time    `json:"nextDeliveryRetryAt,omitempty"`
+	ErrorMessage         string        `json:"errorMessage"`
+	MatchSnippet         string        `json:"matchSnippet,omitempty"`
+	MatchedFields        []string      `json:"matchedFields,omitempty"`
+	CreatedAt            time.Time     `json:"createdAt"`
+	UpdatedAt            time.Time     `json:"updatedAt"`
 }
 
 type SummaryListResponse struct {

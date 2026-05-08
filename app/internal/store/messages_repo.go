@@ -109,6 +109,34 @@ func (r *MessageRepository) CountForRange(ctx context.Context, chatID int64, sta
 	return count, nil
 }
 
+func (r *MessageRepository) FirstMessageTimes(ctx context.Context, chatIDs []int64) (map[int64]*time.Time, error) {
+	if len(chatIDs) == 0 {
+		return map[int64]*time.Time{}, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		select chat_id, min(message_time)
+		from messages
+		where chat_id = any($1)
+		group by chat_id
+	`, chatIDs)
+	if err != nil {
+		return nil, fmt.Errorf("query first message times: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[int64]*time.Time, len(chatIDs))
+	for rows.Next() {
+		var chatID int64
+		var t time.Time
+		if err := rows.Scan(&chatID, &t); err != nil {
+			return nil, fmt.Errorf("scan first message time: %w", err)
+		}
+		result[chatID] = &t
+	}
+	return result, rows.Err()
+}
+
+
 func (r *MessageRepository) LookupByTelegramIDs(ctx context.Context, chatID int64, ids []int) (map[int]model.Message, error) {
 	if len(ids) == 0 {
 		return map[int]model.Message{}, nil

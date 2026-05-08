@@ -18,6 +18,12 @@ func normalizeAppSettings(settings model.AppSettings) model.AppSettings {
 		settings.OpenAIBaseURL = model.DefaultOpenAIBaseURL
 	}
 	settings.Language = model.NormalizeLanguage(settings.Language)
+	if settings.DefaultDeliveryMode == "" {
+		settings.DefaultDeliveryMode = model.DeliveryModeDashboard
+	}
+	if settings.DefaultSummaryTimeLocal == "" {
+		settings.DefaultSummaryTimeLocal = "09:00"
+	}
 	return settings
 }
 
@@ -31,7 +37,10 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		select id, telegram_api_id, telegram_api_hash, openai_base_url, openai_api_key,
 		       openai_model, openai_temperature, openai_output_mode, openai_max_output_tokens,
 		       summary_parallelism, default_timezone, language, bot_enabled, bot_token,
-		       bot_target_chat_id, created_at, updated_at
+		       bot_target_chat_id,
+		       default_delivery_mode, default_summary_time_local,
+		       default_keep_bot_messages, default_model_override,
+		       created_at, updated_at
 		from app_settings
 		order by id
 		limit 1
@@ -51,6 +60,10 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		&row.BotEnabled,
 		&encBotToken,
 		&row.BotTargetChatID,
+		&row.DefaultDeliveryMode,
+		&row.DefaultSummaryTimeLocal,
+		&row.DefaultKeepBotMessages,
+		&row.DefaultModelOverride,
 		&row.CreatedAt,
 		&row.UpdatedAt,
 	)
@@ -58,14 +71,15 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		return model.AppSettings{}, fmt.Errorf("query settings: %w", err)
 	}
 
-	if row.TelegramAPIHash, err = r.cipher.DecryptString(encAPIHash); err != nil {
-		return model.AppSettings{}, err
+	var decErr error
+	if row.TelegramAPIHash, decErr = r.cipher.DecryptString(encAPIHash); decErr != nil {
+		return model.AppSettings{}, decErr
 	}
-	if row.OpenAIAPIKey, err = r.cipher.DecryptString(encOpenAIKey); err != nil {
-		return model.AppSettings{}, err
+	if row.OpenAIAPIKey, decErr = r.cipher.DecryptString(encOpenAIKey); decErr != nil {
+		return model.AppSettings{}, decErr
 	}
-	if row.BotToken, err = r.cipher.DecryptString(encBotToken); err != nil {
-		return model.AppSettings{}, err
+	if row.BotToken, decErr = r.cipher.DecryptString(encBotToken); decErr != nil {
+		return model.AppSettings{}, decErr
 	}
 	return normalizeAppSettings(row), nil
 }
@@ -103,6 +117,10 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		    bot_enabled = $12,
 		    bot_token = $13,
 		    bot_target_chat_id = $14,
+		    default_delivery_mode = $15,
+		    default_summary_time_local = $16,
+		    default_keep_bot_messages = $17,
+		    default_model_override = $18,
 		    updated_at = now()
 		where id = (select id from app_settings order by id limit 1)
 		returning id, created_at, updated_at
@@ -121,6 +139,10 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		settings.BotEnabled,
 		encBotToken,
 		settings.BotTargetChatID,
+		settings.DefaultDeliveryMode,
+		settings.DefaultSummaryTimeLocal,
+		settings.DefaultKeepBotMessages,
+		settings.DefaultModelOverride,
 	).Scan(&saved.ID, &saved.CreatedAt, &saved.UpdatedAt)
 	if err != nil {
 		return model.AppSettings{}, fmt.Errorf("save settings: %w", err)
@@ -140,5 +162,9 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	saved.BotEnabled = settings.BotEnabled
 	saved.BotToken = settings.BotToken
 	saved.BotTargetChatID = settings.BotTargetChatID
+	saved.DefaultDeliveryMode = settings.DefaultDeliveryMode
+	saved.DefaultSummaryTimeLocal = settings.DefaultSummaryTimeLocal
+	saved.DefaultKeepBotMessages = settings.DefaultKeepBotMessages
+	saved.DefaultModelOverride = settings.DefaultModelOverride
 	return saved, nil
 }

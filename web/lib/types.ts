@@ -1,5 +1,7 @@
 export type AuthStep = "idle" | "code" | "password" | "done";
 export type Language = "zh-CN" | "en";
+export type DeliveryMode = "dashboard" | "bot";
+export type SummaryFrequency = "daily" | "weekly" | "monthly";
 
 export type AppSettings = {
   id: number;
@@ -17,6 +19,10 @@ export type AppSettings = {
   botEnabled: boolean;
   botToken?: string;
   botTargetChatId: string;
+  defaultDeliveryMode: DeliveryMode;
+  defaultSummaryTimeLocal: string;
+  defaultKeepBotMessages: boolean;
+  defaultModelOverride: string;
 };
 
 export type PendingAuth = {
@@ -63,8 +69,6 @@ export type BotTargetChatResolveResult = {
   candidates: BotTargetChatCandidate[];
 };
 
-export type DeliveryMode = "dashboard" | "bot";
-
 export type Chat = {
   id: number;
   telegramChatId: number;
@@ -81,6 +85,9 @@ export type Chat = {
   keepBotMessages: boolean;
   filteredSenders: string[];
   filteredKeywords: string[];
+  alertEnabled: boolean;
+  alertKeywords: string[];
+  summaryFrequency: SummaryFrequency;
 };
 
 export type HistoryBackfillTask = {

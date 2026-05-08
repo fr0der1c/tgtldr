@@ -128,6 +128,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  applyDefaultsToAllChats: () =>
+    request<{ affected: number }>("/api/settings/apply-defaults", { method: "POST" }),
   resolveBotTargetChat: (botToken?: string) =>
     request<BotTargetChatResolveResult>("/api/bot/target-chat/resolve", {
       method: "POST",
@@ -170,7 +172,17 @@ export const api = {
         keepBotMessages: chat.keepBotMessages,
         filteredSenders: chat.filteredSenders,
         filteredKeywords: chat.filteredKeywords,
+        alertEnabled: chat.alertEnabled,
+        alertKeywords: chat.alertKeywords,
+        summaryFrequency: chat.summaryFrequency,
       }),
+    }),
+  chatFirstMessageTimes: () =>
+    request<Record<string, string | null>>("/api/chats/first-message-times"),
+  runSummaryBatch: (chatIds: number[], dates: string[]) =>
+    request<{ queued: number }>("/api/summaries/run-batch", {
+      method: "POST",
+      body: JSON.stringify({ chatIds, dates }),
     }),
   startHistoryBackfill: (chatId: number, fromDate: string, toDate: string) =>
     request<HistoryBackfillTask>("/api/history-backfills", {
@@ -205,5 +217,10 @@ export const api = {
     request("/api/summaries/run", {
       method: "POST",
       body: JSON.stringify({ chatId, date }),
+    }),
+  askSummaryFollowUp: (summaryId: number, question: string, history: { question: string; answer: string }[] = []) =>
+    request<{ answer: string }>(`/api/summaries/${summaryId}/ask`, {
+      method: "POST",
+      body: JSON.stringify({ question, history }),
     }),
 };

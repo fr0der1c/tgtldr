@@ -89,6 +89,9 @@ export function SettingsPanel() {
         language: normalizeLanguage(settingsData.language),
         openAIOutputMode: settingsData.openAIOutputMode || "auto",
         summaryParallelism: settingsData.summaryParallelism || 2,
+        defaultDeliveryMode: settingsData.defaultDeliveryMode || "dashboard",
+        defaultSummaryTimeLocal: settingsData.defaultSummaryTimeLocal || "09:00",
+        defaultKeepBotMessages: settingsData.defaultKeepBotMessages ?? true,
         botToken: "",
         openAIApiKey: "",
         telegramApiHash: "",
@@ -557,6 +560,89 @@ export function SettingsPanel() {
               </Field>
             </div>
           </Surface>
+
+          <Surface
+            title="群组默认配置"
+            description="新群组启用时会套用这些默认值。点击「应用到所有群组」可将当前默认值写入全部已有群组。"
+          >
+            <div className="form-stack">
+              <Field
+                label="默认交付方式"
+                hint={!settings.botEnabled ? "Bot 推送已关闭，如需选择 Bot 模式请先开启 Bot 推送。" : undefined}
+              >
+                <AppSelect
+                  onChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      defaultDeliveryMode: value as "dashboard" | "bot",
+                    })
+                  }
+                  options={[
+                    { value: "dashboard", label: "仅网页端" },
+                    { value: "bot", label: "网页端 + Bot 推送", disabled: !settings.botEnabled },
+                  ]}
+                  value={settings.defaultDeliveryMode || "dashboard"}
+                />
+              </Field>
+              <Field label="默认摘要时间" hint="格式 HH:MM，例如 09:00。">
+                <Input
+                  placeholder="09:00"
+                  value={settings.defaultSummaryTimeLocal || ""}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      defaultSummaryTimeLocal: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="默认保留机器人消息">
+                <AppSelect
+                  onChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      defaultKeepBotMessages: value === "yes",
+                    })
+                  }
+                  options={[
+                    { value: "yes", label: "保留" },
+                    { value: "no", label: "过滤" },
+                  ]}
+                  value={settings.defaultKeepBotMessages ? "yes" : "no"}
+                />
+              </Field>
+              <Field label="默认模型 override" hint="为空则使用全局模型配置。新群组和「应用到所有群组」时生效。">
+                <Input
+                  placeholder="例如 gpt-4o"
+                  value={settings.defaultModelOverride || ""}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      defaultModelOverride: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="settings-apply-defaults-row">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  startTransition(async () => {
+                    try {
+                      const result = await api.applyDefaultsToAllChats();
+                      toast.showSuccess(`已将默认配置应用到 ${result.affected} 个群组。`);
+                    } catch (err) {
+                      toast.showError(asMessage(err));
+                    }
+                  })
+                }
+              >
+                应用到所有群组
+              </Button>
+            </div>
+          </Surface>
         </div>
 
         <div className="settings-column">
@@ -657,14 +743,18 @@ export function SettingsPanel() {
             description="如果你只在网页端看摘要，这一块可以保持关闭。"
           >
             <div className="form-grid">
-              <Field label="投递方式">
+              <Field label="Bot 推送开关">
                 <AppSelect
                   onChange={(value) =>
-                    setSettings({ ...settings, botEnabled: value === "yes" })
+                    setSettings({
+                      ...settings,
+                      botEnabled: value === "yes",
+                      defaultDeliveryMode: value === "yes" ? settings.defaultDeliveryMode : "dashboard",
+                    })
                   }
                   options={[
-                    { value: "no", label: "仅网页端查看" },
-                    { value: "yes", label: "通过 Telegram Bot 推送" },
+                    { value: "no", label: "关闭" },
+                    { value: "yes", label: "启用" },
                   ]}
                   value={settings.botEnabled ? "yes" : "no"}
                 />

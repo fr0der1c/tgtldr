@@ -1,12 +1,13 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
-import { Chat } from "@/lib/types";
+import { Chat, SummaryFrequency } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
+import { useDashboard } from "@/lib/dashboard-context";
 
 type ChatTypeFilter = "all" | Chat["chatType"];
 type SwitchFilter = "all" | "yes" | "no";
@@ -20,7 +21,14 @@ const historyRangeOptions = [
   { value: "custom", label: "自定义日期范围" }
 ];
 
+const summaryFrequencyOptions = [
+  { value: "daily", label: "每日" },
+  { value: "weekly", label: "每周（每周一生成上周摘要）" },
+  { value: "monthly", label: "每月（每月 1 日生成上月摘要）" },
+];
+
 export function ChatsPanel() {
+  const { chats: contextChats, chatsReady, reloadChats, bootstrap } = useDashboard();
   const [items, setItems] = useState<Chat[]>([]);
   const [savedItems, setSavedItems] = useState<Chat[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -28,32 +36,52 @@ export function ChatsPanel() {
   const [chatType, setChatType] = useState<ChatTypeFilter>("all");
   const [messageSaveFilter, setMessageSaveFilter] = useState<SwitchFilter>("all");
   const [summaryFilter, setSummaryFilter] = useState<SwitchFilter>("all");
+  const [firstMessageTimes, setFirstMessageTimes] = useState<Record<string, string | null>>({});
+  const botEnabled = bootstrap?.botEnabled ?? false;
+  const loading = !chatsReady;
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
 
+  // Sync items whenever the shared chats list changes (initial load + after reloadChats)
   useEffect(() => {
-    void load();
-  }, []);
+    const normalized = contextChats.map(normalizeChat);
+    setItems(normalized);
+    setSavedItems(normalized);
+    setEditingId((current) =>
+      current && normalized.some((chat) => chat.id === current) ? current : null
+    );
+  }, [contextChats]);
 
-  async function load() {
-    try {
-      const chats = (await api.listChats()).map(normalizeChat);
-      setItems(chats);
-      setSavedItems(chats);
-      setEditingId((current) =>
-        current && chats.some((chat) => chat.id === current) ? current : null
-      );
-    } catch (err) {
-      toast.showError(asMessage(err));
-    }
-  }
+  // Load firstMessageTimes in background — non-blocking, used only for the 📥 date label
+  useEffect(() => {
+    void api
+      .chatFirstMessageTimes()
+      .then(setFirstMessageTimes)
+      .catch(() => {});
+  }, []);
 
   async function saveChat(chat: Chat) {
     try {
       await api.saveChat(chat);
       toast.showSuccess(`已保存「${chat.title}」的配置。`);
-      await load();
+      await reloadChats();
     } catch (err) {
+      toast.showError(asMessage(err));
+    }
+  }
+
+  async function quickToggle(chatID: number, field: "enabled" | "summaryEnabled" | "deliveryMode") {
+    const chat = items.find((c) => c.id === chatID);
+    if (!chat) return;
+    const nextValue = field === "deliveryMode"
+      ? (chat.deliveryMode === "bot" ? "dashboard" : "bot")
+      : !chat[field];
+    const updated = { ...chat, [field]: nextValue };
+    patchChat(chatID, { [field]: nextValue });
+    try {
+      await api.saveChat(updated);
+    } catch (err) {
+      patchChat(chatID, { [field]: chat[field] });
       toast.showError(asMessage(err));
     }
   }
@@ -111,7 +139,7 @@ export function ChatsPanel() {
           label="已同步群组"
           value={syncedCount}
           badge="最新"
-          detail="当前 Telegram 账号下可管理的群组与超级群组。"
+          detail="当前 Telegram 账号下可管理的群组、超级群组与频道。"
         />
         <MetricCard
           label="已启用消息保存"
@@ -125,13 +153,13 @@ export function ChatsPanel() {
           value={summaryEnabledCount}
           tone={summaryEnabledCount > 0 ? "good" : "neutral"}
           badge={summaryEnabledCount > 0 ? "已配置" : "未启用"}
-          detail="只有启用 AI 总结的群组才会参与每日摘要。"
+          detail="只有启用 AI 总结的群组才会参与定期摘要。"
         />
       </MetricRail>
 
       <Surface
         title="群组列表"
-        description="先查看每个群当前是否启用，再通过操作按钮调整摘要规则、补充群聊背景或回补历史消息。"
+        description="消息保存和 AI 总结状态可直接点击切换；通过操作按钮调整摘要规则、补充群聊背景或回补历史消息。消息保存仅将消息存入数据库，供 AI 总结和关键词提醒使用，目前暂无独立消息浏览页面。"
       >
         <div className="toolbar-grid">
           <Field label="搜索群组">
@@ -147,7 +175,8 @@ export function ChatsPanel() {
               options={[
                 { value: "all", label: "全部" },
                 { value: "group", label: "群组" },
-                { value: "supergroup", label: "超级群组" }
+                { value: "supergroup", label: "超级群组" },
+                { value: "channel", label: "频道" },
               ]}
               value={chatType}
             />
@@ -176,7 +205,9 @@ export function ChatsPanel() {
           </Field>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <EmptyState title="加载中…" description="正在获取群组列表，请稍候。" />
+        ) : filtered.length === 0 ? (
           <EmptyState
             title="没有匹配的群组"
             description="调整筛选条件后再试一次。"
@@ -190,6 +221,7 @@ export function ChatsPanel() {
                   <th>群类型</th>
                   <th>消息保存</th>
                   <th>AI 总结</th>
+                  <th>发送</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -197,8 +229,10 @@ export function ChatsPanel() {
                 {filtered.map((chat) => (
                   <ChatTableRow
                     key={chat.id}
+                    botEnabled={botEnabled}
                     chat={chat}
                     editing={editingId === chat.id}
+                    firstMessageTime={firstMessageTimes[String(chat.id)] ?? null}
                     onBackfill={(fromDate, toDate) =>
                       startTransition(() => void startHistoryBackfill(chat, fromDate, toDate))
                     }
@@ -207,6 +241,9 @@ export function ChatsPanel() {
                       setEditingId((current) => (current === chat.id ? null : chat.id))
                     }
                     onSave={() => startTransition(() => void saveChat(chat))}
+                    onQuickToggle={(field) =>
+                      startTransition(() => void quickToggle(chat.id, field))
+                    }
                   />
                 ))}
               </tbody>
@@ -232,8 +269,29 @@ function normalizeChat(chat: Chat): Chat {
     summaryContext: chat.summaryContext ?? "",
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
-    keepBotMessages: chat.keepBotMessages ?? true
+    alertKeywords: Array.isArray(chat.alertKeywords) ? chat.alertKeywords : [],
+    keepBotMessages: chat.keepBotMessages ?? true,
+    alertEnabled: chat.alertEnabled ?? false,
+    summaryFrequency: chat.summaryFrequency ?? "daily",
   };
+}
+
+function chatTypeLabel(type: string) {
+  switch (type) {
+    case "supergroup": return "超级群组";
+    case "channel": return "频道";
+    default: return "群组";
+  }
+}
+
+function formatFirstMessageTime(iso: string | null): string | null {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  } catch {
+    return null;
+  }
 }
 
 function joinLines(values: string[]) {
@@ -247,20 +305,52 @@ function splitLines(value: string) {
     .filter(Boolean);
 }
 
+function KeywordsTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(() => joinLines(value));
+  const externalRef = useRef(value);
+  if (externalRef.current !== value) {
+    externalRef.current = value;
+    setText(joinLines(value));
+  }
+  return (
+    <Textarea
+      rows={5}
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => onChange(splitLines(text))}
+    />
+  );
+}
+
 function ChatTableRow({
+  botEnabled,
   chat,
   editing,
+  firstMessageTime,
   onBackfill,
   onPatch,
   onEdit,
-  onSave
+  onSave,
+  onQuickToggle,
 }: {
+  botEnabled: boolean;
   chat: Chat;
   editing: boolean;
+  firstMessageTime: string | null;
   onBackfill: (fromDate: string, toDate: string) => void;
   onPatch: (patch: Partial<Chat>) => void;
   onEdit: () => void;
   onSave: () => void;
+  onQuickToggle: (field: "enabled" | "summaryEnabled" | "deliveryMode") => void;
 }) {
   const [historyMode, setHistoryMode] = useState<HistoryMode>("30d");
   const [historyFromDate, setHistoryFromDate] = useState(localDateOffset(-29));
@@ -268,6 +358,7 @@ function ChatTableRow({
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const historyRange = resolveHistoryRange(historyMode, historyFromDate, historyToDate);
   const expanded = editing || historyExpanded;
+  const formattedFirstTime = formatFirstMessageTime(firstMessageTime);
 
   return (
     <>
@@ -276,18 +367,55 @@ function ChatTableRow({
           <div className="data-row-title">
             <strong>{chat.title}</strong>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
+            {formattedFirstTime ? (
+              <span title="首次收录消息时间">📥 {formattedFirstTime}</span>
+            ) : null}
           </div>
         </td>
-        <td>{chat.chatType === "supergroup" ? "超级群组" : "群组"}</td>
+        <td>{chatTypeLabel(chat.chatType)}</td>
         <td>
-          <StatusPill tone={chat.enabled ? "good" : "neutral"}>
-            {chat.enabled ? "已启用" : "未启用"}
-          </StatusPill>
+          <button
+            className="status-pill-toggle"
+            onClick={() => onQuickToggle("enabled")}
+            title="点击切换消息保存"
+            type="button"
+          >
+            <StatusPill tone={chat.enabled ? "good" : "neutral"}>
+              {chat.enabled ? "已启用" : "未启用"}
+            </StatusPill>
+          </button>
         </td>
         <td>
-          <StatusPill tone={chat.summaryEnabled ? "good" : "neutral"}>
-            {chat.summaryEnabled ? "已启用" : "未启用"}
-          </StatusPill>
+          <button
+            className="status-pill-toggle"
+            onClick={() => onQuickToggle("summaryEnabled")}
+            title="点击切换 AI 总结"
+            type="button"
+          >
+            <StatusPill tone={chat.summaryEnabled ? "good" : "neutral"}>
+              {chat.summaryEnabled ? "已启用" : "未启用"}
+            </StatusPill>
+          </button>
+        </td>
+        <td>
+          {chat.summaryEnabled ? (
+            <button
+              className="status-pill-toggle"
+              disabled={!botEnabled && chat.deliveryMode !== "bot"}
+              onClick={() => {
+                if (!botEnabled && chat.deliveryMode === "dashboard") return;
+                onQuickToggle("deliveryMode");
+              }}
+              title={!botEnabled ? "Bot 推送未启用，无法切换到 Bot 模式" : "点击切换发送模式"}
+              type="button"
+            >
+              <StatusPill tone={chat.deliveryMode === "bot" ? (botEnabled ? "good" : "bad") : "neutral"}>
+                {chat.deliveryMode === "bot" ? (botEnabled ? "Bot" : "Bot 未启用") : "仅网页"}
+              </StatusPill>
+            </button>
+          ) : (
+            <StatusPill tone="neutral">—</StatusPill>
+          )}
         </td>
         <td>
           <div className="table-row-actions">
@@ -317,12 +445,13 @@ function ChatTableRow({
 
       {expanded ? (
         <tr className="data-row-detail">
-          <td colSpan={5}>
+          <td colSpan={6}>
             <div className="table-editor">
               {editing ? (
                 <>
+
                   <div className="form-grid table-editor-primary-grid">
-                    <Field label="消息保存">
+                    <Field label="消息保存" hint="实时将该群消息存入数据库，供 AI 总结和关键词提醒使用。目前无独立消息浏览页面。">
                       <AppSelect
                         onChange={(value) => onPatch({ enabled: value === "yes" })}
                         options={[
@@ -350,7 +479,10 @@ function ChatTableRow({
                   {chat.summaryEnabled ? (
                     <>
                       <div className="form-grid">
-                        <Field label="AI 总结交付方式">
+                        <Field
+                          label="AI 总结交付方式"
+                          hint={!botEnabled ? "Bot 推送未启用，如需选择 Bot 模式请先在系统配置中开启。" : undefined}
+                        >
                           <AppSelect
                             onChange={(value) =>
                               onPatch({
@@ -358,10 +490,20 @@ function ChatTableRow({
                               })
                             }
                             options={[
-                              { value: "dashboard", label: "仅在网页端查看" },
-                              { value: "bot", label: "通过 Bot 推送" }
+                              { value: "dashboard", label: "仅网页端" },
+                              { value: "bot", label: "网页端 + Bot 推送", disabled: !botEnabled }
                             ]}
                             value={chat.deliveryMode}
+                          />
+                        </Field>
+
+                        <Field label="摘要频率">
+                          <AppSelect
+                            onChange={(value) =>
+                              onPatch({ summaryFrequency: value as SummaryFrequency })
+                            }
+                            options={summaryFrequencyOptions}
+                            value={chat.summaryFrequency ?? "daily"}
                           />
                         </Field>
 
@@ -374,7 +516,7 @@ function ChatTableRow({
                           />
                         </Field>
 
-                        <Field label="模型 override">
+                        <Field label="模型 override" hint="留空时跟随系统默认模型。">
                           <Input
                             placeholder="例如 gpt-4.1-mini"
                             value={chat.modelOverride}
@@ -384,35 +526,29 @@ function ChatTableRow({
                           />
                         </Field>
 
-                        <Field label="保留机器人消息">
+                        <Field label="Bot 消息纳入摘要" hint="关闭后，Bot 发送的消息不会进入 AI 总结。">
                           <AppSelect
                             onChange={(value) =>
                               onPatch({ keepBotMessages: value === "yes" })
                             }
                             options={[
-                              { value: "yes", label: "保留" },
-                              { value: "no", label: "过滤" }
+                              { value: "yes", label: "纳入" },
+                              { value: "no", label: "排除" }
                             ]}
                             value={chat.keepBotMessages ? "yes" : "no"}
                           />
                         </Field>
                       </div>
-                      <p className="table-editor-note">
-                        模型 override 留空时会跟随系统默认模型。
-                      </p>
 
                       <div className="form-grid">
                         <Field
                           label="过滤发言人"
                           hint="每行一个，支持昵称或 @username，精确匹配。"
                         >
-                          <Textarea
-                            rows={5}
+                          <KeywordsTextarea
                             placeholder={"验证机器人\n@verify_bot"}
-                            value={joinLines(chat.filteredSenders)}
-                            onChange={(event) =>
-                              onPatch({ filteredSenders: splitLines(event.target.value) })
-                            }
+                            value={chat.filteredSenders}
+                            onChange={(v) => onPatch({ filteredSenders: v })}
                           />
                         </Field>
 
@@ -420,13 +556,10 @@ function ChatTableRow({
                           label="过滤关键词"
                           hint="每行一个，按包含关系过滤消息内容。"
                         >
-                          <Textarea
-                            rows={5}
+                          <KeywordsTextarea
                             placeholder={"请完成入群验证\n验证已过期"}
-                            value={joinLines(chat.filteredKeywords)}
-                            onChange={(event) =>
-                              onPatch({ filteredKeywords: splitLines(event.target.value) })
-                            }
+                            value={chat.filteredKeywords}
+                            onChange={(v) => onPatch({ filteredKeywords: v })}
                           />
                         </Field>
                       </div>
@@ -458,9 +591,35 @@ function ChatTableRow({
                     </>
                   ) : null}
 
+                  <div className="form-grid table-editor-primary-grid">
+                    <Field label="关键词即时提醒">
+                      <AppSelect
+                        onChange={(value) => onPatch({ alertEnabled: value === "yes" })}
+                        options={[
+                          { value: "yes", label: "启用" },
+                          { value: "no", label: "停用" }
+                        ]}
+                        value={chat.alertEnabled ? "yes" : "no"}
+                      />
+                    </Field>
+                  </div>
+
+                  {chat.alertEnabled ? (
+                    <Field
+                      label="提醒关键词"
+                      hint="每行一个，消息包含任意关键词时立即通过 Bot 推送提醒（同一关键词 10 分钟内只提醒一次）。"
+                    >
+                      <KeywordsTextarea
+                        placeholder={"融资\n上线\n暴跌"}
+                        value={chat.alertKeywords}
+                        onChange={(v) => onPatch({ alertKeywords: v })}
+                      />
+                    </Field>
+                  ) : null}
+
                   <div className="editor-footer">
                     <p className="muted">
-                      当前群类型：{chat.chatType === "supergroup" ? "超级群组" : "群组"}
+                      当前群类型：{chatTypeLabel(chat.chatType)}
                     </p>
                     <Button onClick={onSave} type="button">
                       保存该群配置

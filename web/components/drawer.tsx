@@ -6,11 +6,13 @@ export function Drawer({
   open,
   onClose,
   children,
-  actions
+  actions,
+  footer
 }: PropsWithChildren<{
   open: boolean;
   onClose: () => void;
   actions?: ReactNode;
+  footer?: ReactNode;
 }>) {
   useEffect(() => {
     if (!open) {
@@ -60,6 +62,7 @@ export function Drawer({
         </div>
         <div className="drawer-body">{children}</div>
         {actions ? <div className="drawer-actions">{actions}</div> : null}
+        {footer ? <div className="drawer-footer">{footer}</div> : null}
       </aside>
     </div>
   );

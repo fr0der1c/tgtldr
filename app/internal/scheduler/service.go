@@ -17,6 +17,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type FollowUpTurn = summary.FollowUpTurn
+
 type Service struct {
 	store      *store.Store
 	clock      clock.Clock
@@ -55,6 +57,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.runOnce(ctx); err != nil {
 		return err
 	}
+	go s.runDeliveryRetryLoop(ctx)
 
 	for {
 		select {
@@ -65,6 +68,46 @@ func (s *Service) Run(ctx context.Context) error {
 				continue
 			}
 		}
+	}
+}
+
+func (s *Service) runDeliveryRetryLoop(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.processDeliveryRetries(ctx)
+		}
+	}
+}
+
+func (s *Service) processDeliveryRetries(ctx context.Context) {
+	items, err := s.store.Summaries.ListDueForDeliveryRetry(ctx, s.clock.Now())
+	if err != nil {
+		return
+	}
+	for _, item := range items {
+		chat, err := s.store.Chats.GetByID(ctx, item.ChatID)
+		if err != nil {
+			continue
+		}
+		if err := s.deliverSummary(ctx, chat, item); err != nil {
+			retryDelays := []time.Duration{time.Minute, 5 * time.Minute, 15 * time.Minute}
+			idx := item.DeliveryRetryCount
+			if idx >= len(retryDelays) {
+				_ = s.store.Summaries.ClearDeliveryRetry(ctx, item.ChatID, item.SummaryDate)
+				_ = s.store.Summaries.MarkDeliveryFailed(ctx, item.ChatID, item.SummaryDate, err.Error())
+				continue
+			}
+			nextAt := s.clock.Now().Add(retryDelays[idx])
+			_ = s.store.Summaries.ScheduleDeliveryRetry(ctx, item.ChatID, item.SummaryDate, nextAt)
+			continue
+		}
+		_ = s.store.Summaries.ClearDeliveryRetry(ctx, item.ChatID, item.SummaryDate)
+		_ = s.store.Summaries.MarkDelivered(ctx, item.ChatID, item.SummaryDate, s.clock.Now())
 	}
 }
 
@@ -181,6 +224,11 @@ func (s *Service) executeSummary(ctx context.Context, chat model.Chat, date stri
 	if err != nil {
 		return err
 	}
+	if result.SourceMessageCount == 0 {
+		// No messages for this date — remove the placeholder record so it doesn't clutter the list
+		_ = s.store.Summaries.DeleteRunningOrPending(ctx, chat.ID, date)
+		return nil
+	}
 	if err := s.store.Summaries.SaveResult(ctx, result); err != nil {
 		return err
 	}
@@ -206,11 +254,15 @@ func (s *Service) runOnce(ctx context.Context) error {
 	for _, chat := range chats {
 		chat := chat
 		timezone := settings.DefaultTimezone
-		if !isDue(s.clock.Now(), chat, timezone) {
+		freq := chat.SummaryFrequency
+		if freq == "" {
+			freq = model.SummaryFrequencyDaily
+		}
+		if !isDueForFrequency(s.clock.Now(), chat, timezone, freq) {
 			continue
 		}
 		group.Go(func() error {
-			date := targetDate(s.clock.Now(), timezone)
+			date := targetDateForFrequency(s.clock.Now(), timezone, freq)
 			item, found, err := s.lookupSummary(groupCtx, chat.ID, date)
 			if err != nil {
 				return err
@@ -223,11 +275,54 @@ func (s *Service) runOnce(ctx context.Context) error {
 				s.deliverExistingSummary(groupCtx, chat, item)
 				return nil
 			default:
-				return s.RunNow(groupCtx, chat, date)
+				return s.RunNowForFrequency(groupCtx, chat, date, freq)
 			}
 		})
 	}
 	return group.Wait()
+}
+
+func (s *Service) RunNowForFrequency(ctx context.Context, chat model.Chat, date string, freq model.SummaryFrequency) error {
+	key := summaryTaskKey(chat.ID, date)
+	if !s.beginTask(key) {
+		return nil
+	}
+	defer s.finishTask(key)
+	return s.runNowForFrequency(ctx, chat, date, freq)
+}
+
+func (s *Service) runNowForFrequency(ctx context.Context, chat model.Chat, date string, freq model.SummaryFrequency) error {
+	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date); err != nil {
+		return err
+	}
+	if err := s.store.Summaries.SetRunning(ctx, chat.ID, date); err != nil {
+		return err
+	}
+	return s.executeSummaryForFrequency(ctx, chat, date, freq)
+}
+
+func (s *Service) executeSummaryForFrequency(ctx context.Context, chat model.Chat, date string, freq model.SummaryFrequency) error {
+	var result model.Summary
+	var err error
+	switch freq {
+	case model.SummaryFrequencyWeekly:
+		result, err = s.summaries.RunRangeSummary(ctx, chat, date, weekEndDate(date))
+	case model.SummaryFrequencyMonthly:
+		result, err = s.summaries.RunRangeSummary(ctx, chat, date, monthEndDate(date))
+	default:
+		result, err = s.summaries.RunDailySummary(ctx, chat, date)
+	}
+	if err != nil {
+		return err
+	}
+	if err := s.store.Summaries.SaveResult(ctx, result); err != nil {
+		return err
+	}
+	if result.Status != model.SummaryStatusSucceeded {
+		return nil
+	}
+	s.tryDeliverSummary(ctx, chat, result)
+	return nil
 }
 
 func (s *Service) deliverExistingSummary(ctx context.Context, chat model.Chat, result model.Summary) {
@@ -245,6 +340,8 @@ func (s *Service) tryDeliverSummary(ctx context.Context, chat model.Chat, result
 	}
 
 	if err := s.deliverSummary(ctx, chat, result); err != nil {
+		nextAt := s.clock.Now().Add(1 * time.Minute)
+		_ = s.store.Summaries.ScheduleDeliveryRetry(ctx, result.ChatID, result.SummaryDate, nextAt)
 		_ = s.store.Summaries.MarkDeliveryFailed(ctx, result.ChatID, result.SummaryDate, err.Error())
 		return
 	}
@@ -323,6 +420,65 @@ func isRepairableEmptySummary(item model.Summary) bool {
 	return item.Status == model.SummaryStatusSucceeded &&
 		item.SourceMessageCount == 0 &&
 		item.ChunkCount == 0
+}
+
+func isDueForFrequency(now time.Time, chat model.Chat, timezone string, freq model.SummaryFrequency) bool {
+	switch freq {
+	case model.SummaryFrequencyWeekly:
+		location, err := loadSummaryLocation(timezone)
+		if err != nil {
+			return false
+		}
+		if now.In(location).Weekday() != time.Monday {
+			return false
+		}
+		return isDue(now, chat, timezone)
+	case model.SummaryFrequencyMonthly:
+		location, err := loadSummaryLocation(timezone)
+		if err != nil {
+			return false
+		}
+		if now.In(location).Day() != 1 {
+			return false
+		}
+		return isDue(now, chat, timezone)
+	default:
+		return isDue(now, chat, timezone)
+	}
+}
+
+func targetDateForFrequency(now time.Time, timezone string, freq model.SummaryFrequency) string {
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		location = time.Local
+	}
+	localNow := now.In(location)
+	switch freq {
+	case model.SummaryFrequencyWeekly:
+		return localNow.AddDate(0, 0, -7).Format("2006-01-02")
+	case model.SummaryFrequencyMonthly:
+		firstOfThisMonth := time.Date(localNow.Year(), localNow.Month(), 1, 0, 0, 0, 0, location)
+		return firstOfThisMonth.AddDate(0, -1, 0).Format("2006-01-02")
+	default:
+		return localNow.AddDate(0, 0, -1).Format("2006-01-02")
+	}
+}
+
+func weekEndDate(startDate string) string {
+	t, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return startDate
+	}
+	return t.AddDate(0, 0, 6).Format("2006-01-02")
+}
+
+func monthEndDate(startDate string) string {
+	t, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return startDate
+	}
+	firstOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+	return firstOfNextMonth.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 func isDue(now time.Time, chat model.Chat, timezone string) bool {
@@ -417,4 +573,8 @@ func (s *Service) finishTask(key string) {
 	s.mu.Lock()
 	delete(s.inflight, key)
 	s.mu.Unlock()
+}
+
+func (s *Service) AskFollowUp(ctx context.Context, summaryID int64, question string, history []summary.FollowUpTurn) (string, error) {
+	return s.summaries.AskFollowUp(ctx, summaryID, question, history)
 }

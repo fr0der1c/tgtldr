@@ -20,6 +20,11 @@ import (
 	"github.com/gotd/td/tg"
 )
 
+type alertCooldownKey struct {
+	chatID  int64
+	keyword string
+}
+
 var (
 	ErrConfigIncomplete = errors.New("telegram api 配置不完整")
 	ErrAuthNotStarted   = errors.New("认证尚未开始")
@@ -56,11 +61,13 @@ type Service struct {
 	historyBackfills *historyBackfillStore
 
 	historyBackfillCompleted func(chat model.Chat, fromDate, toDate string)
+	alertHook                func(chat model.Chat, message model.Message, keyword string)
 
 	mu             sync.Mutex
 	pending        *model.AuthSessionState
 	listenerCancel context.CancelFunc
 	listenerRun    bool
+	alertCooldowns map[alertCooldownKey]time.Time
 }
 
 func NewService(root context.Context, st *store.Store, c clock.Clock) *Service {
@@ -69,7 +76,14 @@ func NewService(root context.Context, st *store.Store, c clock.Clock) *Service {
 		clock:            c,
 		root:             root,
 		historyBackfills: newHistoryBackfillStore(),
+		alertCooldowns:   make(map[alertCooldownKey]time.Time),
 	}
+}
+
+func (s *Service) SetAlertHook(fn func(chat model.Chat, message model.Message, keyword string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.alertHook = fn
 }
 
 func (s *Service) PendingAuthState() *model.AuthSessionState {
@@ -242,7 +256,15 @@ func (s *Service) SyncChats(ctx context.Context) error {
 		return fmt.Errorf("sync chats from telegram: %w", err)
 	}
 
-	return s.store.Chats.UpsertMany(ctx, chats)
+	settings, _ := s.store.Settings.Get(ctx)
+	defaults := store.NewChatDefaults{
+		DeliveryMode:     settings.DefaultDeliveryMode,
+		SummaryTimeLocal: settings.DefaultSummaryTimeLocal,
+		Timezone:         settings.DefaultTimezone,
+		KeepBotMessages:  settings.DefaultKeepBotMessages,
+		ModelOverride:    settings.DefaultModelOverride,
+	}
+	return s.store.Chats.UpsertMany(ctx, chats, defaults)
 }
 
 func (s *Service) EnsureListener() {
@@ -382,7 +404,7 @@ func (s *Service) storeIncomingMessage(ctx context.Context, entities tg.Entities
 	}
 
 	telegramChatID, chatType, ok := extractChat(msg.PeerID)
-	if !ok || (chatType != "group" && chatType != "supergroup") {
+	if !ok || (chatType != "group" && chatType != "supergroup" && chatType != "channel") {
 		return nil
 	}
 
@@ -414,7 +436,50 @@ func (s *Service) storeIncomingMessage(ctx context.Context, entities tg.Entities
 		MessageTime:       time.Unix(int64(msg.Date), 0).UTC(),
 		RawJSON:           string(payload),
 	}
-	return s.store.Messages.Upsert(ctx, item)
+	if err := s.store.Messages.Upsert(ctx, item); err != nil {
+		return err
+	}
+
+	s.checkAlerts(chat, item)
+	return nil
+}
+
+func (s *Service) checkAlerts(chat model.Chat, message model.Message) {
+	if !chat.AlertEnabled || len(chat.AlertKeywords) == 0 {
+		return
+	}
+	s.mu.Lock()
+	hook := s.alertHook
+	s.mu.Unlock()
+	if hook == nil {
+		return
+	}
+
+	text := strings.ToLower(message.TextContent + " " + message.Caption)
+	now := s.clock.Now()
+	cooldown := 10 * time.Minute
+
+	for _, kw := range chat.AlertKeywords {
+		kw = strings.TrimSpace(kw)
+		if kw == "" {
+			continue
+		}
+		if !strings.Contains(text, strings.ToLower(kw)) {
+			continue
+		}
+		key := alertCooldownKey{chatID: chat.ID, keyword: strings.ToLower(kw)}
+		s.mu.Lock()
+		lastAlert, exists := s.alertCooldowns[key]
+		if exists && now.Sub(lastAlert) < cooldown {
+			s.mu.Unlock()
+			continue
+		}
+		s.alertCooldowns[key] = now
+		s.mu.Unlock()
+
+		go hook(chat, message, kw)
+		break
+	}
 }
 
 func (s *Service) persistAuthorizedUser(ctx context.Context, client *telegram.Client, phone string) error {

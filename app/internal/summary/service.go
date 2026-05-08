@@ -181,6 +181,107 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	return summary, nil
 }
 
+func (s *Service) RunRangeSummary(ctx context.Context, chat model.Chat, startDate, endDate string) (model.Summary, error) {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return model.Summary{}, err
+	}
+
+	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
+	location, err := loadLocation(timezone)
+	if err != nil {
+		return model.Summary{}, err
+	}
+	start, _, err := dayRange(startDate, timezone)
+	if err != nil {
+		return model.Summary{}, err
+	}
+	_, end, err := dayRange(endDate, timezone)
+	if err != nil {
+		return model.Summary{}, err
+	}
+
+	messages, err := s.store.Messages.ListForRange(ctx, chat.ID, start, end)
+	if err != nil {
+		return model.Summary{}, err
+	}
+	filteredMessages, messageLookup, err := s.prepareMessages(ctx, chat, messages)
+	if err != nil {
+		return model.Summary{}, err
+	}
+
+	result := model.Summary{
+		ChatID:             chat.ID,
+		SummaryDate:        startDate,
+		Status:             model.SummaryStatusSucceeded,
+		Model:              resolveSummaryModel(chat, settings),
+		SourceMessageCount: len(filteredMessages),
+		GeneratedAt:        s.clock.Now(),
+	}
+	if len(filteredMessages) == 0 {
+		result.Content = emptySummaryContent(settings.Language)
+		return result, nil
+	}
+
+	client := openai.New(openai.Config{
+		BaseURL: settings.OpenAIBaseURL,
+		APIKey:  settings.OpenAIAPIKey,
+		Model:   resolveSummaryModel(chat, settings),
+		Timeout: s.openAITimeout,
+	})
+
+	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	budget := resolveSummaryBudget(settings, resolveSummaryModel(chat, settings), stagePrompt)
+	chunks := SplitMessages(filteredMessages, budget.ChunkTokenBudget)
+	result.ChunkCount = len(chunks)
+
+	partials := make([]string, len(chunks))
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(budget.Parallelism)
+
+	for index, chunk := range chunks {
+		index := index
+		chunk := chunk
+		group.Go(func() error {
+			transcript := BuildTranscript(chunk.Messages, messageLookup, location, settings.Language)
+			resp, err := client.Chat(groupCtx, openai.ChatRequest{
+				SystemPrompt: stagePrompt,
+				UserPrompt:   transcript,
+				Temperature:  settings.OpenAITemperature,
+				MaxOutput:    budget.StageRequestMax,
+			})
+			if err != nil {
+				return err
+			}
+			partials[index] = strings.TrimSpace(resp.Content)
+			return nil
+		})
+	}
+	if err := group.Wait(); err != nil {
+		result.Status = model.SummaryStatusFailed
+		result.ErrorMessage = err.Error()
+		return result, nil
+	}
+
+	finalInput := strings.Join(partials, "\n\n---\n\n")
+	finalResp, err := client.Chat(ctx, openai.ChatRequest{
+		SystemPrompt: finalPrompt,
+		UserPrompt:   finalInput,
+		Temperature:  settings.OpenAITemperature,
+		MaxOutput:    budget.FinalRequestMax,
+	})
+	if err != nil {
+		result.Status = model.SummaryStatusFailed
+		result.ErrorMessage = err.Error()
+		return result, nil
+	}
+
+	result.Content = strings.TrimSpace(finalResp.Content)
+	result.Model = finalResp.Model
+	return result, nil
+}
+
 func resolveSummaryModel(chat model.Chat, settings model.AppSettings) string {
 	if strings.TrimSpace(chat.ModelOverride) != "" {
 		return strings.TrimSpace(chat.ModelOverride)
@@ -331,6 +432,88 @@ func normalizeFilterToken(value string) string {
 		return ""
 	}
 	return strings.ToLower(trimmed)
+}
+
+type FollowUpTurn struct {
+	Question string
+	Answer   string
+}
+
+func (s *Service) AskFollowUp(ctx context.Context, summaryID int64, question string, history []FollowUpTurn) (string, error) {
+	summary, err := s.store.Summaries.GetByID(ctx, summaryID)
+	if err != nil {
+		return "", fmt.Errorf("load summary: %w", err)
+	}
+
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load settings: %w", err)
+	}
+
+	chat, err := s.store.Chats.GetByID(ctx, summary.ChatID)
+	if err != nil {
+		return "", fmt.Errorf("load chat: %w", err)
+	}
+
+	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
+	location, err := loadLocation(timezone)
+	if err != nil {
+		return "", err
+	}
+	start, end, err := dayRange(summary.SummaryDate, timezone)
+	if err != nil {
+		return "", err
+	}
+
+	messages, err := s.store.Messages.ListForRange(ctx, chat.ID, start, end)
+	if err != nil {
+		return "", fmt.Errorf("load messages: %w", err)
+	}
+	filteredMessages, messageLookup, err := s.prepareMessages(ctx, chat, messages)
+	if err != nil {
+		return "", err
+	}
+
+	transcript := BuildTranscript(filteredMessages, messageLookup, location, settings.Language)
+	if transcript == "" {
+		return "", fmt.Errorf("no messages available for this date")
+	}
+
+	client := openai.New(openai.Config{
+		BaseURL: settings.OpenAIBaseURL,
+		APIKey:  settings.OpenAIAPIKey,
+		Model:   resolveSummaryModel(chat, settings),
+		Timeout: s.openAITimeout,
+	})
+
+	var systemPrompt string
+	if settings.Language == model.LanguageEN {
+		systemPrompt = "You are a helpful assistant. You will be given a transcript of group chat messages and should answer the user's question based on the transcript. Be concise and accurate. The conversation history below shows previous questions and answers in this session."
+	} else {
+		systemPrompt = "你是一个有帮助的助手。你将收到一段群聊消息记录，请根据记录内容回答用户的问题。回答要简洁准确。以下对话历史是本次会话中之前的问答，可以作为上下文参考。"
+	}
+
+	var historySection strings.Builder
+	for _, turn := range history {
+		historySection.WriteString(fmt.Sprintf("问：%s\n答：%s\n\n", turn.Question, turn.Answer))
+	}
+
+	var userPrompt string
+	if historySection.Len() > 0 {
+		userPrompt = fmt.Sprintf("消息记录：\n\n%s\n\n对话历史：\n%s问题：%s", transcript, historySection.String(), question)
+	} else {
+		userPrompt = fmt.Sprintf("消息记录：\n\n%s\n\n问题：%s", transcript, question)
+	}
+
+	resp, err := client.Chat(ctx, openai.ChatRequest{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		Temperature:  settings.OpenAITemperature,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Content, nil
 }
 
 func uniqueInts(values []int) []int {

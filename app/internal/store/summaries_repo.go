@@ -13,13 +13,16 @@ type SummaryRepository struct {
 	pool *pgxpool.Pool
 }
 
+const summarySelectCols = `id, chat_id, summary_date::text, status, content, model,
+       source_message_count, chunk_count, generated_at, delivered_at,
+       delivery_error, delivery_retry_count, next_delivery_retry_at,
+       error_message, ''::text as match_snippet,
+       '{}'::text[] as matched_fields, created_at, updated_at`
+
 func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
-		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, ''::text as match_snippet,
-		       '{}'::text[] as matched_fields, created_at, updated_at
+		select `+summarySelectCols+`
 		from summaries
 		where id = $1
 	`, id), &item); err != nil {
@@ -31,10 +34,7 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, date string) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
-		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, ''::text as match_snippet,
-		       '{}'::text[] as matched_fields, created_at, updated_at
+		select `+summarySelectCols+`
 		from summaries
 		where chat_id = $1 and summary_date = $2::date
 	`, chatID, date), &item); err != nil {
@@ -56,22 +56,15 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	terms := searchTerms(normalized.Query)
 	whereClause, args := buildSummaryWhereClause(normalized, terms)
 
-	var total int
-	countQuery := `
-		select count(*)
-		from summaries s
-		join chats c on c.id = s.chat_id
-	` + whereClause
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", err)
-	}
-
 	offset := (normalized.Page - 1) * normalized.PageSize
 	argsWithPagination := append(args, normalized.PageSize, offset)
+
+	countQuery := `select count(*) from summaries s join chats c on c.id = s.chat_id` + whereClause
 	dataQuery := `
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
-		       s.delivery_error, s.error_message, ''::text as match_snippet,
+		       s.delivery_error, s.delivery_retry_count, s.next_delivery_retry_at,
+		       s.error_message, ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, s.created_at, s.updated_at, c.title
 		from summaries s
 		join chats c on c.id = s.chat_id
@@ -79,29 +72,61 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		order by s.summary_date desc, s.id desc
 		limit $` + fmt.Sprint(len(args)+1) + ` offset $` + fmt.Sprint(len(args)+2)
 
-	rows, err := r.pool.Query(ctx, dataQuery, argsWithPagination...)
-	if err != nil {
-		return model.SummaryListResponse{}, fmt.Errorf("query summaries: %w", err)
+	type countResult struct {
+		total int
+		err   error
 	}
-	defer rows.Close()
+	type dataResult struct {
+		items []model.Summary
+		err   error
+	}
 
-	items := make([]model.Summary, 0)
-	for rows.Next() {
-		var item model.Summary
-		var chatTitle string
-		if err := scanSummaryWithChatTitle(rows, &item, &chatTitle); err != nil {
-			return model.SummaryListResponse{}, fmt.Errorf("scan summary search result: %w", err)
+	countCh := make(chan countResult, 1)
+	dataCh := make(chan dataResult, 1)
+
+	go func() {
+		var total int
+		err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+		countCh <- countResult{total, err}
+	}()
+
+	go func() {
+		rows, err := r.pool.Query(ctx, dataQuery, argsWithPagination...)
+		if err != nil {
+			dataCh <- dataResult{nil, fmt.Errorf("query summaries: %w", err)}
+			return
 		}
-		item.MatchSnippet, item.MatchedFields = summarizeSearchMatch(item.Content, chatTitle, terms)
-		items = append(items, item)
+		defer rows.Close()
+		items := make([]model.Summary, 0)
+		for rows.Next() {
+			var item model.Summary
+			var chatTitle string
+			if err := scanSummaryWithChatTitle(rows, &item, &chatTitle); err != nil {
+				dataCh <- dataResult{nil, fmt.Errorf("scan summary: %w", err)}
+				return
+			}
+			item.MatchSnippet, item.MatchedFields = summarizeSearchMatch(item.Content, chatTitle, terms)
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			dataCh <- dataResult{nil, fmt.Errorf("iterate summaries: %w", err)}
+			return
+		}
+		dataCh <- dataResult{items, nil}
+	}()
+
+	cr := <-countCh
+	dr := <-dataCh
+	if cr.err != nil {
+		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", cr.err)
 	}
-	if err := rows.Err(); err != nil {
-		return model.SummaryListResponse{}, fmt.Errorf("iterate summaries: %w", err)
+	if dr.err != nil {
+		return model.SummaryListResponse{}, dr.err
 	}
 
 	return model.SummaryListResponse{
-		Items:    items,
-		Total:    total,
+		Items:    dr.items,
+		Total:    cr.total,
 		Page:     normalized.Page,
 		PageSize: normalized.PageSize,
 	}, nil
@@ -232,6 +257,8 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.GeneratedAt,
 		&item.DeliveredAt,
 		&item.DeliveryError,
+		&item.DeliveryRetryCount,
+		&item.NextDeliveryRetryAt,
 		&item.ErrorMessage,
 		&item.MatchSnippet,
 		&item.MatchedFields,
@@ -253,6 +280,8 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.GeneratedAt,
 		&item.DeliveredAt,
 		&item.DeliveryError,
+		&item.DeliveryRetryCount,
+		&item.NextDeliveryRetryAt,
 		&item.ErrorMessage,
 		&item.MatchSnippet,
 		&item.MatchedFields,
@@ -260,6 +289,59 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.UpdatedAt,
 		chatTitle,
 	)
+}
+
+func (r *SummaryRepository) ListDueForDeliveryRetry(ctx context.Context, now time.Time) ([]model.Summary, error) {
+	rows, err := r.pool.Query(ctx, `
+		select `+summarySelectCols+`
+		from summaries
+		where status = 'succeeded'
+		  and delivered_at is null
+		  and delivery_retry_count < 3
+		  and next_delivery_retry_at is not null
+		  and next_delivery_retry_at <= $1
+	`, now)
+	if err != nil {
+		return nil, fmt.Errorf("query due for retry: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]model.Summary, 0)
+	for rows.Next() {
+		var item model.Summary
+		if err := scanSummary(rows, &item); err != nil {
+			return nil, fmt.Errorf("scan retry summary: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *SummaryRepository) ScheduleDeliveryRetry(ctx context.Context, chatID int64, date string, retryAt time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		update summaries
+		set delivery_retry_count = delivery_retry_count + 1,
+		    next_delivery_retry_at = $1,
+		    updated_at = now()
+		where chat_id = $2 and summary_date = $3::date
+	`, retryAt, chatID, date)
+	if err != nil {
+		return fmt.Errorf("schedule delivery retry: %w", err)
+	}
+	return nil
+}
+
+func (r *SummaryRepository) ClearDeliveryRetry(ctx context.Context, chatID int64, date string) error {
+	_, err := r.pool.Exec(ctx, `
+		update summaries
+		set next_delivery_retry_at = null,
+		    updated_at = now()
+		where chat_id = $1 and summary_date = $2::date
+	`, chatID, date)
+	if err != nil {
+		return fmt.Errorf("clear delivery retry: %w", err)
+	}
+	return nil
 }
 
 func (r *SummaryRepository) PendingDueChats(ctx context.Context, now time.Time) ([]model.Chat, error) {
@@ -300,4 +382,16 @@ func (r *SummaryRepository) PendingDueChats(ctx context.Context, now time.Time) 
 		chats = append(chats, chat)
 	}
 	return chats, rows.Err()
+}
+
+func (r *SummaryRepository) DeleteRunningOrPending(ctx context.Context, chatID int64, date string) error {
+	_, err := r.pool.Exec(ctx, `
+		delete from summaries
+		where chat_id = $1 and summary_date = $2::date
+		  and status in ('pending', 'running')
+	`, chatID, date)
+	if err != nil {
+		return fmt.Errorf("delete running/pending summary: %w", err)
+	}
+	return nil
 }

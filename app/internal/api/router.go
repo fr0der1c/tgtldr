@@ -57,12 +57,14 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/setup-password", r.handleSetupPassword)
 	mux.HandleFunc("/api/auth/change-password", r.handleChangePassword)
 	mux.HandleFunc("/api/settings", r.handleSettings)
+	mux.HandleFunc("/api/settings/apply-defaults", r.handleApplyDefaults)
 	mux.HandleFunc("/api/bot/target-chat/resolve", r.handleResolveBotTargetChat)
 	mux.HandleFunc("/api/telegram/auth/start", r.handleStartAuth)
 	mux.HandleFunc("/api/telegram/auth/code", r.handleVerifyCode)
 	mux.HandleFunc("/api/telegram/auth/password", r.handleVerifyPassword)
 	mux.HandleFunc("/api/telegram/chats/sync", r.handleSyncChats)
 	mux.HandleFunc("/api/chats", r.handleChats)
+	mux.HandleFunc("/api/chats/first-message-times", r.handleChatFirstMessageTimes)
 	mux.HandleFunc("/api/chats/", r.handleChatByID)
 	mux.HandleFunc("/api/history-backfills", r.handleStartHistoryBackfill)
 	mux.HandleFunc("/api/history-backfills/", r.handleHistoryBackfillByID)
@@ -71,12 +73,15 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
+	mux.HandleFunc("/api/summaries/run-batch", r.handleRunSummaryBatch)
 
 	return r.withMiddleware(mux)
 }
 
 func (r *Router) withMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		start := time.Now()
+
 		if origin := allowedOrigin(req.Header.Get("Origin"), r.origin); origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
@@ -96,6 +101,7 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, authorizedReq)
+		fmt.Printf("%s %s %dms\n", req.Method, req.URL.Path, time.Since(start).Milliseconds())
 	})
 }
 
@@ -306,6 +312,31 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 	httpx.JSON(w, http.StatusOK, saved.Sanitized())
 }
 
+func (r *Router) handleApplyDefaults(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	settings, err := r.store.Settings.Get(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defaults := store.NewChatDefaults{
+		DeliveryMode:     settings.DefaultDeliveryMode,
+		SummaryTimeLocal: settings.DefaultSummaryTimeLocal,
+		Timezone:         settings.DefaultTimezone,
+		KeepBotMessages:  settings.DefaultKeepBotMessages,
+		ModelOverride:    settings.DefaultModelOverride,
+	}
+	affected, err := r.store.Chats.ApplyDefaultsToAll(req.Context(), defaults)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"affected": affected})
+}
+
 func (r *Router) handleResolveBotTargetChat(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -483,13 +514,14 @@ func (r *Router) handleChats(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimPrefix(req.URL.Path, "/api/chats/")
+
 	if req.Method != http.MethodPut {
 		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	idValue := strings.TrimPrefix(req.URL.Path, "/api/chats/")
-	id, err := strconv.ParseInt(idValue, 10, 64)
+	id, err := strconv.ParseInt(path, 10, 64)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid chat id")
 		return
@@ -502,16 +534,19 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Enabled          bool               `json:"enabled"`
-		SummaryEnabled   bool               `json:"summaryEnabled"`
-		SummaryContext   string             `json:"summaryContext"`
-		SummaryPrompt    string             `json:"summaryPrompt"`
-		SummaryTimeLocal string             `json:"summaryTimeLocal"`
-		DeliveryMode     model.DeliveryMode `json:"deliveryMode"`
-		ModelOverride    string             `json:"modelOverride"`
-		KeepBotMessages  bool               `json:"keepBotMessages"`
-		FilteredSenders  []string           `json:"filteredSenders"`
-		FilteredKeywords []string           `json:"filteredKeywords"`
+		Enabled          bool                   `json:"enabled"`
+		SummaryEnabled   bool                   `json:"summaryEnabled"`
+		SummaryContext   string                 `json:"summaryContext"`
+		SummaryPrompt    string                 `json:"summaryPrompt"`
+		SummaryTimeLocal string                 `json:"summaryTimeLocal"`
+		DeliveryMode     model.DeliveryMode     `json:"deliveryMode"`
+		ModelOverride    string                 `json:"modelOverride"`
+		KeepBotMessages  bool                   `json:"keepBotMessages"`
+		FilteredSenders  []string               `json:"filteredSenders"`
+		FilteredKeywords []string               `json:"filteredKeywords"`
+		AlertEnabled     bool                   `json:"alertEnabled"`
+		AlertKeywords    []string               `json:"alertKeywords"`
+		SummaryFrequency model.SummaryFrequency `json:"summaryFrequency"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -528,6 +563,11 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	current.KeepBotMessages = payload.KeepBotMessages
 	current.FilteredSenders = compactStrings(payload.FilteredSenders)
 	current.FilteredKeywords = compactStrings(payload.FilteredKeywords)
+	current.AlertEnabled = payload.AlertEnabled
+	current.AlertKeywords = compactStrings(payload.AlertKeywords)
+	if payload.SummaryFrequency != "" {
+		current.SummaryFrequency = payload.SummaryFrequency
+	}
 
 	saved, err := r.store.Chats.Save(req.Context(), current)
 	if err != nil {
@@ -674,10 +714,75 @@ func (r *Router) handleRunSummary(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (r *Router) handleChatFirstMessageTimes(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	chats, err := r.store.Chats.List(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ids := make([]int64, len(chats))
+	for i, c := range chats {
+		ids[i] = c.ID
+	}
+	times, err := r.store.Messages.FirstMessageTimes(req.Context(), ids)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	result := make(map[int64]*time.Time, len(times))
+	for k, v := range times {
+		result[k] = v
+	}
+	httpx.JSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleRunSummaryBatch(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var payload struct {
+		ChatIDs []int64  `json:"chatIds"`
+		Dates   []string `json:"dates"`
+	}
+	if err := httpx.DecodeJSON(req, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(payload.ChatIDs) == 0 || len(payload.Dates) == 0 {
+		httpx.Error(w, http.StatusBadRequest, "chatIds and dates are required")
+		return
+	}
+
+	queued := 0
+	for _, chatID := range payload.ChatIDs {
+		chat, err := r.store.Chats.GetByID(req.Context(), chatID)
+		if err != nil {
+			continue
+		}
+		for _, date := range payload.Dates {
+			started, err := r.scheduler.RunNowAsync(req.Context(), chat, date)
+			if err != nil {
+				continue
+			}
+			if started {
+				queued++
+			}
+		}
+	}
+	httpx.JSON(w, http.StatusAccepted, map[string]any{
+		"queued": queued,
+	})
+}
+
 func (r *Router) handleSummaryByID(w http.ResponseWriter, req *http.Request) {
 	trimmed := strings.TrimPrefix(req.URL.Path, "/api/summaries/")
 	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(parts) != 2 || parts[1] != "retry-delivery" {
+	if len(parts) != 2 {
 		httpx.Error(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -692,12 +797,44 @@ func (r *Router) handleSummaryByID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := r.scheduler.RetryDelivery(req.Context(), summaryID); err != nil {
-		httpx.Error(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	switch parts[1] {
+	case "retry-delivery":
+		if err := r.scheduler.RetryDelivery(req.Context(), summaryID); err != nil {
+			httpx.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		httpx.JSON(w, http.StatusOK, map[string]string{
+			"message": fmt.Sprintf("delivery retried for summary %d", summaryID),
+		})
 
-	httpx.JSON(w, http.StatusOK, map[string]string{
-		"message": fmt.Sprintf("delivery retried for summary %d", summaryID),
-	})
+	case "ask":
+		var body struct {
+			Question string `json:"question"`
+			History  []struct {
+				Question string `json:"question"`
+				Answer   string `json:"answer"`
+			} `json:"history"`
+		}
+		if err := httpx.DecodeJSON(req, &body); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		if strings.TrimSpace(body.Question) == "" {
+			httpx.Error(w, http.StatusBadRequest, "question is required")
+			return
+		}
+		history := make([]scheduler.FollowUpTurn, len(body.History))
+		for i, h := range body.History {
+			history[i] = scheduler.FollowUpTurn{Question: h.Question, Answer: h.Answer}
+		}
+		answer, err := r.scheduler.AskFollowUp(req.Context(), summaryID, body.Question, history)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		httpx.JSON(w, http.StatusOK, map[string]string{"answer": answer})
+
+	default:
+		httpx.Error(w, http.StatusNotFound, "not found")
+	}
 }

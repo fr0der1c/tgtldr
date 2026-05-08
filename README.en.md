@@ -11,10 +11,14 @@ This project exists because many Telegram groups are large, noisy communities th
 ## Features
 
 - Monitor Telegram groups you have joined and store messages in a local database
-- Configure daily summary time, prompts, filters, and summary model per group
-- Generate group summaries through an OpenAI-compatible API
+- Configure daily summary time, prompt, filters, and model per group (each group can override the global model)
+- Generate summaries through an OpenAI-compatible API with automatic or manual chunking and configurable parallelism
 - Read summaries in the web app, with optional Telegram Bot delivery
-- Manually trigger summaries, view historical summaries, and retry failed Bot deliveries
+- Manually trigger a single summary or batch-run multiple groups × date combinations
+- View historical summaries, retry failed Bot deliveries, and inspect the exact context sent to the model for any summary
+- Per-group sender filtering, keyword filtering, and keyword alert rules
+- Bulk-import Telegram history messages, useful for first-time setup or backfilling historical data
+- System-wide group defaults (delivery mode, summary time, keep bot messages, model override) with one-click apply to all groups
 - Complete first-time Telegram, OpenAI, and group setup through the web wizard
 
 ## Requirements

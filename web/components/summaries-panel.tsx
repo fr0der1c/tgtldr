@@ -3,12 +3,12 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import {
-	Chat,
 	Summary,
 	SummaryContextPreview,
 	SummarySearchFilters,
 	SummaryStats,
 } from "@/lib/types";
+import { useDashboard } from "@/lib/dashboard-context";
 import {
 	DashboardPage,
 	MetricCard,
@@ -27,6 +27,7 @@ import { useToast } from "@/components/toast";
 const summaryPageSize = 20;
 
 export function SummariesPanel() {
+	const { bootstrap, chats: contextChats, chatsReady } = useDashboard();
 	const [summaries, setSummaries] = useState<Summary[]>([]);
 	const [summaryStats, setSummaryStats] = useState<SummaryStats>({
 		total: 0,
@@ -34,9 +35,8 @@ export function SummariesPanel() {
 		processingCount: 0,
 		failedCount: 0,
 	});
-	const [allChats, setAllChats] = useState<Chat[]>([]);
-	const [chats, setChats] = useState<Chat[]>([]);
-	const [botReady, setBotReady] = useState(false);
+	const [firstMessageTimes, setFirstMessageTimes] = useState<Record<string, string | null>>({});
+	const firstMessageTimesLoadedRef = useRef(false);
 	const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
 	const [detailOpen, setDetailOpen] = useState(false);
 	const [selectedChatId, setSelectedChatId] = useState("");
@@ -55,6 +55,8 @@ export function SummariesPanel() {
 	const [contextPreview, setContextPreview] = useState<SummaryContextPreview | null>(null);
 	const [contextPreviewSummaryID, setContextPreviewSummaryID] = useState<number | null>(null);
 	const [contextLoading, setContextLoading] = useState(false);
+	const [loading, setLoading] = useState(true);
+	const metaReadyRef = useRef(false);
 	const deferredQuery = useDeferredValue(query);
 	const loadRef = useRef<() => Promise<void>>(async () => {});
 	const loadStatsRef = useRef<() => Promise<void>>(async () => {});
@@ -75,11 +77,33 @@ export function SummariesPanel() {
 	);
 
 	useEffect(() => {
-		void loadMeta();
 		void loadStats();
 	}, []);
 
+	// Initialize once when shared chats become available
 	useEffect(() => {
+		if (!chatsReady || metaReadyRef.current) return;
+		const manualChats = contextChats.filter((c) => c.summaryEnabled);
+		setSelectedChatId((current) => {
+			if (current && manualChats.some((chat) => String(chat.id) === current)) return current;
+			return manualChats[0] ? String(manualChats[0].id) : "";
+		});
+		metaReadyRef.current = true;
+		void loadRef.current();
+	}, [chatsReady, contextChats]);
+
+	// Lazy-load firstMessageTimes only when the manual run panel opens
+	useEffect(() => {
+		if (!manualEditorOpen || firstMessageTimesLoadedRef.current) return;
+		firstMessageTimesLoadedRef.current = true;
+		void api
+			.chatFirstMessageTimes()
+			.then(setFirstMessageTimes)
+			.catch(() => {});
+	}, [manualEditorOpen]);
+
+	useEffect(() => {
+		if (!metaReadyRef.current) return;
 		void loadRef.current();
 	}, [searchFilters]);
 
@@ -155,28 +179,6 @@ export function SummariesPanel() {
 		);
 	}, [summaries, summaryStats.processingCount]);
 
-	async function loadMeta() {
-		try {
-			const [chatData, settingsData] = await Promise.all([api.listChats(), api.settings()]);
-			const manualChats = chatData.filter((chat) => chat.summaryEnabled);
-			setAllChats(chatData);
-			setChats(manualChats);
-			setBotReady(
-				settingsData.botEnabled &&
-					Boolean(settingsData.botToken?.trim()) &&
-					Boolean(settingsData.botTargetChatId?.trim()),
-			);
-			setSelectedChatId((current) => {
-				if (current && manualChats.some((chat) => String(chat.id) === current)) {
-					return current;
-				}
-				return manualChats[0] ? String(manualChats[0].id) : "";
-			});
-		} catch (err) {
-			toast.showError(asMessage(err));
-		}
-	}
-
 	async function loadStats() {
 		try {
 			setSummaryStats(await api.summaryStats());
@@ -197,6 +199,8 @@ export function SummariesPanel() {
 			);
 		} catch (err) {
 			toast.showError(asMessage(err));
+		} finally {
+			setLoading(false);
 		}
 	}
 	loadRef.current = async () => loadSummaries(searchFilters);
@@ -228,6 +232,17 @@ export function SummariesPanel() {
 		}
 	}
 
+	async function runBatch(chatIds: number[], dates: string[]) {
+		try {
+			const result = await api.runSummaryBatch(chatIds, dates);
+			toast.showSuccess(`已提交 ${result.queued} 个批量摘要任务。`);
+			setManualEditorOpen(false);
+			await Promise.all([loadRef.current(), loadStatsRef.current()]);
+		} catch (err) {
+			toast.showError(asMessage(err));
+		}
+	}
+
 	async function retryDelivery(summary: Summary) {
 		try {
 			await api.retrySummaryDelivery(summary.id);
@@ -248,17 +263,28 @@ export function SummariesPanel() {
 		}
 	}
 
+	const summaryChats = useMemo(
+		() => contextChats.filter((chat) => chat.summaryEnabled),
+		[contextChats],
+	);
+
+	const botReady = useMemo(() => {
+		if (!bootstrap?.settings) return false;
+		const s = bootstrap.settings;
+		return s.botEnabled && Boolean(s.botToken?.trim()) && Boolean(s.botTargetChatId?.trim());
+	}, [bootstrap]);
+
 	const chatTitles = useMemo(() => {
-		return new Map(allChats.map((chat) => [chat.id, chat.title]));
-	}, [allChats]);
+		return new Map(contextChats.map((chat) => [chat.id, chat.title]));
+	}, [contextChats]);
 
 	const selectedSummary = useMemo(
 		() => summaries.find((item) => item.id === selectedSummaryId) ?? null,
 		[selectedSummaryId, summaries],
 	);
 	const selectedChat = useMemo(
-		() => (selectedSummary ? allChats.find((item) => item.id === selectedSummary.chatId) ?? null : null),
-		[allChats, selectedSummary],
+		() => (selectedSummary ? contextChats.find((item) => item.id === selectedSummary.chatId) ?? null : null),
+		[contextChats, selectedSummary],
 	);
 
 	const totalPages = total > 0 ? Math.ceil(total / pageSize) : 1;
@@ -275,7 +301,7 @@ export function SummariesPanel() {
 				<MetricCard badge="累计" detail="已经写入数据库的摘要任务与结果。" label="摘要记录" value={summaryStats.total} />
 				<MetricCard
 					badge={summaryStats.successCount > 0 ? "正常" : "暂无"}
-					detail="状态为 succeeded 的摘要数量。"
+					detail="状态为「成功」的摘要数量。"
 					label="生成成功"
 					tone={summaryStats.successCount > 0 ? "good" : "neutral"}
 					value={summaryStats.successCount}
@@ -297,11 +323,13 @@ export function SummariesPanel() {
 			</MetricRail>
 
 			<SummaryListSection
-				allChats={allChats}
+				allChats={contextChats}
 				botReady={botReady}
+				loading={loading}
 				chatFilter={chatFilter}
 				chatTitles={chatTitles}
-				chats={chats}
+				chats={summaryChats}
+				firstMessageTimes={firstMessageTimes}
 				dateFrom={dateFrom}
 				dateTo={dateTo}
 				deliveryFilter={deliveryFilter}
@@ -316,6 +344,7 @@ export function SummariesPanel() {
 				onLoadSummaryDateChange={setManualDate}
 				onManualEditorToggle={() => setManualEditorOpen((current) => !current)}
 				onManualRun={runManual}
+				onBatchRun={runBatch}
 				onPageChange={setPage}
 				onQueryChange={setQuery}
 				onSelectedChatChange={setSelectedChatId}

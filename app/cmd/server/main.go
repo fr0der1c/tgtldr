@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/frederic/tgtldr/app/internal/api"
@@ -53,6 +54,15 @@ func run() error {
 	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService)
 	telegramService.SetHistoryBackfillCompletionHook(func(chat model.Chat, fromDate, toDate string) {
 		_ = schedulerService.RepairEmptySummariesInRange(context.Background(), chat, fromDate, toDate)
+	})
+	telegramService.SetAlertHook(func(chat model.Chat, msg model.Message, keyword string) {
+		bgCtx := context.Background()
+		settings, err := st.Settings.Get(bgCtx)
+		if err != nil || !settings.BotEnabled || strings.TrimSpace(settings.BotToken) == "" {
+			return
+		}
+		text := fmt.Sprintf("🔔 **%s** 关键词提醒：`%s`\n\n%s", chat.Title, keyword, msg.TextContent)
+		_ = botService.SendMessageWithLanguage(bgCtx, settings.BotToken, settings.BotTargetChatID, text, settings.Language)
 	})
 	router := api.New(
 		st,

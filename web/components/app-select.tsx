@@ -5,6 +5,7 @@ import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useSta
 export type AppSelectOption = {
   label: string;
   value: string;
+  disabled?: boolean;
 };
 
 export function AppSelect({
@@ -77,9 +78,11 @@ export function AppSelect({
           {options.map((option) => (
             <button
               aria-selected={option.value === value}
-              className={`app-select-option ${option.value === value ? "selected" : ""}`}
+              className={`app-select-option ${option.value === value ? "selected" : ""}${option.disabled ? " disabled" : ""}`}
+              disabled={option.disabled}
               key={option.value}
               onClick={() => {
+                if (option.disabled) return;
                 onChange(option.value);
                 setOpen(false);
               }}
