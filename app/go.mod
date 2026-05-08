@@ -6,6 +6,8 @@ require (
 	github.com/gotd/td v0.134.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/smartystreets/goconvey v1.8.1
+	golang.org/x/crypto v0.44.0
+	golang.org/x/net v0.47.0
 	golang.org/x/sync v0.18.0
 )
 
@@ -40,10 +42,8 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
-	golang.org/x/crypto v0.44.0 // indirect
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/mod v0.30.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect

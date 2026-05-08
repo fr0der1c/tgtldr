@@ -314,7 +314,10 @@ func (s *Service) runListener(ctx context.Context) error {
 	dispatcher.OnNewChannelMessage(s.onNewChannelMessage)
 
 	manager := updates.New(updates.Config{Handler: dispatcher})
-	client = s.newConfiguredClient(manager)
+	client, err = s.newConfiguredClient(manager)
+	if err != nil {
+		return err
+	}
 
 	return client.Run(ctx, func(ctx context.Context) error {
 		status, err := client.Auth().Status(ctx)
@@ -439,34 +442,6 @@ func (s *Service) persistAuthorizedUser(ctx context.Context, client *telegram.Cl
 
 func (s *Service) BootstrapAuth(ctx context.Context) (*model.TelegramAuth, error) {
 	return s.store.Auth.Get(ctx)
-}
-
-func (s *Service) newClient() (*telegram.Client, model.AppSettings, error) {
-	settings, err := s.store.Settings.Get(context.Background())
-	if err != nil {
-		return nil, model.AppSettings{}, err
-	}
-	if settings.TelegramAPIID == 0 || strings.TrimSpace(settings.TelegramAPIHash) == "" {
-		return nil, model.AppSettings{}, ErrConfigIncomplete
-	}
-	client := s.newConfiguredClient(nil)
-	return client, settings, nil
-}
-
-func (s *Service) newConfiguredClient(handler telegram.UpdateHandler) *telegram.Client {
-	settings, _ := s.store.Settings.Get(context.Background())
-	options := telegram.Options{
-		SessionStorage: store.NewSessionStorage(s.store.Auth),
-		UpdateHandler:  handler,
-		Device: telegram.DeviceConfig{
-			DeviceModel:    "TGTLDR",
-			SystemVersion:  "Desktop",
-			AppVersion:     "Self-hosted",
-			SystemLangCode: "zh",
-			LangCode:       "zh",
-		},
-	}
-	return telegram.NewClient(settings.TelegramAPIID, settings.TelegramAPIHash, options)
 }
 
 func wrapTelegramError(err error) error {

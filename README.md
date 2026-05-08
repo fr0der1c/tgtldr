@@ -66,6 +66,22 @@ docker compose up -d
 
 首次访问前端后，按照页面向导完成访问密码、Telegram、OpenAI 和群组摘要配置即可。
 
+### 出站代理配置
+
+如果运行环境不能直连 Telegram 或 OpenAI，可以在 `.env` 中配置出站代理：
+
+```env
+# OpenAI API 和 Telegram Bot API 使用 Go 标准 HTTP 代理环境变量
+HTTPS_PROXY=socks5h://host.docker.internal:7890
+HTTP_PROXY=socks5h://host.docker.internal:7890
+NO_PROXY=localhost,127.0.0.1,postgres,app,web
+
+# Telegram 用户客户端（登录、监听、同步群组、历史回补）使用这个变量
+TGTLDR_TELEGRAM_PROXY_URL=socks5h://host.docker.internal:7890
+```
+
+`TGTLDR_TELEGRAM_PROXY_URL` 支持 `socks5://` 和 `socks5h://`，推荐使用 `socks5h://`。如果代理运行在宿主机上，Docker Desktop 用户通常需要写 `host.docker.internal:端口`，不要写 `127.0.0.1:端口`；Linux 用户需要确保容器可以访问宿主机代理地址。代理软件也需要允许来自 Docker 容器的连接，例如启用 LAN 访问或监听 `0.0.0.0`。
+
 ### 开发者：本地 Docker 构建启动
 
 如果你需要在本地修改代码并重新构建镜像，请使用开发 override：
@@ -86,6 +102,8 @@ cd app
 export TGTLDR_DATABASE_URL='postgres://postgres:postgres@localhost:5432/tgtldr?sslmode=disable'
 export TGTLDR_MASTER_KEY_FILE="$HOME/.tgtldr/master.key"
 export TGTLDR_MASTER_KEY='替换为 openssl rand -base64 32 生成的值'
+# 可选：Telegram 用户客户端代理
+# export TGTLDR_TELEGRAM_PROXY_URL='socks5h://127.0.0.1:7890'
 go run ./cmd/server
 ```
 

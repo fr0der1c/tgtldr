@@ -16,6 +16,10 @@ services:
       TGTLDR_MASTER_KEY_FILE: /var/lib/tgtldr/master.key
       TGTLDR_WEB_ORIGIN: http://localhost:${TGTLDR_HOST_WEB_PORT:-3000}
       TGTLDR_HTTP_ADDR: :8080
+      TGTLDR_TELEGRAM_PROXY_URL: ${TGTLDR_TELEGRAM_PROXY_URL:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,app,web}
     depends_on:
       - postgres
     volumes:
