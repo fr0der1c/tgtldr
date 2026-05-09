@@ -10,6 +10,7 @@ import {
   Summary,
   SummaryStats,
   SummaryContextPreview,
+  OpenAITestResult,
 } from "@/lib/types";
 
 type ErrorPayload = {
@@ -126,6 +127,11 @@ export const api = {
   saveSettings: (payload: AppSettings) =>
     request<AppSettings>("/api/settings", {
       method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  testOpenAISettings: (payload: AppSettings) =>
+    request<OpenAITestResult>("/api/settings/openai-test", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
   resolveBotTargetChat: (botToken?: string) =>

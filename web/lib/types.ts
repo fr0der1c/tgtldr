@@ -52,6 +52,11 @@ export type AuthStatus = {
   status: string;
 };
 
+export type OpenAITestResult = {
+  ok: boolean;
+  model: string;
+};
+
 export type BotTargetChatCandidate = {
   chatId: string;
   chatType: string;

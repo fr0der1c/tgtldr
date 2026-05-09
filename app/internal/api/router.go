@@ -57,6 +57,7 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/setup-password", r.handleSetupPassword)
 	mux.HandleFunc("/api/auth/change-password", r.handleChangePassword)
 	mux.HandleFunc("/api/settings", r.handleSettings)
+	mux.HandleFunc("/api/settings/openai-test", r.handleOpenAITest)
 	mux.HandleFunc("/api/bot/target-chat/resolve", r.handleResolveBotTargetChat)
 	mux.HandleFunc("/api/telegram/auth/start", r.handleStartAuth)
 	mux.HandleFunc("/api/telegram/auth/code", r.handleVerifyCode)

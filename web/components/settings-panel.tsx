@@ -58,6 +58,7 @@ export function SettingsPanel() {
   >([]);
   const [resolvingBotTargetChat, setResolvingBotTargetChat] = useState(false);
   const [savingBotTargetChat, setSavingBotTargetChat] = useState(false);
+  const [testingOpenAI, setTestingOpenAI] = useState(false);
   const toast = useToast();
   const timezoneOptions = useMemo(() => listTimezoneOptions(), []);
 
@@ -121,6 +122,22 @@ export function SettingsPanel() {
     } catch (err) {
       toast.showError(asMessage(err));
       return false;
+    }
+  }
+
+  async function testOpenAIConnection() {
+    if (!settings || testingOpenAI) {
+      return;
+    }
+
+    setTestingOpenAI(true);
+    try {
+      await api.testOpenAISettings(settings);
+      toast.showSuccess("OpenAI 连接测试成功。");
+    } catch (err) {
+      toast.showError(asMessage(err));
+    } finally {
+      setTestingOpenAI(false);
     }
   }
 
@@ -522,6 +539,18 @@ export function SettingsPanel() {
                   value={String(settings.summaryParallelism || 2)}
                 />
               </Field>
+              <div>
+                <Button
+                  disabled={testingOpenAI}
+                  onClick={() =>
+                    startTransition(() => void testOpenAIConnection())
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  {testingOpenAI ? "测试中..." : "测试连接"}
+                </Button>
+              </div>
             </div>
           </Surface>
 

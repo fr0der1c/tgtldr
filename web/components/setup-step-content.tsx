@@ -21,6 +21,8 @@ type ConfigStepProps = {
   settings: AppSettings;
   setSettings: (settings: AppSettings) => void;
   canSave: boolean;
+  testingOpenAI: boolean;
+  onTestOpenAI: () => void;
   onSaveAndContinue: () => void;
 };
 
@@ -28,6 +30,8 @@ export function ConfigStep({
   settings,
   setSettings,
   canSave,
+  testingOpenAI,
+  onTestOpenAI,
   onSaveAndContinue,
 }: ConfigStepProps) {
   const { dict } = useI18n();
@@ -149,6 +153,16 @@ export function ConfigStep({
                   />
                 </Field>
               ) : null}
+              <div>
+                <Button
+                  disabled={testingOpenAI}
+                  onClick={() => startTransition(onTestOpenAI)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {testingOpenAI ? "测试中..." : "测试连接"}
+                </Button>
+              </div>
             </div>
 
             <details className="setup-details">

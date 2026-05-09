@@ -61,6 +61,7 @@ export function SetupWizard() {
     BotTargetChatCandidate[]
   >([]);
   const [resolvingBotTargetChat, setResolvingBotTargetChat] = useState(false);
+  const [testingOpenAI, setTestingOpenAI] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -173,6 +174,24 @@ export function SetupWizard() {
     } catch (err) {
       setError(asMessage(err));
       return false;
+    }
+  }
+
+  async function testOpenAIConnection() {
+    if (testingOpenAI) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setTestingOpenAI(true);
+    try {
+      await api.testOpenAISettings(settings);
+      setNotice("OpenAI 连接测试成功。");
+    } catch (err) {
+      setError(asMessage(err));
+    } finally {
+      setTestingOpenAI(false);
     }
   }
 
@@ -412,6 +431,8 @@ export function SetupWizard() {
             settings={settings}
             setSettings={setSettings}
             canSave={validateSettings(settings) === null}
+            testingOpenAI={testingOpenAI}
+            onTestOpenAI={testOpenAIConnection}
             onSaveAndContinue={() =>
               saveSettings("login", "基础配置已保存，进入登录步骤。")
             }
