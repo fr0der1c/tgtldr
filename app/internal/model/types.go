@@ -155,6 +155,9 @@ type Summary struct {
 	DeliveredAt        *time.Time    `json:"deliveredAt,omitempty"`
 	DeliveryError      string        `json:"deliveryError"`
 	ErrorMessage       string        `json:"errorMessage"`
+	ErrorContext       string        `json:"errorContext"`
+	ErrorSystemPrompt  string        `json:"errorSystemPrompt"`
+	ErrorUserPrompt    string        `json:"errorUserPrompt"`
 	MatchSnippet       string        `json:"matchSnippet,omitempty"`
 	MatchedFields      []string      `json:"matchedFields,omitempty"`
 	CreatedAt          time.Time     `json:"createdAt"`

@@ -2,6 +2,8 @@ package summary
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -144,6 +146,16 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		chunk := chunk
 		group.Go(func() error {
 			transcript := BuildTranscript(chunk.Messages, messageLookup, location, settings.Language)
+			requestSnapshot := buildOpenAIRequestSnapshot(openAIRequestContextInput{
+				Stage:        "chunk",
+				ChunkIndex:   &index,
+				BaseURL:      settings.OpenAIBaseURL,
+				Model:        summary.Model,
+				Temperature:  settings.OpenAITemperature,
+				MaxOutput:    budget.StageRequestMax,
+				SystemPrompt: stagePrompt,
+				UserPrompt:   transcript,
+			})
 			resp, err := client.Chat(groupCtx, openai.ChatRequest{
 				SystemPrompt: stagePrompt,
 				UserPrompt:   transcript,
@@ -151,7 +163,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 				MaxOutput:    budget.StageRequestMax,
 			})
 			if err != nil {
-				return err
+				return wrapOpenAIRequestError(err, requestSnapshot)
 			}
 			partials[index] = strings.TrimSpace(resp.Content)
 			return nil
@@ -160,10 +172,22 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	if err := group.Wait(); err != nil {
 		summary.Status = model.SummaryStatusFailed
 		summary.ErrorMessage = err.Error()
+		summary.ErrorContext = openAIErrorContext(err)
+		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(err)
+		summary.ErrorUserPrompt = openAIErrorUserPrompt(err)
 		return summary, nil
 	}
 
 	finalInput := strings.Join(partials, "\n\n---\n\n")
+	finalRequestSnapshot := buildOpenAIRequestSnapshot(openAIRequestContextInput{
+		Stage:        "final",
+		BaseURL:      settings.OpenAIBaseURL,
+		Model:        summary.Model,
+		Temperature:  settings.OpenAITemperature,
+		MaxOutput:    budget.FinalRequestMax,
+		SystemPrompt: finalPrompt,
+		UserPrompt:   finalInput,
+	})
 	finalResp, err := client.Chat(ctx, openai.ChatRequest{
 		SystemPrompt: finalPrompt,
 		UserPrompt:   finalInput,
@@ -171,8 +195,12 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		MaxOutput:    budget.FinalRequestMax,
 	})
 	if err != nil {
+		wrappedErr := wrapOpenAIRequestError(err, finalRequestSnapshot)
 		summary.Status = model.SummaryStatusFailed
-		summary.ErrorMessage = err.Error()
+		summary.ErrorMessage = wrappedErr.Error()
+		summary.ErrorContext = openAIErrorContext(wrappedErr)
+		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(wrappedErr)
+		summary.ErrorUserPrompt = openAIErrorUserPrompt(wrappedErr)
 		return summary, nil
 	}
 
@@ -196,6 +224,102 @@ func resolveSummaryTimezone(chat model.Chat, fallback string) string {
 		return timezone
 	}
 	return time.Local.String()
+}
+
+type openAIRequestContextInput struct {
+	Stage        string
+	ChunkIndex   *int
+	BaseURL      string
+	Model        string
+	Temperature  float64
+	MaxOutput    int
+	SystemPrompt string
+	UserPrompt   string
+}
+
+type openAIRequestContextPayload struct {
+	Stage       string  `json:"stage"`
+	ChunkIndex  *int    `json:"chunkIndex,omitempty"`
+	BaseURL     string  `json:"baseURL"`
+	Model       string  `json:"model"`
+	Temperature float64 `json:"temperature"`
+	MaxOutput   int     `json:"maxOutput"`
+}
+
+type openAIRequestSnapshot struct {
+	Context      string
+	SystemPrompt string
+	UserPrompt   string
+}
+
+func buildOpenAIRequestSnapshot(input openAIRequestContextInput) openAIRequestSnapshot {
+	payload := openAIRequestContextPayload{
+		Stage:       input.Stage,
+		ChunkIndex:  input.ChunkIndex,
+		BaseURL:     input.BaseURL,
+		Model:       input.Model,
+		Temperature: input.Temperature,
+		MaxOutput:   input.MaxOutput,
+	}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return openAIRequestSnapshot{
+			SystemPrompt: input.SystemPrompt,
+			UserPrompt:   input.UserPrompt,
+		}
+	}
+	return openAIRequestSnapshot{
+		Context:      string(encoded),
+		SystemPrompt: input.SystemPrompt,
+		UserPrompt:   input.UserPrompt,
+	}
+}
+
+type openAIRequestError struct {
+	err             error
+	requestSnapshot openAIRequestSnapshot
+}
+
+func (e *openAIRequestError) Error() string {
+	return e.err.Error()
+}
+
+func (e *openAIRequestError) Unwrap() error {
+	return e.err
+}
+
+func wrapOpenAIRequestError(err error, requestSnapshot openAIRequestSnapshot) error {
+	if err == nil {
+		return nil
+	}
+	return &openAIRequestError{
+		err:             err,
+		requestSnapshot: requestSnapshot,
+	}
+}
+
+func openAIErrorContext(err error) string {
+	var requestErr *openAIRequestError
+	if errors.As(err, &requestErr) {
+		return requestErr.requestSnapshot.Context
+	}
+	return ""
+}
+
+func openAIErrorSystemPrompt(err error) string {
+	var requestErr *openAIRequestError
+	if errors.As(err, &requestErr) {
+		return requestErr.requestSnapshot.SystemPrompt
+	}
+	return ""
+}
+
+func openAIErrorUserPrompt(err error) string {
+	var requestErr *openAIRequestError
+	if errors.As(err, &requestErr) {
+		return requestErr.requestSnapshot.UserPrompt
+	}
+	return ""
 }
 
 func loadLocation(timezone string) (*time.Location, error) {

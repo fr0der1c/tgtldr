@@ -1092,6 +1092,26 @@ select {
   overflow: auto;
 }
 
+.summary-error-context-section {
+  display: grid;
+  gap: 8px;
+}
+
+.summary-error-context-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-error-context-head .muted {
+  margin: 0;
+}
+
+.summary-error-context-block {
+  max-height: min(38vh, 420px);
+}
+
 .summary-manual-panel {
   display: grid;
   gap: 16px;

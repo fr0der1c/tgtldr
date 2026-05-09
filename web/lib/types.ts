@@ -115,6 +115,9 @@ export type Summary = {
   deliveredAt?: string;
   deliveryError: string;
   errorMessage: string;
+  errorContext: string;
+  errorSystemPrompt: string;
+  errorUserPrompt: string;
   matchSnippet?: string;
   matchedFields?: string[];
 };

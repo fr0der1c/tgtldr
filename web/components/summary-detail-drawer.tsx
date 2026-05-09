@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown } from "@/components/summary-markdown";
@@ -95,7 +95,23 @@ export function SummaryDetailDrawer({
 
 function SummaryContent({ summary }: { summary: Summary }) {
   if (summary.status === "failed") {
-    return <pre className="summary-context-block">{summary.errorMessage || ""}</pre>;
+    return (
+      <div className="summary-context-stack">
+        <div>
+          <p className="muted">服务器返回错误</p>
+          <pre className="summary-context-block">{summary.errorMessage || ""}</pre>
+        </div>
+        {summary.errorContext ? (
+          <CopyableContextBlock title="OpenAI 请求参数" value={summary.errorContext} />
+        ) : null}
+        {summary.errorSystemPrompt ? (
+          <CopyableContextBlock title="System prompt" value={summary.errorSystemPrompt} />
+        ) : null}
+        {summary.errorUserPrompt ? (
+          <CopyableContextBlock title="User prompt" value={summary.errorUserPrompt} />
+        ) : null}
+      </div>
+    );
   }
 
   if (!summary.content) {
@@ -110,6 +126,32 @@ function SummaryContent({ summary }: { summary: Summary }) {
   return (
     <div className="summary-detail-content">
       <SummaryMarkdown content={summary.content} />
+    </div>
+  );
+}
+
+function CopyableContextBlock({ title, value }: { title: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="summary-error-context-section">
+      <div className="summary-error-context-head">
+        <p className="muted">{title}</p>
+        <button className="text-link-button" onClick={handleCopy} type="button">
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      <pre className="summary-context-block summary-error-context-block">{value}</pre>
     </div>
   );
 }

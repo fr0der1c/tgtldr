@@ -1,6 +1,7 @@
 package summary
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -47,5 +48,48 @@ func TestPrepareMessages(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(filtered), ShouldEqual, 0)
 		So(len(lookup), ShouldEqual, 3)
+	})
+}
+
+func TestOpenAIErrorContext(t *testing.T) {
+	Convey("OpenAI 请求 context 会记录复现所需参数且不包含密钥", t, func() {
+		chunkIndex := 0
+		snapshot := buildOpenAIRequestSnapshot(openAIRequestContextInput{
+			Stage:        "chunk",
+			ChunkIndex:   &chunkIndex,
+			BaseURL:      "https://example.com/v1",
+			Model:        "gpt-test",
+			Temperature:  0.2,
+			MaxOutput:    16,
+			SystemPrompt: "system prompt",
+			UserPrompt:   "user prompt",
+		})
+
+		So(snapshot.Context, ShouldContainSubstring, `"stage": "chunk"`)
+		So(snapshot.Context, ShouldContainSubstring, `"chunkIndex": 0`)
+		So(snapshot.Context, ShouldContainSubstring, `"baseURL": "https://example.com/v1"`)
+		So(snapshot.Context, ShouldContainSubstring, `"model": "gpt-test"`)
+		So(snapshot.Context, ShouldNotContainSubstring, "systemPrompt")
+		So(snapshot.Context, ShouldNotContainSubstring, "userPrompt")
+		So(snapshot.Context, ShouldNotContainSubstring, "apiKey")
+		So(snapshot.Context, ShouldNotContainSubstring, "Authorization")
+		So(snapshot.SystemPrompt, ShouldEqual, "system prompt")
+		So(snapshot.UserPrompt, ShouldEqual, "user prompt")
+	})
+
+	Convey("OpenAI 错误包装会保留原错误文案并带出请求 context", t, func() {
+		wrapped := wrapOpenAIRequestError(
+			errors.New("openai status 504: error code: 504"),
+			openAIRequestSnapshot{
+				Context:      "request context",
+				SystemPrompt: "system prompt",
+				UserPrompt:   "user prompt",
+			},
+		)
+
+		So(wrapped.Error(), ShouldEqual, "openai status 504: error code: 504")
+		So(openAIErrorContext(wrapped), ShouldEqual, "request context")
+		So(openAIErrorSystemPrompt(wrapped), ShouldEqual, "system prompt")
+		So(openAIErrorUserPrompt(wrapped), ShouldEqual, "user prompt")
 	})
 }

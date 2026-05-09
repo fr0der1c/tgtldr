@@ -18,7 +18,8 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select id, chat_id, summary_date::text, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, ''::text as match_snippet,
+		       delivery_error, error_message, error_context, error_system_prompt,
+		       error_user_prompt, ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, created_at, updated_at
 		from summaries
 		where id = $1
@@ -33,7 +34,8 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select id, chat_id, summary_date::text, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, ''::text as match_snippet,
+		       delivery_error, error_message, error_context, error_system_prompt,
+		       error_user_prompt, ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, created_at, updated_at
 		from summaries
 		where chat_id = $1 and summary_date = $2::date
@@ -71,7 +73,8 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	dataQuery := `
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
-		       s.delivery_error, s.error_message, ''::text as match_snippet,
+		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.error_user_prompt, ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, s.created_at, s.updated_at, c.title
 		from summaries s
 		join chats c on c.id = s.chat_id
@@ -122,7 +125,12 @@ func (r *SummaryRepository) UpsertPending(ctx context.Context, chatID int64, dat
 func (r *SummaryRepository) SetRunning(ctx context.Context, chatID int64, date string) error {
 	_, err := r.pool.Exec(ctx, `
 		update summaries
-		set status = 'running', error_message = '', updated_at = now()
+		set status = 'running',
+		    error_message = '',
+		    error_context = '',
+		    error_system_prompt = '',
+		    error_user_prompt = '',
+		    updated_at = now()
 		where chat_id = $1 and summary_date = $2::date
 	`, chatID, date)
 	if err != nil {
@@ -132,6 +140,14 @@ func (r *SummaryRepository) SetRunning(ctx context.Context, chatID int64, date s
 }
 
 func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summary) error {
+	errorContext := summary.ErrorContext
+	errorSystemPrompt := summary.ErrorSystemPrompt
+	errorUserPrompt := summary.ErrorUserPrompt
+	if summary.Status == model.SummaryStatusSucceeded {
+		errorContext = ""
+		errorSystemPrompt = ""
+		errorUserPrompt = ""
+	}
 	_, err := r.pool.Exec(ctx, `
 		update summaries
 		set status = $1,
@@ -141,10 +157,13 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		    chunk_count = $5,
 		    generated_at = $6,
 		    error_message = $7,
+		    error_context = $8,
+		    error_system_prompt = $9,
+		    error_user_prompt = $10,
 		    delivered_at = null,
 		    delivery_error = '',
 		    updated_at = now()
-		where chat_id = $8 and summary_date = $9::date
+		where chat_id = $11 and summary_date = $12::date
 	`,
 		summary.Status,
 		summary.Content,
@@ -153,6 +172,9 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		summary.ChunkCount,
 		summary.GeneratedAt,
 		summary.ErrorMessage,
+		errorContext,
+		errorSystemPrompt,
+		errorUserPrompt,
 		summary.ChatID,
 		summary.SummaryDate,
 	)
@@ -195,6 +217,9 @@ func (r *SummaryRepository) SetFailed(ctx context.Context, chatID int64, date st
 		update summaries
 		set status = 'failed',
 		    error_message = $1,
+		    error_context = '',
+		    error_system_prompt = '',
+		    error_user_prompt = '',
 		    updated_at = now()
 		where chat_id = $2 and summary_date = $3::date
 	`, message, chatID, date)
@@ -233,6 +258,9 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.DeliveredAt,
 		&item.DeliveryError,
 		&item.ErrorMessage,
+		&item.ErrorContext,
+		&item.ErrorSystemPrompt,
+		&item.ErrorUserPrompt,
 		&item.MatchSnippet,
 		&item.MatchedFields,
 		&item.CreatedAt,
@@ -254,6 +282,9 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.DeliveredAt,
 		&item.DeliveryError,
 		&item.ErrorMessage,
+		&item.ErrorContext,
+		&item.ErrorSystemPrompt,
+		&item.ErrorUserPrompt,
 		&item.MatchSnippet,
 		&item.MatchedFields,
 		&item.CreatedAt,
