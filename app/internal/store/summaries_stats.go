@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 )
 
 func (r *SummaryRepository) Stats(ctx context.Context) (model.SummaryStats, error) {

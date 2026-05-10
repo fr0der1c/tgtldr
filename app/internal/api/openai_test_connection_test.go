@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

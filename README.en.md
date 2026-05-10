@@ -181,6 +181,14 @@ server {
   - `fr0der1c/tgtldr-app`
   - `fr0der1c/tgtldr-web`
 
+## Contributing
+
+This project is an experimental project coded with AI assistance. AI-generated code is welcome, but that does not remove your responsibility for the quality of the code you submit. Whether the code was written by AI or not, the person opening the Pull Request is the first person responsible for it.
+
+When using AI for coding, make sure you follow this project's conventions, especially by reading and following [AGENTS.md](AGENTS.md). As before the AI era, you still need meaningful commit messages that accurately describe your changes, and you should squash the related changes into a single commit before opening a Pull Request.
+
+A recommended habit is to start a separate agent before opening a Pull Request and ask it to review your changes strictly from a reviewer's perspective. Submit the Pull Request only after obvious issues have been addressed.
+
 ## License
 
 This project uses the [PolyForm Noncommercial License 1.0.0](LICENSE).

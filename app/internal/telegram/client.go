@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/store"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/store"
 	"github.com/gotd/td/telegram"
 )
 

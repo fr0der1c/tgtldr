@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/httpx"
-	"github.com/frederic/tgtldr/app/internal/localauth"
+	"github.com/fr0der1c/tgtldr/app/internal/httpx"
+	"github.com/fr0der1c/tgtldr/app/internal/localauth"
 )
 
 const sessionCookieName = "tgtldr_session"

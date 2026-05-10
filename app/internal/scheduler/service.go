@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/bot"
-	"github.com/frederic/tgtldr/app/internal/clock"
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/store"
-	"github.com/frederic/tgtldr/app/internal/summary"
+	"github.com/fr0der1c/tgtldr/app/internal/bot"
+	"github.com/fr0der1c/tgtldr/app/internal/clock"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/store"
+	"github.com/fr0der1c/tgtldr/app/internal/summary"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 )

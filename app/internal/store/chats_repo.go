@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

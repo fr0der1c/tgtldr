@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/clock"
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/store"
+	"github.com/fr0der1c/tgtldr/app/internal/clock"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/store"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
 	dialogsquery "github.com/gotd/td/telegram/query/dialogs"

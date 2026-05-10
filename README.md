@@ -181,6 +181,14 @@ server {
   - `fr0der1c/tgtldr-app`
   - `fr0der1c/tgtldr-web`
 
+## 贡献指南
+
+本项目是一个由 AI 辅助编码的实验性项目。我们欢迎 AI 生成的代码，但这并不意味着你可以不用为提交的代码质量负责。无论代码是否由 AI 编写，提交 Pull Request 的人都是代码的第一责任人。
+
+使用 AI 进行编码时，请确保遵守本项目中的约定，尤其是先阅读并遵循 [AGENTS.md](AGENTS.md)。和前 AI 时代一样，你仍然需要确保 commit message 有意义，能够准确描述修改内容，并在提交 Pull Request 前将相关修改 squash 成一个单独的 commit。
+
+一个推荐的习惯是：在提交 Pull Request 前，可以新开一个 agent，让它完全以 reviewer 的视角 review 你的变更，确认没有明显问题后再提交。
+
 ## License
 
 本项目使用 [PolyForm Noncommercial License 1.0.0](LICENSE)。

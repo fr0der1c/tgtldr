@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/clock"
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/openai"
-	"github.com/frederic/tgtldr/app/internal/store"
+	"github.com/fr0der1c/tgtldr/app/internal/clock"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/openai"
+	"github.com/fr0der1c/tgtldr/app/internal/store"
 	"golang.org/x/sync/errgroup"
 )
 

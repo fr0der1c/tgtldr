@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	messagepeer "github.com/gotd/td/telegram/message/peer"
 	dialogsquery "github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/tg"

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/frederic/tgtldr/app/internal/httpx"
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/openai"
+	"github.com/fr0der1c/tgtldr/app/internal/httpx"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/openai"
 )
 
 type openAITestResult struct {

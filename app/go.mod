@@ -1,4 +1,4 @@
-module github.com/frederic/tgtldr/app
+module github.com/fr0der1c/tgtldr/app
 
 go 1.24.6
 

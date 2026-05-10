@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/bot"
-	"github.com/frederic/tgtldr/app/internal/httpx"
-	"github.com/frederic/tgtldr/app/internal/localauth"
-	"github.com/frederic/tgtldr/app/internal/model"
-	"github.com/frederic/tgtldr/app/internal/scheduler"
-	"github.com/frederic/tgtldr/app/internal/store"
-	telegramsvc "github.com/frederic/tgtldr/app/internal/telegram"
+	"github.com/fr0der1c/tgtldr/app/internal/bot"
+	"github.com/fr0der1c/tgtldr/app/internal/httpx"
+	"github.com/fr0der1c/tgtldr/app/internal/localauth"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/scheduler"
+	"github.com/fr0der1c/tgtldr/app/internal/store"
+	telegramsvc "github.com/fr0der1c/tgtldr/app/internal/telegram"
 )
 
 type Router struct {

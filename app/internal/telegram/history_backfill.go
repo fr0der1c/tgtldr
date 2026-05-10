@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frederic/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/gotd/td/telegram/message/peer"
 	messagesquery "github.com/gotd/td/telegram/query/messages"
 	"github.com/gotd/td/tg"
