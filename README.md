@@ -1,6 +1,6 @@
 # TGTLDR
 
-[English version](README.en.md)
+[English version](README.en.md) | [更新日志](CHANGELOG.md) | [Changelog](CHANGELOG.en.md)
 
 TGTLDR （Telegram Too Long, Don't Read）是一个单用户自部署的 Telegram 群消息监听与每日 AI 摘要系统。
 

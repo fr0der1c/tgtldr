@@ -1,6 +1,6 @@
 # TGTLDR
 
-[中文版](README.md)
+[中文版](README.md) | [更新日志](CHANGELOG.md) | [Changelog](CHANGELOG.en.md)
 
 TGTLDR (Telegram Too Long, Don't Read) is a single-user, self-hosted Telegram group monitoring and daily AI summary system.
 
