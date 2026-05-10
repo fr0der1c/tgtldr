@@ -12,6 +12,9 @@ export type AppSettings = {
   openAIOutputMode: "auto" | "manual";
   openAIMaxOutputTokens: number;
   summaryParallelism: number;
+  summaryRetryLimit: number;
+  summaryRetryBackoffBaseMinutes: number;
+  summaryRetryBackoffMultiplier: number;
   defaultTimezone: string;
   language: Language;
   botEnabled: boolean;
@@ -118,6 +121,8 @@ export type Summary = {
   errorContext: string;
   errorSystemPrompt: string;
   errorUserPrompt: string;
+  retryCount: number;
+  nextRetryAt?: string;
   matchSnippet?: string;
   matchedFields?: string[];
 };

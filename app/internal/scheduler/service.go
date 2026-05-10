@@ -31,6 +31,7 @@ type scheduledAction int
 const (
 	scheduledActionSkip scheduledAction = iota
 	scheduledActionGenerate
+	scheduledActionRetry
 	scheduledActionDeliver
 )
 
@@ -75,6 +76,19 @@ func (s *Service) RunNow(ctx context.Context, chat model.Chat, date string) erro
 	}
 	defer s.finishTask(key)
 	return s.runNow(ctx, chat, date)
+}
+
+func (s *Service) RunRetry(ctx context.Context, chat model.Chat, date string) error {
+	key := summaryTaskKey(chat.ID, date)
+	if !s.beginTask(key) {
+		return nil
+	}
+	defer s.finishTask(key)
+
+	if err := s.store.Summaries.SetRetryRunning(ctx, chat.ID, date); err != nil {
+		return err
+	}
+	return s.executeSummary(ctx, chat, date)
 }
 
 func (s *Service) RunNowAsync(ctx context.Context, chat model.Chat, date string) (bool, error) {
@@ -185,6 +199,9 @@ func (s *Service) executeSummary(ctx context.Context, chat model.Chat, date stri
 		return err
 	}
 	if result.Status != model.SummaryStatusSucceeded {
+		if result.RetryableError {
+			return s.scheduleNextRetry(ctx, result)
+		}
 		return nil
 	}
 	s.tryDeliverSummary(ctx, chat, result)
@@ -216,9 +233,11 @@ func (s *Service) runOnce(ctx context.Context) error {
 				return err
 			}
 
-			switch decideScheduledAction(chat, item, found, timezone) {
+			switch decideScheduledAction(chat, item, found, timezone, settings, s.clock.Now()) {
 			case scheduledActionSkip:
 				return nil
+			case scheduledActionRetry:
+				return s.RunRetry(groupCtx, chat, date)
 			case scheduledActionDeliver:
 				s.deliverExistingSummary(groupCtx, chat, item)
 				return nil
@@ -228,6 +247,22 @@ func (s *Service) runOnce(ctx context.Context) error {
 		})
 	}
 	return group.Wait()
+}
+
+func (s *Service) scheduleNextRetry(ctx context.Context, result model.Summary) error {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return err
+	}
+	item, err := s.store.Summaries.GetByChatAndDate(ctx, result.ChatID, result.SummaryDate)
+	if err != nil {
+		return err
+	}
+	nextRetryAt, ok := nextSummaryRetryAt(settings, item.RetryCount, s.clock.Now())
+	if !ok {
+		return nil
+	}
+	return s.store.Summaries.ScheduleRetry(ctx, result.ChatID, result.SummaryDate, nextRetryAt)
 }
 
 func (s *Service) deliverExistingSummary(ctx context.Context, chat model.Chat, result model.Summary) {
@@ -287,9 +322,22 @@ func (s *Service) lookupSummary(ctx context.Context, chatID int64, date string) 
 	return model.Summary{}, false, err
 }
 
-func decideScheduledAction(chat model.Chat, item model.Summary, found bool, timezone string) scheduledAction {
+func decideScheduledAction(
+	chat model.Chat,
+	item model.Summary,
+	found bool,
+	timezone string,
+	settings model.AppSettings,
+	now time.Time,
+) scheduledAction {
 	if !found {
 		return scheduledActionGenerate
+	}
+	if item.Status == model.SummaryStatusFailed {
+		if shouldRetrySummary(settings, item, now) {
+			return scheduledActionRetry
+		}
+		return scheduledActionSkip
 	}
 	if item.Status != model.SummaryStatusSucceeded {
 		return scheduledActionGenerate

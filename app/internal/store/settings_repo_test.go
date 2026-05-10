@@ -18,4 +18,11 @@ func TestNormalizeAppSettingsLanguage(t *testing.T) {
 
 		So(settings.Language, ShouldEqual, model.LanguageEN)
 	})
+
+	Convey("重试退避参数为空时使用默认值", t, func() {
+		settings := normalizeAppSettings(model.AppSettings{})
+
+		So(settings.SummaryRetryBackoffBaseMinutes, ShouldEqual, model.DefaultSummaryRetryBackoffBaseMinutes)
+		So(settings.SummaryRetryBackoffMultiplier, ShouldEqual, model.DefaultSummaryRetryBackoffMultiplier)
+	})
 }

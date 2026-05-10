@@ -17,7 +17,8 @@ export function SummaryDetailDrawer({
   onRetryDelivery,
   open,
   selectedChat,
-  selectedSummary
+  selectedSummary,
+  summaryRetryLimit
 }: {
   botReady: boolean;
   chatTitle: string;
@@ -28,6 +29,7 @@ export function SummaryDetailDrawer({
   open: boolean;
   selectedChat: Chat | null;
   selectedSummary: Summary | null;
+  summaryRetryLimit: number;
 }) {
   const selectedDelivery = selectedSummary
     ? deliveryState(selectedSummary, selectedChat, botReady)
@@ -86,17 +88,24 @@ export function SummaryDetailDrawer({
               </button>
             </div>
           </div>
-          <SummaryContent summary={selectedSummary} />
+          <SummaryContent summary={selectedSummary} summaryRetryLimit={summaryRetryLimit} />
         </div>
       )}
     </Drawer>
   );
 }
 
-function SummaryContent({ summary }: { summary: Summary }) {
+function SummaryContent({
+  summary,
+  summaryRetryLimit,
+}: {
+  summary: Summary;
+  summaryRetryLimit: number;
+}) {
   if (summary.status === "failed") {
     return (
       <div className="summary-context-stack">
+        <RetryStatus summary={summary} summaryRetryLimit={summaryRetryLimit} />
         <div>
           <p className="muted">服务器返回错误</p>
           <pre className="summary-context-block">{summary.errorMessage || ""}</pre>
@@ -128,6 +137,41 @@ function SummaryContent({ summary }: { summary: Summary }) {
       <SummaryMarkdown content={summary.content} />
     </div>
   );
+}
+
+function RetryStatus({
+  summary,
+  summaryRetryLimit,
+}: {
+  summary: Summary;
+  summaryRetryLimit: number;
+}) {
+  const retryCount = summary.retryCount || 0;
+  const limitLabel =
+    summaryRetryLimit > 0 ? `${retryCount} / ${summaryRetryLimit}` : `${retryCount} / 0`;
+  let detail = "未安排自动重试。";
+  if (summary.nextRetryAt) {
+    detail = `下次自动重试：${formatRetryTime(summary.nextRetryAt)}`;
+  } else if (summaryRetryLimit > 0 && retryCount >= summaryRetryLimit) {
+    detail = "已达到自动重试上限。";
+  } else if (summaryRetryLimit === 0) {
+    detail = "自动重试已关闭。";
+  }
+
+  return (
+    <div className="summary-retry-status">
+      <p>已自动重试 {limitLabel}</p>
+      <span>{detail}</span>
+    </div>
+  );
+}
+
+function formatRetryTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("zh-CN", { hour12: false });
 }
 
 function CopyableContextBlock({ title, value }: { title: string; value: string }) {

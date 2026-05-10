@@ -294,6 +294,18 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "摘要并行度必须在 1 到 6 之间。", "Summary parallelism must be between 1 and 6."))
 		return
 	}
+	if payload.SummaryRetryLimit < 0 {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "重试次数上限不能小于 0。", "Summary retry limit cannot be less than 0."))
+		return
+	}
+	if payload.SummaryRetryBackoffBaseMinutes < 1 {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "重试起始间隔必须至少为 1 分钟。", "Summary retry backoff base must be at least 1 minute."))
+		return
+	}
+	if payload.SummaryRetryBackoffMultiplier < 1 {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "退避倍率必须大于或等于 1。", "Summary retry backoff multiplier must be at least 1."))
+		return
+	}
 	if payload.BotEnabled && strings.TrimSpace(payload.BotToken) == "" {
 		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "启用 Bot 推送时必须填写 Bot Token。", "Bot Token is required when Bot delivery is enabled."))
 		return

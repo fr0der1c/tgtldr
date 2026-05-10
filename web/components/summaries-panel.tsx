@@ -37,6 +37,7 @@ export function SummariesPanel() {
 	const [allChats, setAllChats] = useState<Chat[]>([]);
 	const [chats, setChats] = useState<Chat[]>([]);
 	const [botReady, setBotReady] = useState(false);
+	const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
 	const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
 	const [detailOpen, setDetailOpen] = useState(false);
 	const [selectedChatId, setSelectedChatId] = useState("");
@@ -166,6 +167,7 @@ export function SummariesPanel() {
 					Boolean(settingsData.botToken?.trim()) &&
 					Boolean(settingsData.botTargetChatId?.trim()),
 			);
+			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 2);
 			setSelectedChatId((current) => {
 				if (current && manualChats.some((chat) => String(chat.id) === current)) {
 					return current;
@@ -344,6 +346,7 @@ export function SummariesPanel() {
 				open={detailOpen && Boolean(selectedSummary)}
 				selectedChat={selectedChat}
 				selectedSummary={selectedSummary}
+				summaryRetryLimit={summaryRetryLimit}
 			/>
 
 			<SummaryContextModal

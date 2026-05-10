@@ -31,11 +31,71 @@ func TestDecideScheduledAction(t *testing.T) {
 			expected: scheduledActionGenerate,
 		},
 		{
-			name:     "摘要未成功时重新生成",
+			name:     "失败摘要没有重试计划时跳过",
 			chat:     model.Chat{DeliveryMode: model.DeliveryModeBot},
 			found:    true,
 			summary:  model.Summary{Status: model.SummaryStatusFailed},
-			expected: scheduledActionGenerate,
+			expected: scheduledActionSkip,
+		},
+		{
+			name:  "失败摘要到达重试时间时自动重试",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status:     model.SummaryStatusFailed,
+				RetryCount: 1,
+				NextRetryAt: timePtr(time.Date(
+					2026,
+					time.April,
+					18,
+					8,
+					59,
+					0,
+					0,
+					shanghai,
+				)),
+			},
+			expected: scheduledActionRetry,
+		},
+		{
+			name:  "失败摘要未到重试时间时跳过",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status:     model.SummaryStatusFailed,
+				RetryCount: 1,
+				NextRetryAt: timePtr(time.Date(
+					2026,
+					time.April,
+					18,
+					9,
+					1,
+					0,
+					0,
+					shanghai,
+				)),
+			},
+			expected: scheduledActionSkip,
+		},
+		{
+			name:  "失败摘要达到重试上限后跳过",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status:     model.SummaryStatusFailed,
+				RetryCount: 2,
+				NextRetryAt: timePtr(time.Date(
+					2026,
+					time.April,
+					18,
+					8,
+					59,
+					0,
+					0,
+					shanghai,
+				)),
+			},
+			expected: scheduledActionSkip,
 		},
 		{
 			name:     "Bot 模式且摘要完整时只发送",
@@ -86,12 +146,58 @@ func TestDecideScheduledAction(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			actual := decideScheduledAction(testCase.chat, testCase.summary, testCase.found, "Asia/Shanghai")
+			actual := decideScheduledAction(
+				testCase.chat,
+				testCase.summary,
+				testCase.found,
+				"Asia/Shanghai",
+				model.AppSettings{SummaryRetryLimit: 2},
+				time.Date(2026, time.April, 18, 9, 0, 0, 0, shanghai),
+			)
 			if actual != testCase.expected {
 				t.Fatalf("expected action %d, got %d", testCase.expected, actual)
 			}
 		})
 	}
+}
+
+func TestSummaryRetryBackoff(t *testing.T) {
+	Convey("重试退避按起始间隔和倍率计算", t, func() {
+		settings := model.AppSettings{
+			SummaryRetryLimit:              3,
+			SummaryRetryBackoffBaseMinutes: 1,
+			SummaryRetryBackoffMultiplier:  3,
+		}
+
+		So(summaryRetryBackoffDelay(settings, 1), ShouldEqual, time.Minute)
+		So(summaryRetryBackoffDelay(settings, 2), ShouldEqual, 3*time.Minute)
+		So(summaryRetryBackoffDelay(settings, 3), ShouldEqual, 9*time.Minute)
+	})
+
+	Convey("倍率为 1 时固定间隔重试", t, func() {
+		settings := model.AppSettings{
+			SummaryRetryLimit:              3,
+			SummaryRetryBackoffBaseMinutes: 2,
+			SummaryRetryBackoffMultiplier:  1,
+		}
+
+		So(summaryRetryBackoffDelay(settings, 1), ShouldEqual, 2*time.Minute)
+		So(summaryRetryBackoffDelay(settings, 3), ShouldEqual, 2*time.Minute)
+	})
+
+	Convey("极大重试次数不会导致 duration 溢出", t, func() {
+		settings := model.AppSettings{
+			SummaryRetryLimit:              1000,
+			SummaryRetryBackoffBaseMinutes: 1,
+			SummaryRetryBackoffMultiplier:  3,
+		}
+
+		So(summaryRetryBackoffDelay(settings, 1000), ShouldEqual, maxRetryBackoffDuration)
+	})
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
 }
 
 func TestSummaryReadyForDelivery(t *testing.T) {

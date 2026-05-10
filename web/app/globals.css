@@ -1112,6 +1112,26 @@ select {
   max-height: min(38vh, 420px);
 }
 
+.summary-retry-status {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(185, 137, 59, 0.22);
+  border-radius: 14px;
+  background: rgba(185, 137, 59, 0.08);
+}
+
+.summary-retry-status p {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.summary-retry-status span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .summary-manual-panel {
   display: grid;
   gap: 16px;

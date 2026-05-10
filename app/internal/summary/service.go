@@ -175,6 +175,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		summary.ErrorContext = openAIErrorContext(err)
 		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(err)
 		summary.ErrorUserPrompt = openAIErrorUserPrompt(err)
+		summary.RetryableError = openAIErrorRetryable(err)
 		return summary, nil
 	}
 
@@ -201,6 +202,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		summary.ErrorContext = openAIErrorContext(wrappedErr)
 		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(wrappedErr)
 		summary.ErrorUserPrompt = openAIErrorUserPrompt(wrappedErr)
+		summary.RetryableError = openAIErrorRetryable(wrappedErr)
 		return summary, nil
 	}
 
@@ -320,6 +322,11 @@ func openAIErrorUserPrompt(err error) string {
 		return requestErr.requestSnapshot.UserPrompt
 	}
 	return ""
+}
+
+func openAIErrorRetryable(err error) bool {
+	var requestErr *openAIRequestError
+	return errors.As(err, &requestErr)
 }
 
 func loadLocation(timezone string) (*time.Location, error) {

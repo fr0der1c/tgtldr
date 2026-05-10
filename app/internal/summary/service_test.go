@@ -91,5 +91,6 @@ func TestOpenAIErrorContext(t *testing.T) {
 		So(openAIErrorContext(wrapped), ShouldEqual, "request context")
 		So(openAIErrorSystemPrompt(wrapped), ShouldEqual, "system prompt")
 		So(openAIErrorUserPrompt(wrapped), ShouldEqual, "user prompt")
+		So(openAIErrorRetryable(wrapped), ShouldBeTrue)
 	})
 }
