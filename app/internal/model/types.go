@@ -19,17 +19,20 @@ const (
 )
 
 type OutputMode string
+type OpenAIRequestMode string
 type Language string
 
 const (
-	OutputModeAuto                        OutputMode = "auto"
-	OutputModeManual                      OutputMode = "manual"
-	LanguageZhCN                          Language   = "zh-CN"
-	LanguageEN                            Language   = "en"
-	DefaultOpenAIBaseURL                             = "https://api.openai.com/v1"
-	DefaultSummaryRetryLimit                         = 2
-	DefaultSummaryRetryBackoffBaseMinutes            = 1
-	DefaultSummaryRetryBackoffMultiplier             = 3
+	OutputModeAuto                        OutputMode        = "auto"
+	OutputModeManual                      OutputMode        = "manual"
+	OpenAIRequestModeStream               OpenAIRequestMode = "stream"
+	OpenAIRequestModeNonStream            OpenAIRequestMode = "non_stream"
+	LanguageZhCN                          Language          = "zh-CN"
+	LanguageEN                            Language          = "en"
+	DefaultOpenAIBaseURL                                    = "https://api.openai.com/v1"
+	DefaultSummaryRetryLimit                                = 2
+	DefaultSummaryRetryBackoffBaseMinutes                   = 1
+	DefaultSummaryRetryBackoffMultiplier                    = 3
 )
 
 func NormalizeLanguage(language Language) Language {
@@ -40,26 +43,27 @@ func NormalizeLanguage(language Language) Language {
 }
 
 type AppSettings struct {
-	ID                             int64      `json:"id"`
-	TelegramAPIID                  int        `json:"telegramApiId"`
-	TelegramAPIHash                string     `json:"telegramApiHash,omitempty"`
-	OpenAIBaseURL                  string     `json:"openAIBaseUrl"`
-	OpenAIAPIKey                   string     `json:"openAIApiKey,omitempty"`
-	OpenAIModel                    string     `json:"openAIModel"`
-	OpenAITemperature              float64    `json:"openAITemperature"`
-	OpenAIOutputMode               OutputMode `json:"openAIOutputMode"`
-	OpenAIMaxOutputToken           int        `json:"openAIMaxOutputTokens"`
-	SummaryParallelism             int        `json:"summaryParallelism"`
-	SummaryRetryLimit              int        `json:"summaryRetryLimit"`
-	SummaryRetryBackoffBaseMinutes int        `json:"summaryRetryBackoffBaseMinutes"`
-	SummaryRetryBackoffMultiplier  float64    `json:"summaryRetryBackoffMultiplier"`
-	DefaultTimezone                string     `json:"defaultTimezone"`
-	Language                       Language   `json:"language"`
-	BotEnabled                     bool       `json:"botEnabled"`
-	BotToken                       string     `json:"botToken,omitempty"`
-	BotTargetChatID                string     `json:"botTargetChatId"`
-	CreatedAt                      time.Time  `json:"createdAt"`
-	UpdatedAt                      time.Time  `json:"updatedAt"`
+	ID                             int64             `json:"id"`
+	TelegramAPIID                  int               `json:"telegramApiId"`
+	TelegramAPIHash                string            `json:"telegramApiHash,omitempty"`
+	OpenAIBaseURL                  string            `json:"openAIBaseUrl"`
+	OpenAIAPIKey                   string            `json:"openAIApiKey,omitempty"`
+	OpenAIModel                    string            `json:"openAIModel"`
+	OpenAITemperature              float64           `json:"openAITemperature"`
+	OpenAIOutputMode               OutputMode        `json:"openAIOutputMode"`
+	OpenAIMaxOutputToken           int               `json:"openAIMaxOutputTokens"`
+	OpenAIRequestMode              OpenAIRequestMode `json:"openAIRequestMode"`
+	SummaryParallelism             int               `json:"summaryParallelism"`
+	SummaryRetryLimit              int               `json:"summaryRetryLimit"`
+	SummaryRetryBackoffBaseMinutes int               `json:"summaryRetryBackoffBaseMinutes"`
+	SummaryRetryBackoffMultiplier  float64           `json:"summaryRetryBackoffMultiplier"`
+	DefaultTimezone                string            `json:"defaultTimezone"`
+	Language                       Language          `json:"language"`
+	BotEnabled                     bool              `json:"botEnabled"`
+	BotToken                       string            `json:"botToken,omitempty"`
+	BotTargetChatID                string            `json:"botTargetChatId"`
+	CreatedAt                      time.Time         `json:"createdAt"`
+	UpdatedAt                      time.Time         `json:"updatedAt"`
 }
 
 func (s AppSettings) Sanitized() AppSettings {

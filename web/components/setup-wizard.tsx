@@ -558,6 +558,12 @@ function validateSettings(settings: typeof emptySettings) {
     return "自定义输出长度时，请填写有效的 Max Output Tokens。";
   }
   if (
+    settings.openAIRequestMode !== "stream" &&
+    settings.openAIRequestMode !== "non_stream"
+  ) {
+    return "请选择有效的调用方式。";
+  }
+  if (
     !Number.isFinite(settings.summaryParallelism) ||
     settings.summaryParallelism < 1 ||
     settings.summaryParallelism > 6

@@ -51,6 +51,7 @@ export const emptySettings: AppSettings = {
   openAITemperature: 0.2,
   openAIOutputMode: "auto",
   openAIMaxOutputTokens: 2000,
+  openAIRequestMode: "stream",
   summaryParallelism: 2,
   summaryRetryLimit: 2,
   summaryRetryBackoffBaseMinutes: 1,

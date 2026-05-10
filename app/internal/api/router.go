@@ -287,6 +287,13 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "自定义输出长度时必须填写 Max Output Tokens。", "Max Output Tokens is required when output length is custom."))
 		return
 	}
+	if payload.OpenAIRequestMode == "" {
+		payload.OpenAIRequestMode = model.OpenAIRequestModeStream
+	}
+	if payload.OpenAIRequestMode != model.OpenAIRequestModeStream && payload.OpenAIRequestMode != model.OpenAIRequestModeNonStream {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "调用方式必须是 stream 或 non_stream。", "Request mode must be stream or non_stream."))
+		return
+	}
 	if payload.SummaryParallelism <= 0 {
 		payload.SummaryParallelism = 2
 	}

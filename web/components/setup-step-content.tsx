@@ -216,6 +216,24 @@ export function ConfigStep({
                   </Field>
                 ) : null}
                 <Field
+                  label="调用方式"
+                  hint="流式更适合转发站，可降低网关等待完整响应导致的超时风险。"
+                >
+                  <AppSelect
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        openAIRequestMode: value as "stream" | "non_stream",
+                      })
+                    }
+                    options={[
+                      { value: "stream", label: "流式" },
+                      { value: "non_stream", label: "非流式" },
+                    ]}
+                    value={settings.openAIRequestMode || "stream"}
+                  />
+                </Field>
+                <Field
                   label="并发摘要数"
                   hint="最多同时总结多少个消息分块。"
                 >

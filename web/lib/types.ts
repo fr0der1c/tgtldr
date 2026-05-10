@@ -11,6 +11,7 @@ export type AppSettings = {
   openAITemperature: number;
   openAIOutputMode: "auto" | "manual";
   openAIMaxOutputTokens: number;
+  openAIRequestMode: "stream" | "non_stream";
   summaryParallelism: number;
   summaryRetryLimit: number;
   summaryRetryBackoffBaseMinutes: number;

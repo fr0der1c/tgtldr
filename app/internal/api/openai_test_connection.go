@@ -84,6 +84,15 @@ func prepareOpenAITestSettings(payload, current model.AppSettings) (model.AppSet
 			en: "Temperature must be between 0.0 and 2.0.",
 		}
 	}
+	if payload.OpenAIRequestMode == "" {
+		payload.OpenAIRequestMode = model.OpenAIRequestModeStream
+	}
+	if payload.OpenAIRequestMode != model.OpenAIRequestModeStream && payload.OpenAIRequestMode != model.OpenAIRequestModeNonStream {
+		return model.AppSettings{}, openAITestValidationError{
+			zh: "调用方式必须是 stream 或 non_stream。",
+			en: "Request mode must be stream or non_stream.",
+		}
+	}
 	return payload, nil
 }
 
@@ -92,6 +101,7 @@ func runOpenAITest(ctx context.Context, settings model.AppSettings) (openAITestR
 		BaseURL: settings.OpenAIBaseURL,
 		APIKey:  settings.OpenAIAPIKey,
 		Model:   settings.OpenAIModel,
+		Stream:  settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream,
 	})
 	resp, err := client.Chat(ctx, openai.ChatRequest{
 		SystemPrompt: "Reply with exactly OK.",

@@ -25,4 +25,15 @@ func TestNormalizeAppSettingsLanguage(t *testing.T) {
 		So(settings.SummaryRetryBackoffBaseMinutes, ShouldEqual, model.DefaultSummaryRetryBackoffBaseMinutes)
 		So(settings.SummaryRetryBackoffMultiplier, ShouldEqual, model.DefaultSummaryRetryBackoffMultiplier)
 	})
+
+	Convey("OpenAI 调用方式为空或非法时默认使用流式", t, func() {
+		So(normalizeAppSettings(model.AppSettings{}).OpenAIRequestMode, ShouldEqual, model.OpenAIRequestModeStream)
+		So(normalizeAppSettings(model.AppSettings{OpenAIRequestMode: "invalid"}).OpenAIRequestMode, ShouldEqual, model.OpenAIRequestModeStream)
+	})
+
+	Convey("OpenAI 调用方式为非流式时保留配置", t, func() {
+		settings := normalizeAppSettings(model.AppSettings{OpenAIRequestMode: model.OpenAIRequestModeNonStream})
+
+		So(settings.OpenAIRequestMode, ShouldEqual, model.OpenAIRequestModeNonStream)
+	})
 }

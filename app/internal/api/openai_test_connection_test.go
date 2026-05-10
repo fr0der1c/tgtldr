@@ -46,6 +46,29 @@ func TestPrepareOpenAITestSettings(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldContainSubstring, "Model")
 	})
+
+	Convey("空调用方式会默认使用流式", t, func() {
+		settings, err := prepareOpenAITestSettings(model.AppSettings{
+			OpenAIAPIKey:      "test-key",
+			OpenAIModel:       "gpt-test",
+			OpenAITemperature: 0.2,
+		}, current)
+
+		So(err, ShouldBeNil)
+		So(settings.OpenAIRequestMode, ShouldEqual, model.OpenAIRequestModeStream)
+	})
+
+	Convey("非法调用方式会报错", t, func() {
+		_, err := prepareOpenAITestSettings(model.AppSettings{
+			OpenAIAPIKey:      "test-key",
+			OpenAIModel:       "gpt-test",
+			OpenAITemperature: 0.2,
+			OpenAIRequestMode: "invalid",
+		}, current)
+
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldContainSubstring, "调用方式")
+	})
 }
 
 func TestOpenAITestRouteRegistration(t *testing.T) {
@@ -57,7 +80,7 @@ func TestOpenAITestRouteRegistration(t *testing.T) {
 }
 
 func TestRunOpenAITest(t *testing.T) {
-	Convey("测试连接会发送低成本 chat completion 请求", t, func() {
+	Convey("测试连接会按非流式模式发送低成本 chat completion 请求", t, func() {
 		var payload map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -74,12 +97,42 @@ func TestRunOpenAITest(t *testing.T) {
 			OpenAIAPIKey:      "test-key",
 			OpenAIModel:       "gpt-test",
 			OpenAITemperature: 0.2,
+			OpenAIRequestMode: model.OpenAIRequestModeNonStream,
 		})
 
 		So(err, ShouldBeNil)
 		So(result.OK, ShouldBeTrue)
 		So(result.Model, ShouldEqual, "gpt-test")
 		So(payload["max_completion_tokens"], ShouldEqual, float64(16))
+		_, hasStreamField := payload["stream"]
+		So(hasStreamField, ShouldBeFalse)
+	})
+
+	Convey("测试连接会按流式模式发送请求", t, func() {
+		var payload map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte(`data: {"model":"gpt-test","choices":[{"delta":{"content":"OK"}}]}` + "\n\n"))
+			_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		}))
+		defer server.Close()
+
+		result, err := runOpenAITest(context.Background(), model.AppSettings{
+			OpenAIBaseURL:     server.URL,
+			OpenAIAPIKey:      "test-key",
+			OpenAIModel:       "gpt-test",
+			OpenAITemperature: 0.2,
+			OpenAIRequestMode: model.OpenAIRequestModeStream,
+		})
+
+		So(err, ShouldBeNil)
+		So(result.OK, ShouldBeTrue)
+		So(result.Model, ShouldEqual, "gpt-test")
+		So(payload["stream"], ShouldEqual, true)
 	})
 
 	Convey("上游错误会原样返回给调用方", t, func() {
@@ -93,6 +146,7 @@ func TestRunOpenAITest(t *testing.T) {
 			OpenAIAPIKey:      "test-key",
 			OpenAIModel:       "gpt-test",
 			OpenAITemperature: 0.2,
+			OpenAIRequestMode: model.OpenAIRequestModeNonStream,
 		})
 
 		So(err, ShouldNotBeNil)

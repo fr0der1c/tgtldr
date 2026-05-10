@@ -129,6 +129,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		APIKey:  settings.OpenAIAPIKey,
 		Model:   resolveSummaryModel(chat, settings),
 		Timeout: s.openAITimeout,
+		Stream:  settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream,
 	})
 
 	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
