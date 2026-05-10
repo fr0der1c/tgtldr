@@ -201,6 +201,7 @@ const textTranslations = {
   "自动重试已关闭。": "Automatic retry is disabled.",
   "复制": "Copy",
   "已复制": "Copied",
+  "复制失败": "Copy failed",
   "原始 prompt": "Raw prompt",
   "查看这条摘要按当前规则重建出的完整 AI 输入上下文。": "View the full AI input context rebuilt for this summary using current rules.",
   "正在加载上下文预览…": "Loading context preview...",

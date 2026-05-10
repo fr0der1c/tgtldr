@@ -175,16 +175,16 @@ function formatRetryTime(value: string) {
 }
 
 function CopyableContextBlock({ title, value }: { title: string; value: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      await copyTextToClipboard(value);
+      setCopyState("copied");
     } catch {
-      setCopied(false);
+      setCopyState("failed");
     }
+    window.setTimeout(() => setCopyState("idle"), 1500);
   }
 
   return (
@@ -192,10 +192,45 @@ function CopyableContextBlock({ title, value }: { title: string; value: string }
       <div className="summary-error-context-head">
         <p className="muted">{title}</p>
         <button className="text-link-button" onClick={handleCopy} type="button">
-          {copied ? "已复制" : "复制"}
+          {copyButtonLabel(copyState)}
         </button>
       </div>
       <pre className="summary-context-block summary-error-context-block">{value}</pre>
     </div>
   );
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("copy command failed");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+function copyButtonLabel(state: "idle" | "copied" | "failed") {
+  if (state === "copied") {
+    return "已复制";
+  }
+  if (state === "failed") {
+    return "复制失败";
+  }
+  return "复制";
 }
