@@ -24,6 +24,12 @@ TGTLDR （Telegram Too Long, Don't Read）是一个单用户自部署的 Telegra
 - OpenAI 兼容接口的 Base URL、API Key 和模型名
 - 可选：Telegram Bot Token，用于把摘要推送回 Telegram
 
+## TGTLDR Cloud
+
+如果你没有 24 小时开机的服务器可以用来部署本项目，或者申请不到 Telegram App，可以在 Telegram 上联系 [Talk to Frederic Bot](https://t.me/fredericc_bot)（`@fredericc_bot`）。
+
+TGTLDR Cloud 每月 5 刀，提供已预先配置 Telegram App 的 TGTLDR 实例。你只需要登录 Telegram 账户并配置 AI 相关设置即可使用。
+
 ## 本地启动
 
 ### 推荐：使用预构建镜像启动（同时启动前端、后端和数据库）

@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: tgtldr
       POSTGRES_USER: postgres
@@ -10,6 +11,7 @@ services:
 
   app:
     image: ${TGTLDR_IMAGE_NAMESPACE:-fr0der1c}/tgtldr-app:${TGTLDR_IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
       TGTLDR_DATABASE_URL: postgres://postgres:postgres@postgres:5432/tgtldr?sslmode=disable
       TGTLDR_MASTER_KEY: ${TGTLDR_MASTER_KEY:-}
@@ -27,6 +29,7 @@ services:
 
   web:
     image: ${TGTLDR_IMAGE_NAMESPACE:-fr0der1c}/tgtldr-web:${TGTLDR_IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
       TGTLDR_INTERNAL_API_BASE_URL: http://app:8080
     depends_on:

@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-06-06
+
+### Changed
+
+- Docker Compose now restores the `postgres`, `app`, and `web` services by default after the Docker daemon or host restarts.
+
 ## 2026-05-10
 
 ### Added

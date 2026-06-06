@@ -2,6 +2,12 @@
 
 [English version](CHANGELOG.en.md)
 
+## 2026-06-06
+
+### 调整
+
+- Docker Compose 默认会在 Docker daemon 或宿主机重启后自动恢复 `postgres`、`app` 和 `web` 服务。
+
 ## 2026-05-10
 
 ### 新增
