@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-06-14
+
+### Fixed
+
+- Telegram user sessions now clear invalid session data and mark the account disconnected after permanent authentication errors such as `AUTH_KEY_DUPLICATED`, preventing listeners and history backfills from reusing a bad session.
+
 ## 2026-06-06
 
 ### Changed

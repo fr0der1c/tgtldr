@@ -149,7 +149,7 @@ func (s *Service) runHistoryBackfillAttempt(
 			return err
 		}
 		if !status.Authorized {
-			return fmt.Errorf("telegram session not authorized")
+			return s.markAuthLoggedOut(ctx)
 		}
 
 		inputPeer, err := inputPeerForChat(chat)
@@ -195,6 +195,9 @@ func (s *Service) runHistoryBackfillAttempt(
 		return nil
 	})
 	if err != nil {
+		if authErr := s.markAuthLoggedOutOnInvalidSession(s.root, err); authErr != err {
+			return count, current, authErr
+		}
 		return count, current, err
 	}
 	return count, current, nil

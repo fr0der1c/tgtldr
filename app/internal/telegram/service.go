@@ -18,6 +18,7 @@ import (
 	dialogsquery "github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 )
 
 var (
@@ -239,6 +240,9 @@ func (s *Service) SyncChats(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
+		if authErr := s.markAuthLoggedOutOnInvalidSession(ctx, err); authErr != err {
+			return fmt.Errorf("sync chats from telegram: %w", authErr)
+		}
 		return fmt.Errorf("sync chats from telegram: %w", err)
 	}
 
@@ -319,7 +323,7 @@ func (s *Service) runListener(ctx context.Context) error {
 		return err
 	}
 
-	return client.Run(ctx, func(ctx context.Context) error {
+	err = client.Run(ctx, func(ctx context.Context) error {
 		status, err := client.Auth().Status(ctx)
 		if err != nil {
 			return err
@@ -335,12 +339,19 @@ func (s *Service) runListener(ctx context.Context) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return s.markAuthLoggedOutOnInvalidSession(ctx, err)
+	}
+	return nil
 }
 
 func (s *Service) checkCurrentAuthStatus(ctx context.Context, client *telegram.Client) bool {
 	status, err := client.Auth().Status(ctx)
 	if err != nil {
 		log.Printf("telegram auth status check failed: %v", err)
+		if isInvalidTelegramSessionError(err) {
+			return false
+		}
 		return true
 	}
 	return status.Authorized && status.User != nil
@@ -365,6 +376,26 @@ func loggedOutAuth(current model.TelegramAuth) model.TelegramAuth {
 	current.Status = "logged_out"
 	current.SessionData = nil
 	return current
+}
+
+func (s *Service) markAuthLoggedOutOnInvalidSession(ctx context.Context, err error) error {
+	if !isInvalidTelegramSessionError(err) {
+		return err
+	}
+	if logoutErr := s.markAuthLoggedOut(ctx); logoutErr != nil {
+		return logoutErr
+	}
+	return errTelegramUnauthorized
+}
+
+func isInvalidTelegramSessionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if auth.IsUnauthorized(err) {
+		return true
+	}
+	return tgerr.Is(err, "AUTH_KEY_UNREGISTERED", "SESSION_EXPIRED", "AUTH_KEY_DUPLICATED")
 }
 
 func (s *Service) onNewMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) error {

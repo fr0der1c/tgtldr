@@ -2,6 +2,12 @@
 
 [English version](CHANGELOG.en.md)
 
+## 2026-06-14
+
+### 修复
+
+- Telegram 用户会话遇到 `AUTH_KEY_DUPLICATED` 等永久认证错误时，现在会自动清空失效 session 并标记为未连接，避免监听和历史回补继续复用坏 session。
+
 ## 2026-06-06
 
 ### 调整
