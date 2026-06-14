@@ -211,6 +211,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 					<div className="entity-list">
 						{summaries.map((item) => {
 							const delivery = deliveryState(item, allChats.find((chat) => chat.id === item.chatId) ?? null, botReady)
+							const messageCountText = language === "en" ? `${item.sourceMessageCount} messages` : `消息 ${item.sourceMessageCount} 条`
 							return (
 								<button
 									key={item.id}
@@ -221,7 +222,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 									<div className="entity-row-main">
 										<strong>{chatTitles.get(item.chatId) ?? "未知群组"}</strong>
 										<p>
-											{item.summaryDate} · {item.model || "未记录模型"}
+											{item.summaryDate} · {item.model || "未记录模型"} · {messageCountText}
 										</p>
 										{searching && item.matchSnippet ? (
 											<p className="entity-row-snippet">

@@ -7,6 +7,7 @@
 ### Added
 
 - The chat list now shows a 30-day daily message activity strip under each chat, with a custom hover prompt for each day's message count.
+- The summary list now shows the source message count next to each summary's date and model.
 
 ### Fixed
 
