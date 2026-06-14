@@ -1588,6 +1588,61 @@ select {
   font-size: 0.88rem;
 }
 
+.chat-activity-strip {
+  display: grid;
+  grid-template-columns: repeat(30, 7px);
+  gap: 3px;
+  width: min(320px, 100%);
+  margin-top: 4px;
+}
+
+.chat-activity-day {
+  display: block;
+  position: relative;
+  height: 9px;
+  min-width: 7px;
+  border-radius: 2px;
+  background: rgba(28, 25, 23, 0.14);
+  outline: none;
+}
+
+.chat-activity-day.active {
+  background: #2f8f53;
+}
+
+.chat-activity-day::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid rgba(28, 25, 23, 0.14);
+  border-radius: 8px;
+  background: rgba(28, 25, 23, 0.94);
+  box-shadow: 0 10px 24px rgba(24, 19, 15, 0.14);
+  color: #fffdf9;
+  content: attr(data-tooltip);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 2px);
+  transition: opacity 80ms ease, transform 80ms ease;
+  white-space: nowrap;
+}
+
+.chat-activity-day:hover::after,
+.chat-activity-day:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.chat-activity-day:focus-visible {
+  box-shadow: 0 0 0 2px rgba(185, 137, 59, 0.35);
+}
+
 .table-row-actions {
   display: flex;
   gap: 8px;

@@ -105,25 +105,31 @@ type TelegramAuth struct {
 }
 
 type Chat struct {
-	ID               int64        `json:"id"`
-	TelegramChatID   int64        `json:"telegramChatId"`
-	TelegramAccess   int64        `json:"telegramAccessHash"`
-	Title            string       `json:"title"`
-	Username         string       `json:"username"`
-	ChatType         string       `json:"chatType"`
-	Enabled          bool         `json:"enabled"`
-	SummaryEnabled   bool         `json:"summaryEnabled"`
-	SummaryContext   string       `json:"summaryContext"`
-	SummaryPrompt    string       `json:"summaryPrompt"`
-	SummaryTimeLocal string       `json:"summaryTimeLocal"`
-	SummaryTimezone  string       `json:"summaryTimezone"`
-	DeliveryMode     DeliveryMode `json:"deliveryMode"`
-	ModelOverride    string       `json:"modelOverride"`
-	KeepBotMessages  bool         `json:"keepBotMessages"`
-	FilteredSenders  []string     `json:"filteredSenders"`
-	FilteredKeywords []string     `json:"filteredKeywords"`
-	CreatedAt        time.Time    `json:"createdAt"`
-	UpdatedAt        time.Time    `json:"updatedAt"`
+	ID               int64                 `json:"id"`
+	TelegramChatID   int64                 `json:"telegramChatId"`
+	TelegramAccess   int64                 `json:"telegramAccessHash"`
+	Title            string                `json:"title"`
+	Username         string                `json:"username"`
+	ChatType         string                `json:"chatType"`
+	Enabled          bool                  `json:"enabled"`
+	SummaryEnabled   bool                  `json:"summaryEnabled"`
+	SummaryContext   string                `json:"summaryContext"`
+	SummaryPrompt    string                `json:"summaryPrompt"`
+	SummaryTimeLocal string                `json:"summaryTimeLocal"`
+	SummaryTimezone  string                `json:"summaryTimezone"`
+	DeliveryMode     DeliveryMode          `json:"deliveryMode"`
+	ModelOverride    string                `json:"modelOverride"`
+	KeepBotMessages  bool                  `json:"keepBotMessages"`
+	FilteredSenders  []string              `json:"filteredSenders"`
+	FilteredKeywords []string              `json:"filteredKeywords"`
+	MessageActivity  []ChatMessageActivity `json:"messageActivity,omitempty"`
+	CreatedAt        time.Time             `json:"createdAt"`
+	UpdatedAt        time.Time             `json:"updatedAt"`
+}
+
+type ChatMessageActivity struct {
+	Date         string `json:"date"`
+	MessageCount int    `json:"messageCount"`
 }
 
 type Message struct {

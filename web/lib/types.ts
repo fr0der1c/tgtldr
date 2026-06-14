@@ -74,6 +74,11 @@ export type BotTargetChatResolveResult = {
 
 export type DeliveryMode = "dashboard" | "bot";
 
+export type ChatMessageActivity = {
+  date: string;
+  messageCount: number;
+};
+
 export type Chat = {
   id: number;
   telegramChatId: number;
@@ -90,6 +95,7 @@ export type Chat = {
   keepBotMessages: boolean;
   filteredSenders: string[];
   filteredKeywords: string[];
+  messageActivity?: ChatMessageActivity[];
 };
 
 export type HistoryBackfillTask = {

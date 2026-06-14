@@ -232,7 +232,8 @@ function normalizeChat(chat: Chat): Chat {
     summaryContext: chat.summaryContext ?? "",
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
-    keepBotMessages: chat.keepBotMessages ?? true
+    keepBotMessages: chat.keepBotMessages ?? true,
+    messageActivity: Array.isArray(chat.messageActivity) ? chat.messageActivity : []
   };
 }
 
@@ -276,6 +277,7 @@ function ChatTableRow({
           <div className="data-row-title">
             <strong>{chat.title}</strong>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
+            <ChatActivityStrip activity={chat.messageActivity ?? []} />
           </div>
         </td>
         <td>{chat.chatType === "supergroup" ? "超级群组" : "群组"}</td>
@@ -523,6 +525,27 @@ function ChatTableRow({
         </tr>
       ) : null}
     </>
+  );
+}
+
+function ChatActivityStrip({ activity }: { activity: NonNullable<Chat["messageActivity"]> }) {
+  if (activity.length === 0) {
+    return null;
+  }
+
+  return (
+    <div aria-label="最近 30 天消息" className="chat-activity-strip" role="list">
+      {activity.map((item) => (
+        <span
+          aria-label={`${item.date}：${item.messageCount} 条消息`}
+          className={item.messageCount > 0 ? "chat-activity-day active" : "chat-activity-day"}
+          data-tooltip={`${item.date}：${item.messageCount} 条消息`}
+          key={item.date}
+          role="listitem"
+          tabIndex={0}
+        />
+      ))}
+    </div>
   );
 }
 

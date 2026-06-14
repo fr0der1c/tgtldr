@@ -4,6 +4,10 @@
 
 ## 2026-06-14
 
+### Added
+
+- The chat list now shows a 30-day daily message activity strip under each chat, with a custom hover prompt for each day's message count.
+
 ### Fixed
 
 - Telegram user sessions now clear invalid session data and mark the account disconnected after permanent authentication errors such as `AUTH_KEY_DUPLICATED`, preventing listeners and history backfills from reusing a bad session.

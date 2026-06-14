@@ -28,6 +28,8 @@ type Router struct {
 	timeout   time.Duration
 }
 
+const chatMessageActivityDays = 30
+
 func New(
 	store *store.Store,
 	telegram *telegramsvc.Service,
@@ -494,12 +496,41 @@ func (r *Router) handleChats(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	chats, err := r.store.Chats.List(req.Context())
+	startLocal, timezone, err := r.chatMessageActivityWindow(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	chats, err := r.store.Chats.ListWithMessageActivity(
+		req.Context(),
+		startLocal,
+		chatMessageActivityDays,
+		timezone,
+	)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	httpx.JSON(w, http.StatusOK, chats)
+}
+
+func (r *Router) chatMessageActivityWindow(ctx context.Context) (time.Time, string, error) {
+	settings, err := r.store.Settings.Get(ctx)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("get settings for chat message activity: %w", err)
+	}
+	timezone := strings.TrimSpace(settings.DefaultTimezone)
+	if timezone == "" {
+		timezone = "Asia/Shanghai"
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("load chat message activity timezone %s: %w", timezone, err)
+	}
+
+	now := time.Now().In(location)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	return today.AddDate(0, 0, 1-chatMessageActivityDays), timezone, nil
 }
 
 func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
