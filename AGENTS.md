@@ -262,4 +262,5 @@ git commit -m "your message"
 - 能复用现有 API、调度器和组件时，不要额外平行造轮子
 - 完成功能、行为、接口、可见文案或部署方式的实际变化后，需要同步更新根目录 `CHANGELOG.md` 和 `CHANGELOG.en.md`
 - `CHANGELOG.md` 与 `CHANGELOG.en.md` 都按系统默认时区使用 `YYYY-MM-DD` 分组；同一天追加到同一分组，优先使用 `新增`、`调整`、`修复` 分类，并保持中英文语义一致
+- 对最终用户没有可感知影响的内部变更，不要写入 `CHANGELOG.md` 或 `CHANGELOG.en.md`
 - 纯重构、纯格式化、纯注释等没有实际行为变化的改动，默认不要写入 `CHANGELOG.md` 或 `CHANGELOG.en.md`
