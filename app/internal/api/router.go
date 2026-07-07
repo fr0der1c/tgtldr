@@ -553,16 +553,20 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Enabled          bool               `json:"enabled"`
-		SummaryEnabled   bool               `json:"summaryEnabled"`
-		SummaryContext   string             `json:"summaryContext"`
-		SummaryPrompt    string             `json:"summaryPrompt"`
-		SummaryTimeLocal string             `json:"summaryTimeLocal"`
-		DeliveryMode     model.DeliveryMode `json:"deliveryMode"`
-		ModelOverride    string             `json:"modelOverride"`
-		KeepBotMessages  bool               `json:"keepBotMessages"`
-		FilteredSenders  []string           `json:"filteredSenders"`
-		FilteredKeywords []string           `json:"filteredKeywords"`
+		Enabled                       bool               `json:"enabled"`
+		SummaryEnabled                bool               `json:"summaryEnabled"`
+		SummaryContext                string             `json:"summaryContext"`
+		SummaryPrompt                 string             `json:"summaryPrompt"`
+		SummaryTimeLocal              string             `json:"summaryTimeLocal"`
+		DeliveryMode                  model.DeliveryMode `json:"deliveryMode"`
+		ModelOverride                 string             `json:"modelOverride"`
+		RollingSummaryEnabled         bool               `json:"rollingSummaryEnabled"`
+		RollingSummaryIntervalMinutes int                `json:"rollingSummaryIntervalMinutes"`
+		RollingSummaryMaxPerDay       int                `json:"rollingSummaryMaxPerDay"`
+		RollingSummaryBotEnabled      bool               `json:"rollingSummaryBotEnabled"`
+		KeepBotMessages               bool               `json:"keepBotMessages"`
+		FilteredSenders               []string           `json:"filteredSenders"`
+		FilteredKeywords              []string           `json:"filteredKeywords"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -576,6 +580,10 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	current.SummaryTimeLocal = payload.SummaryTimeLocal
 	current.DeliveryMode = payload.DeliveryMode
 	current.ModelOverride = payload.ModelOverride
+	current.RollingSummaryEnabled = payload.RollingSummaryEnabled
+	current.RollingSummaryIntervalMinutes = payload.RollingSummaryIntervalMinutes
+	current.RollingSummaryMaxPerDay = payload.RollingSummaryMaxPerDay
+	current.RollingSummaryBotEnabled = payload.RollingSummaryBotEnabled
 	current.KeepBotMessages = payload.KeepBotMessages
 	current.FilteredSenders = compactStrings(payload.FilteredSenders)
 	current.FilteredKeywords = compactStrings(payload.FilteredKeywords)

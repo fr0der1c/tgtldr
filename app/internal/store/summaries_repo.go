@@ -16,7 +16,7 @@ type SummaryRepository struct {
 func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
+		select id, chat_id, summary_date::text, summary_type, window_start, window_end, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
 		       delivery_error, error_message, error_context, error_system_prompt,
 		       error_user_prompt, retry_count, next_retry_at, ''::text as match_snippet,
@@ -32,13 +32,13 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, date string) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
+		select id, chat_id, summary_date::text, summary_type, window_start, window_end, status, content, model,
 		       source_message_count, chunk_count, generated_at, delivered_at,
 		       delivery_error, error_message, error_context, error_system_prompt,
 		       error_user_prompt, retry_count, next_retry_at, ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, created_at, updated_at
 		from summaries
-		where chat_id = $1 and summary_date = $2::date
+		where chat_id = $1 and summary_date = $2::date and summary_type = 'daily'
 	`, chatID, date), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary for chat %d on %s: %w", chatID, date, err)
 	}
@@ -71,7 +71,7 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	offset := (normalized.Page - 1) * normalized.PageSize
 	argsWithPagination := append(args, normalized.PageSize, offset)
 	dataQuery := `
-		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		select s.id, s.chat_id, s.summary_date::text, s.summary_type, s.window_start, s.window_end, s.status, s.content, s.model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
 		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, ''::text as match_snippet,
@@ -112,9 +112,9 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 
 func (r *SummaryRepository) UpsertPending(ctx context.Context, chatID int64, date string) error {
 	_, err := r.pool.Exec(ctx, `
-		insert into summaries (chat_id, summary_date, status)
-		values ($1, $2::date, 'pending')
-		on conflict (chat_id, summary_date) do nothing
+		insert into summaries (chat_id, summary_date, summary_type, status)
+		values ($1, $2::date, 'daily', 'pending')
+		on conflict (chat_id, summary_date, summary_type) where summary_type = 'daily' do nothing
 	`, chatID, date)
 	if err != nil {
 		return fmt.Errorf("upsert pending summary: %w", err)
@@ -133,7 +133,7 @@ func (r *SummaryRepository) SetRunning(ctx context.Context, chatID int64, date s
 		    retry_count = 0,
 		    next_retry_at = null,
 		    updated_at = now()
-		where chat_id = $1 and summary_date = $2::date
+		where chat_id = $1 and summary_date = $2::date and summary_type = 'daily'
 	`, chatID, date)
 	if err != nil {
 		return fmt.Errorf("set summary running: %w", err)
@@ -152,7 +152,7 @@ func (r *SummaryRepository) SetRetryRunning(ctx context.Context, chatID int64, d
 		    retry_count = retry_count + 1,
 		    next_retry_at = null,
 		    updated_at = now()
-		where chat_id = $1 and summary_date = $2::date
+		where chat_id = $1 and summary_date = $2::date and summary_type = 'daily'
 	`, chatID, date)
 	if err != nil {
 		return fmt.Errorf("set summary retry running: %w", err)
@@ -161,6 +161,7 @@ func (r *SummaryRepository) SetRetryRunning(ctx context.Context, chatID int64, d
 }
 
 func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summary) error {
+	summaryType := normalizeSummaryType(summary.SummaryType)
 	errorContext := summary.ErrorContext
 	errorSystemPrompt := summary.ErrorSystemPrompt
 	errorUserPrompt := summary.ErrorUserPrompt
@@ -181,16 +182,21 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		    source_message_count = $4,
 		    chunk_count = $5,
 		    generated_at = $6,
-		    error_message = $7,
-		    error_context = $8,
-		    error_system_prompt = $9,
-		    error_user_prompt = $10,
-		    retry_count = case when $11 then 0 else retry_count end,
-		    next_retry_at = $12,
+		    window_start = $7,
+		    window_end = $8,
+		    error_message = $9,
+		    error_context = $10,
+		    error_system_prompt = $11,
+		    error_user_prompt = $12,
+		    retry_count = case when $13 then 0 else retry_count end,
+		    next_retry_at = $14,
 		    delivered_at = null,
 		    delivery_error = '',
 		    updated_at = now()
-		where chat_id = $13 and summary_date = $14::date
+		where chat_id = $15
+		  and summary_date = $16::date
+		  and summary_type = $17
+		  and ($17 = 'daily' or window_end = $18)
 	`,
 		summary.Status,
 		summary.Content,
@@ -198,6 +204,8 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		summary.SourceMessageCount,
 		summary.ChunkCount,
 		summary.GeneratedAt,
+		summary.WindowStart,
+		summary.WindowEnd,
 		summary.ErrorMessage,
 		errorContext,
 		errorSystemPrompt,
@@ -206,6 +214,8 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		nextRetryAt,
 		summary.ChatID,
 		summary.SummaryDate,
+		summaryType,
+		summary.WindowEnd,
 	)
 	if err != nil {
 		return fmt.Errorf("save summary result: %w", err)
@@ -218,7 +228,7 @@ func (r *SummaryRepository) ScheduleRetry(ctx context.Context, chatID int64, dat
 		update summaries
 		set next_retry_at = $1,
 		    updated_at = now()
-		where chat_id = $2 and summary_date = $3::date
+		where chat_id = $2 and summary_date = $3::date and summary_type = 'daily'
 	`, nextRetryAt, chatID, date)
 	if err != nil {
 		return fmt.Errorf("schedule summary retry: %w", err)
@@ -227,13 +237,25 @@ func (r *SummaryRepository) ScheduleRetry(ctx context.Context, chatID int64, dat
 }
 
 func (r *SummaryRepository) MarkDelivered(ctx context.Context, chatID int64, date string, deliveredAt time.Time) error {
+	return r.MarkSummaryDelivered(ctx, model.Summary{
+		ChatID:      chatID,
+		SummaryDate: date,
+		SummaryType: model.SummaryTypeDaily,
+	}, deliveredAt)
+}
+
+func (r *SummaryRepository) MarkSummaryDelivered(ctx context.Context, summary model.Summary, deliveredAt time.Time) error {
+	summaryType := normalizeSummaryType(summary.SummaryType)
 	_, err := r.pool.Exec(ctx, `
 		update summaries
 		set delivered_at = $1,
 		    delivery_error = '',
 		    updated_at = now()
-		where chat_id = $2 and summary_date = $3::date
-	`, deliveredAt, chatID, date)
+		where chat_id = $2
+		  and summary_date = $3::date
+		  and summary_type = $4
+		  and ($4 = 'daily' or window_end = $5)
+	`, deliveredAt, summary.ChatID, summary.SummaryDate, summaryType, summary.WindowEnd)
 	if err != nil {
 		return fmt.Errorf("mark summary delivered: %w", err)
 	}
@@ -241,13 +263,25 @@ func (r *SummaryRepository) MarkDelivered(ctx context.Context, chatID int64, dat
 }
 
 func (r *SummaryRepository) MarkDeliveryFailed(ctx context.Context, chatID int64, date string, message string) error {
+	return r.MarkSummaryDeliveryFailed(ctx, model.Summary{
+		ChatID:      chatID,
+		SummaryDate: date,
+		SummaryType: model.SummaryTypeDaily,
+	}, message)
+}
+
+func (r *SummaryRepository) MarkSummaryDeliveryFailed(ctx context.Context, summary model.Summary, message string) error {
+	summaryType := normalizeSummaryType(summary.SummaryType)
 	_, err := r.pool.Exec(ctx, `
 		update summaries
 		set delivered_at = null,
 		    delivery_error = $1,
 		    updated_at = now()
-		where chat_id = $2 and summary_date = $3::date
-	`, message, chatID, date)
+		where chat_id = $2
+		  and summary_date = $3::date
+		  and summary_type = $4
+		  and ($4 = 'daily' or window_end = $5)
+	`, message, summary.ChatID, summary.SummaryDate, summaryType, summary.WindowEnd)
 	if err != nil {
 		return fmt.Errorf("mark summary delivery failed: %w", err)
 	}
@@ -264,7 +298,7 @@ func (r *SummaryRepository) SetFailed(ctx context.Context, chatID int64, date st
 		    error_user_prompt = '',
 		    next_retry_at = null,
 		    updated_at = now()
-		where chat_id = $2 and summary_date = $3::date
+		where chat_id = $2 and summary_date = $3::date and summary_type = 'daily'
 	`, message, chatID, date)
 	if err != nil {
 		return fmt.Errorf("set summary failed: %w", err)
@@ -275,7 +309,7 @@ func (r *SummaryRepository) SetFailed(ctx context.Context, chatID int64, date st
 func (r *SummaryRepository) ExistsForDate(ctx context.Context, chatID int64, date string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `
-		select exists(select 1 from summaries where chat_id = $1 and summary_date = $2::date and status = 'succeeded')
+		select exists(select 1 from summaries where chat_id = $1 and summary_date = $2::date and summary_type = 'daily' and status = 'succeeded')
 	`, chatID, date).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("check summary existence: %w", err)
@@ -283,8 +317,80 @@ func (r *SummaryRepository) ExistsForDate(ctx context.Context, chatID int64, dat
 	return exists, nil
 }
 
+func (r *SummaryRepository) UpsertRollingPending(ctx context.Context, chatID int64, date string, windowStart, windowEnd time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		insert into summaries (chat_id, summary_date, summary_type, status, window_start, window_end)
+		values ($1, $2::date, 'rolling', 'pending', $3, $4)
+		on conflict (chat_id, summary_type, window_end) where summary_type = 'rolling' do nothing
+	`, chatID, date, windowStart, windowEnd)
+	if err != nil {
+		return fmt.Errorf("upsert rolling pending summary: %w", err)
+	}
+	return nil
+}
+
+func (r *SummaryRepository) SetRollingRunning(ctx context.Context, chatID int64, date string, windowEnd time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		update summaries
+		set status = 'running',
+		    error_message = '',
+		    error_context = '',
+		    error_system_prompt = '',
+		    error_user_prompt = '',
+		    retry_count = 0,
+		    next_retry_at = null,
+		    updated_at = now()
+		where chat_id = $1 and summary_date = $2::date and summary_type = 'rolling' and window_end = $3
+	`, chatID, date, windowEnd)
+	if err != nil {
+		return fmt.Errorf("set rolling summary running: %w", err)
+	}
+	return nil
+}
+
+func (r *SummaryRepository) GetLatestRollingForDate(ctx context.Context, chatID int64, date string) (model.Summary, error) {
+	var item model.Summary
+	if err := scanSummary(r.pool.QueryRow(ctx, `
+		select id, chat_id, summary_date::text, summary_type, window_start, window_end, status, content, model,
+		       source_message_count, chunk_count, generated_at, delivered_at,
+		       delivery_error, error_message, error_context, error_system_prompt,
+		       error_user_prompt, retry_count, next_retry_at, ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, created_at, updated_at
+		from summaries
+		where chat_id = $1 and summary_date = $2::date and summary_type = 'rolling'
+		order by window_end desc nulls last, id desc
+		limit 1
+	`, chatID, date), &item); err != nil {
+		return model.Summary{}, fmt.Errorf("get latest rolling summary for chat %d on %s: %w", chatID, date, err)
+	}
+	return item, nil
+}
+
+func (r *SummaryRepository) CountRollingForDate(ctx context.Context, chatID int64, date string) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		select count(*)
+		from summaries
+		where chat_id = $1
+		  and summary_date = $2::date
+		  and summary_type = 'rolling'
+		  and status in ('pending', 'running', 'succeeded')
+	`, chatID, date).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count rolling summaries for chat %d on %s: %w", chatID, date, err)
+	}
+	return count, nil
+}
+
 type summaryScanner interface {
 	Scan(dest ...any) error
+}
+
+func normalizeSummaryType(summaryType model.SummaryType) model.SummaryType {
+	if summaryType == model.SummaryTypeRolling {
+		return model.SummaryTypeRolling
+	}
+	return model.SummaryTypeDaily
 }
 
 func scanSummary(scanner summaryScanner, item *model.Summary) error {
@@ -292,6 +398,9 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.ID,
 		&item.ChatID,
 		&item.SummaryDate,
+		&item.SummaryType,
+		&item.WindowStart,
+		&item.WindowEnd,
 		&item.Status,
 		&item.Content,
 		&item.Model,
@@ -318,6 +427,9 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.ID,
 		&item.ChatID,
 		&item.SummaryDate,
+		&item.SummaryType,
+		&item.WindowStart,
+		&item.WindowEnd,
 		&item.Status,
 		&item.Content,
 		&item.Model,

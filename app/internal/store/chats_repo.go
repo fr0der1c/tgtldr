@@ -18,7 +18,8 @@ func (r *ChatRepository) List(ctx context.Context) ([]model.Chat, error) {
 	rows, err := r.pool.Query(ctx, `
 		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
-		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
+		       delivery_mode, model_override, rolling_summary_enabled, rolling_summary_interval_minutes,
+		       rolling_summary_max_per_day, rolling_summary_bot_enabled, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
 		from chats
 		order by enabled desc, title asc
@@ -46,6 +47,10 @@ func (r *ChatRepository) List(ctx context.Context) ([]model.Chat, error) {
 			&chat.SummaryTimezone,
 			&chat.DeliveryMode,
 			&chat.ModelOverride,
+			&chat.RollingSummaryEnabled,
+			&chat.RollingSummaryIntervalMinutes,
+			&chat.RollingSummaryMaxPerDay,
+			&chat.RollingSummaryBotEnabled,
 			&chat.KeepBotMessages,
 			&chat.FilteredSenders,
 			&chat.FilteredKeywords,
@@ -81,8 +86,10 @@ func (r *ChatRepository) UpsertMany(ctx context.Context, chats []model.Chat) err
 			insert into chats (
 				telegram_chat_id, telegram_access_hash, title, username, chat_type,
 				enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone, delivery_mode, model_override,
+				rolling_summary_enabled, rolling_summary_interval_minutes, rolling_summary_max_per_day, rolling_summary_bot_enabled,
 				keep_bot_messages, filtered_senders, filtered_keywords
-			) values ($1, $2, $3, $4, $5, false, false, '', '', '09:00', 'Asia/Shanghai', 'dashboard', '', true, '{}', '{}')
+			) values ($1, $2, $3, $4, $5, false, false, '', '', '09:00', 'Asia/Shanghai', 'dashboard', '',
+				false, 180, 5, true, true, '{}', '{}')
 			on conflict (telegram_chat_id) do update
 			set telegram_access_hash = excluded.telegram_access_hash,
 			    title = excluded.title,
@@ -118,14 +125,19 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 		    summary_time_local = $5,
 		    delivery_mode = $6,
 		    model_override = $7,
-		    keep_bot_messages = $8,
-		    filtered_senders = $9,
-		    filtered_keywords = $10,
+		    rolling_summary_enabled = $8,
+		    rolling_summary_interval_minutes = $9,
+		    rolling_summary_max_per_day = $10,
+		    rolling_summary_bot_enabled = $11,
+		    keep_bot_messages = $12,
+		    filtered_senders = $13,
+		    filtered_keywords = $14,
 		    updated_at = now()
-		where id = $11
+		where id = $15
 		returning id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
 		          enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
-		          delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
+		          delivery_mode, model_override, rolling_summary_enabled, rolling_summary_interval_minutes,
+		          rolling_summary_max_per_day, rolling_summary_bot_enabled, keep_bot_messages, filtered_senders, filtered_keywords,
 		          created_at, updated_at
 	`,
 		chat.Enabled,
@@ -135,6 +147,10 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 		chat.SummaryTimeLocal,
 		chat.DeliveryMode,
 		chat.ModelOverride,
+		chat.RollingSummaryEnabled,
+		chat.RollingSummaryIntervalMinutes,
+		chat.RollingSummaryMaxPerDay,
+		chat.RollingSummaryBotEnabled,
 		chat.KeepBotMessages,
 		chat.FilteredSenders,
 		chat.FilteredKeywords,
@@ -154,6 +170,10 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 		&saved.SummaryTimezone,
 		&saved.DeliveryMode,
 		&saved.ModelOverride,
+		&saved.RollingSummaryEnabled,
+		&saved.RollingSummaryIntervalMinutes,
+		&saved.RollingSummaryMaxPerDay,
+		&saved.RollingSummaryBotEnabled,
 		&saved.KeepBotMessages,
 		&saved.FilteredSenders,
 		&saved.FilteredKeywords,
@@ -171,7 +191,8 @@ func (r *ChatRepository) GetByID(ctx context.Context, id int64) (model.Chat, err
 	err := r.pool.QueryRow(ctx, `
 		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
-		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
+		       delivery_mode, model_override, rolling_summary_enabled, rolling_summary_interval_minutes,
+		       rolling_summary_max_per_day, rolling_summary_bot_enabled, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
 		from chats
 		where id = $1
@@ -190,6 +211,10 @@ func (r *ChatRepository) GetByID(ctx context.Context, id int64) (model.Chat, err
 		&chat.SummaryTimezone,
 		&chat.DeliveryMode,
 		&chat.ModelOverride,
+		&chat.RollingSummaryEnabled,
+		&chat.RollingSummaryIntervalMinutes,
+		&chat.RollingSummaryMaxPerDay,
+		&chat.RollingSummaryBotEnabled,
 		&chat.KeepBotMessages,
 		&chat.FilteredSenders,
 		&chat.FilteredKeywords,
@@ -206,7 +231,8 @@ func (r *ChatRepository) ListSummaryEnabled(ctx context.Context) ([]model.Chat, 
 	rows, err := r.pool.Query(ctx, `
 		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
-		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
+		       delivery_mode, model_override, rolling_summary_enabled, rolling_summary_interval_minutes,
+		       rolling_summary_max_per_day, rolling_summary_bot_enabled, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
 		from chats
 		where summary_enabled = true
@@ -235,6 +261,10 @@ func (r *ChatRepository) ListSummaryEnabled(ctx context.Context) ([]model.Chat, 
 			&chat.SummaryTimezone,
 			&chat.DeliveryMode,
 			&chat.ModelOverride,
+			&chat.RollingSummaryEnabled,
+			&chat.RollingSummaryIntervalMinutes,
+			&chat.RollingSummaryMaxPerDay,
+			&chat.RollingSummaryBotEnabled,
 			&chat.KeepBotMessages,
 			&chat.FilteredSenders,
 			&chat.FilteredKeywords,
@@ -254,7 +284,8 @@ func (r *ChatRepository) GetByTelegramID(ctx context.Context, telegramID int64) 
 	err := r.pool.QueryRow(ctx, `
 		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
-		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
+		       delivery_mode, model_override, rolling_summary_enabled, rolling_summary_interval_minutes,
+		       rolling_summary_max_per_day, rolling_summary_bot_enabled, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
 		from chats
 		where telegram_chat_id = $1
@@ -273,6 +304,10 @@ func (r *ChatRepository) GetByTelegramID(ctx context.Context, telegramID int64) 
 		&chat.SummaryTimezone,
 		&chat.DeliveryMode,
 		&chat.ModelOverride,
+		&chat.RollingSummaryEnabled,
+		&chat.RollingSummaryIntervalMinutes,
+		&chat.RollingSummaryMaxPerDay,
+		&chat.RollingSummaryBotEnabled,
 		&chat.KeepBotMessages,
 		&chat.FilteredSenders,
 		&chat.FilteredKeywords,

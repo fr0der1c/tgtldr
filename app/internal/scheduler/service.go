@@ -28,6 +28,12 @@ type Service struct {
 
 type scheduledAction int
 
+type rollingWindow struct {
+	SummaryDate string
+	Start       time.Time
+	End         time.Time
+}
+
 const (
 	scheduledActionSkip scheduledAction = iota
 	scheduledActionGenerate
@@ -129,21 +135,28 @@ func (s *Service) RetryDelivery(ctx context.Context, summaryID int64) error {
 	if err != nil {
 		return err
 	}
-	if chat.DeliveryMode != model.DeliveryModeBot {
+	if item.SummaryType == model.SummaryTypeRolling {
+		if !chat.RollingSummaryBotEnabled {
+			return fmt.Errorf("rolling bot delivery is disabled")
+		}
+	} else if chat.DeliveryMode != model.DeliveryModeBot {
 		return fmt.Errorf("当前群组设置为不发送")
 	}
 
 	key := summaryTaskKey(chat.ID, item.SummaryDate)
+	if item.SummaryType == model.SummaryTypeRolling && item.WindowEnd != nil {
+		key = rollingSummaryTaskKey(chat.ID, *item.WindowEnd)
+	}
 	if !s.beginTask(key) {
 		return nil
 	}
 	defer s.finishTask(key)
 
 	if err := s.deliverSummary(ctx, chat, item); err != nil {
-		_ = s.store.Summaries.MarkDeliveryFailed(ctx, item.ChatID, item.SummaryDate, err.Error())
+		_ = s.store.Summaries.MarkSummaryDeliveryFailed(ctx, item, err.Error())
 		return err
 	}
-	return s.store.Summaries.MarkDelivered(ctx, item.ChatID, item.SummaryDate, s.clock.Now())
+	return s.store.Summaries.MarkSummaryDelivered(ctx, item, s.clock.Now())
 }
 
 func (s *Service) RepairEmptySummariesInRange(ctx context.Context, chat model.Chat, fromDate, toDate string) error {
@@ -190,6 +203,22 @@ func (s *Service) runNow(ctx context.Context, chat model.Chat, date string) erro
 	return s.executeSummary(ctx, chat, date)
 }
 
+func (s *Service) RunRollingNow(ctx context.Context, chat model.Chat, window rollingWindow) error {
+	key := rollingSummaryTaskKey(chat.ID, window.End)
+	if !s.beginTask(key) {
+		return nil
+	}
+	defer s.finishTask(key)
+
+	if err := s.store.Summaries.UpsertRollingPending(ctx, chat.ID, window.SummaryDate, window.Start, window.End); err != nil {
+		return err
+	}
+	if err := s.store.Summaries.SetRollingRunning(ctx, chat.ID, window.SummaryDate, window.End); err != nil {
+		return err
+	}
+	return s.executeRollingSummary(ctx, chat, window)
+}
+
 func (s *Service) executeSummary(ctx context.Context, chat model.Chat, date string) error {
 	result, err := s.summaries.RunDailySummary(ctx, chat, date)
 	if err != nil {
@@ -208,6 +237,21 @@ func (s *Service) executeSummary(ctx context.Context, chat model.Chat, date stri
 	return nil
 }
 
+func (s *Service) executeRollingSummary(ctx context.Context, chat model.Chat, window rollingWindow) error {
+	result, err := s.summaries.RunRollingSummary(ctx, chat, window.SummaryDate, window.Start, window.End)
+	if err != nil {
+		return err
+	}
+	if err := s.store.Summaries.SaveResult(ctx, result); err != nil {
+		return err
+	}
+	if result.Status != model.SummaryStatusSucceeded {
+		return nil
+	}
+	s.tryDeliverSummary(ctx, chat, result)
+	return nil
+}
+
 func (s *Service) runOnce(ctx context.Context) error {
 	settings, err := s.store.Settings.Get(ctx)
 	if err != nil {
@@ -219,6 +263,13 @@ func (s *Service) runOnce(ctx context.Context) error {
 		return err
 	}
 
+	if err := s.runDailyOnce(ctx, settings, chats); err != nil {
+		return err
+	}
+	return s.runRollingOnce(ctx, settings, chats)
+}
+
+func (s *Service) runDailyOnce(ctx context.Context, settings model.AppSettings, chats []model.Chat) error {
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, chat := range chats {
 		chat := chat
@@ -244,6 +295,44 @@ func (s *Service) runOnce(ctx context.Context) error {
 			default:
 				return s.RunNow(groupCtx, chat, date)
 			}
+		})
+	}
+	return group.Wait()
+}
+
+func (s *Service) runRollingOnce(ctx context.Context, settings model.AppSettings, chats []model.Chat) error {
+	group, groupCtx := errgroup.WithContext(ctx)
+	for _, chat := range chats {
+		chat := chat
+		if !chat.RollingSummaryEnabled {
+			continue
+		}
+		timezone := resolveRollingTimezone(chat, settings)
+		window, ok := rollingSummaryWindow(s.clock.Now(), timezone)
+		if !ok {
+			continue
+		}
+		group.Go(func() error {
+			last, found, err := s.lookupLatestRolling(groupCtx, chat.ID, window.SummaryDate)
+			if err != nil {
+				return err
+			}
+			runCount, err := s.store.Summaries.CountRollingForDate(groupCtx, chat.ID, window.SummaryDate)
+			if err != nil {
+				return err
+			}
+			newMessageStart := window.Start
+			if found && last.WindowEnd != nil {
+				newMessageStart = *last.WindowEnd
+			}
+			newMessageCount, err := s.store.Messages.CountForRange(groupCtx, chat.ID, newMessageStart, window.End)
+			if err != nil {
+				return err
+			}
+			if !rollingSummaryEligible(chat, last, found, runCount, newMessageCount, window.Start, s.clock.Now()) {
+				return nil
+			}
+			return s.RunRollingNow(groupCtx, chat, window)
 		})
 	}
 	return group.Wait()
@@ -275,15 +364,21 @@ func (s *Service) deliverExistingSummary(ctx context.Context, chat model.Chat, r
 }
 
 func (s *Service) tryDeliverSummary(ctx context.Context, chat model.Chat, result model.Summary) {
-	if chat.DeliveryMode != model.DeliveryModeBot {
-		return
+	if result.SummaryType == model.SummaryTypeRolling {
+		if !chat.RollingSummaryBotEnabled {
+			return
+		}
+	} else {
+		if chat.DeliveryMode != model.DeliveryModeBot {
+			return
+		}
 	}
 
 	if err := s.deliverSummary(ctx, chat, result); err != nil {
-		_ = s.store.Summaries.MarkDeliveryFailed(ctx, result.ChatID, result.SummaryDate, err.Error())
+		_ = s.store.Summaries.MarkSummaryDeliveryFailed(ctx, result, err.Error())
 		return
 	}
-	_ = s.store.Summaries.MarkDelivered(ctx, result.ChatID, result.SummaryDate, s.clock.Now())
+	_ = s.store.Summaries.MarkSummaryDelivered(ctx, result, s.clock.Now())
 }
 
 func (s *Service) deliverSummary(ctx context.Context, chat model.Chat, result model.Summary) error {
@@ -298,12 +393,15 @@ func (s *Service) deliverSummary(ctx context.Context, chat model.Chat, result mo
 		return fmt.Errorf("bot delivery target is not configured")
 	}
 
-	message := buildBotDeliveryMessage(chat, result)
+	message := buildBotDeliveryMessage(chat, result, settings.DefaultTimezone)
 	return s.botService.SendMessageWithLanguage(ctx, settings.BotToken, settings.BotTargetChatID, message, settings.Language)
 }
 
-func buildBotDeliveryMessage(chat model.Chat, result model.Summary) string {
-	header := fmt.Sprintf("**%s · %s**", chat.Title, result.SummaryDate)
+func buildBotDeliveryMessage(chat model.Chat, result model.Summary, timezone string) string {
+	header := fmt.Sprintf("**【每日摘要】%s · %s**", chat.Title, result.SummaryDate)
+	if result.SummaryType == model.SummaryTypeRolling {
+		header = fmt.Sprintf("**【滚动摘要】%s · %s**", chat.Title, formatRollingWindow(result, timezone))
+	}
 	content := strings.TrimSpace(result.Content)
 	if content == "" {
 		return header
@@ -311,8 +409,35 @@ func buildBotDeliveryMessage(chat model.Chat, result model.Summary) string {
 	return header + "\n\n" + content
 }
 
+func formatRollingWindow(result model.Summary, timezone string) string {
+	if result.WindowStart == nil || result.WindowEnd == nil {
+		return result.SummaryDate
+	}
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		location = time.Local
+	}
+	start := result.WindowStart.In(location)
+	end := result.WindowEnd.In(location)
+	if start.Format("2006-01-02") == end.Format("2006-01-02") {
+		return fmt.Sprintf("%s %s-%s", start.Format("2006-01-02"), start.Format("15:04"), end.Format("15:04"))
+	}
+	return fmt.Sprintf("%s-%s", start.Format("2006-01-02 15:04"), end.Format("2006-01-02 15:04"))
+}
+
 func (s *Service) lookupSummary(ctx context.Context, chatID int64, date string) (model.Summary, bool, error) {
 	item, err := s.store.Summaries.GetByChatAndDate(ctx, chatID, date)
+	if err == nil {
+		return item, true, nil
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Summary{}, false, nil
+	}
+	return model.Summary{}, false, err
+}
+
+func (s *Service) lookupLatestRolling(ctx context.Context, chatID int64, date string) (model.Summary, bool, error) {
+	item, err := s.store.Summaries.GetLatestRollingForDate(ctx, chatID, date)
 	if err == nil {
 		return item, true, nil
 	}
@@ -406,6 +531,70 @@ func targetDate(now time.Time, timezone string) string {
 	return localNow.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
+func rollingSummaryWindow(now time.Time, timezone string) (rollingWindow, bool) {
+	location, err := loadSummaryLocation(timezone)
+	if err != nil {
+		return rollingWindow{}, false
+	}
+	localNow := now.In(location)
+	start := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, location)
+	if !localNow.After(start) {
+		return rollingWindow{}, false
+	}
+	return rollingWindow{
+		SummaryDate: start.Format("2006-01-02"),
+		Start:       start.UTC(),
+		End:         localNow.UTC(),
+	}, true
+}
+
+func rollingSummaryEligible(
+	chat model.Chat,
+	last model.Summary,
+	found bool,
+	runCount int,
+	newMessageCount int,
+	windowStart time.Time,
+	now time.Time,
+) bool {
+	if !chat.RollingSummaryEnabled {
+		return false
+	}
+	if newMessageCount <= 0 {
+		return false
+	}
+	maxPerDay := rollingSummaryMaxPerDay(chat)
+	if maxPerDay <= 0 || runCount >= maxPerDay {
+		return false
+	}
+	interval := time.Duration(rollingSummaryIntervalMinutes(chat)) * time.Minute
+	if !found || last.WindowEnd == nil {
+		return !now.Before(windowStart.Add(interval))
+	}
+	return !now.Before(last.WindowEnd.Add(interval))
+}
+
+func rollingSummaryIntervalMinutes(chat model.Chat) int {
+	if chat.RollingSummaryIntervalMinutes <= 0 {
+		return 180
+	}
+	return chat.RollingSummaryIntervalMinutes
+}
+
+func rollingSummaryMaxPerDay(chat model.Chat) int {
+	if chat.RollingSummaryMaxPerDay <= 0 {
+		return 5
+	}
+	return chat.RollingSummaryMaxPerDay
+}
+
+func resolveRollingTimezone(chat model.Chat, settings model.AppSettings) string {
+	if strings.TrimSpace(chat.SummaryTimezone) != "" {
+		return chat.SummaryTimezone
+	}
+	return settings.DefaultTimezone
+}
+
 func datesInRange(fromDate, toDate, timezone string) []string {
 	start, _, err := summaryDayRange(fromDate, timezone)
 	if err != nil {
@@ -449,6 +638,10 @@ func loadSummaryLocation(timezone string) (*time.Location, error) {
 
 func summaryTaskKey(chatID int64, date string) string {
 	return fmt.Sprintf("%d:%s", chatID, date)
+}
+
+func rollingSummaryTaskKey(chatID int64, windowEnd time.Time) string {
+	return fmt.Sprintf("%d:rolling:%s", chatID, windowEnd.UTC().Format(time.RFC3339Nano))
 }
 
 func (s *Service) beginTask(key string) bool {

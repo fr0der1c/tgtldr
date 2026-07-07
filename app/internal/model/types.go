@@ -10,12 +10,15 @@ const (
 )
 
 type SummaryStatus string
+type SummaryType string
 
 const (
 	SummaryStatusPending   SummaryStatus = "pending"
 	SummaryStatusRunning   SummaryStatus = "running"
 	SummaryStatusSucceeded SummaryStatus = "succeeded"
 	SummaryStatusFailed    SummaryStatus = "failed"
+	SummaryTypeDaily       SummaryType   = "daily"
+	SummaryTypeRolling     SummaryType   = "rolling"
 )
 
 type OutputMode string
@@ -105,26 +108,30 @@ type TelegramAuth struct {
 }
 
 type Chat struct {
-	ID               int64                 `json:"id"`
-	TelegramChatID   int64                 `json:"telegramChatId"`
-	TelegramAccess   int64                 `json:"telegramAccessHash"`
-	Title            string                `json:"title"`
-	Username         string                `json:"username"`
-	ChatType         string                `json:"chatType"`
-	Enabled          bool                  `json:"enabled"`
-	SummaryEnabled   bool                  `json:"summaryEnabled"`
-	SummaryContext   string                `json:"summaryContext"`
-	SummaryPrompt    string                `json:"summaryPrompt"`
-	SummaryTimeLocal string                `json:"summaryTimeLocal"`
-	SummaryTimezone  string                `json:"summaryTimezone"`
-	DeliveryMode     DeliveryMode          `json:"deliveryMode"`
-	ModelOverride    string                `json:"modelOverride"`
-	KeepBotMessages  bool                  `json:"keepBotMessages"`
-	FilteredSenders  []string              `json:"filteredSenders"`
-	FilteredKeywords []string              `json:"filteredKeywords"`
-	MessageActivity  []ChatMessageActivity `json:"messageActivity,omitempty"`
-	CreatedAt        time.Time             `json:"createdAt"`
-	UpdatedAt        time.Time             `json:"updatedAt"`
+	ID                            int64                 `json:"id"`
+	TelegramChatID                int64                 `json:"telegramChatId"`
+	TelegramAccess                int64                 `json:"telegramAccessHash"`
+	Title                         string                `json:"title"`
+	Username                      string                `json:"username"`
+	ChatType                      string                `json:"chatType"`
+	Enabled                       bool                  `json:"enabled"`
+	SummaryEnabled                bool                  `json:"summaryEnabled"`
+	SummaryContext                string                `json:"summaryContext"`
+	SummaryPrompt                 string                `json:"summaryPrompt"`
+	SummaryTimeLocal              string                `json:"summaryTimeLocal"`
+	SummaryTimezone               string                `json:"summaryTimezone"`
+	DeliveryMode                  DeliveryMode          `json:"deliveryMode"`
+	ModelOverride                 string                `json:"modelOverride"`
+	RollingSummaryEnabled         bool                  `json:"rollingSummaryEnabled"`
+	RollingSummaryIntervalMinutes int                   `json:"rollingSummaryIntervalMinutes"`
+	RollingSummaryMaxPerDay       int                   `json:"rollingSummaryMaxPerDay"`
+	RollingSummaryBotEnabled      bool                  `json:"rollingSummaryBotEnabled"`
+	KeepBotMessages               bool                  `json:"keepBotMessages"`
+	FilteredSenders               []string              `json:"filteredSenders"`
+	FilteredKeywords              []string              `json:"filteredKeywords"`
+	MessageActivity               []ChatMessageActivity `json:"messageActivity,omitempty"`
+	CreatedAt                     time.Time             `json:"createdAt"`
+	UpdatedAt                     time.Time             `json:"updatedAt"`
 }
 
 type ChatMessageActivity struct {
@@ -162,6 +169,9 @@ type Summary struct {
 	ID                 int64         `json:"id"`
 	ChatID             int64         `json:"chatId"`
 	SummaryDate        string        `json:"summaryDate"`
+	SummaryType        SummaryType   `json:"summaryType"`
+	WindowStart        *time.Time    `json:"windowStart,omitempty"`
+	WindowEnd          *time.Time    `json:"windowEnd,omitempty"`
 	Status             SummaryStatus `json:"status"`
 	Content            string        `json:"content"`
 	Model              string        `json:"model"`

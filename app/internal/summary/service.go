@@ -41,7 +41,7 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
-	start, end, err := dayRange(summary.SummaryDate, timezone)
+	start, end, err := summaryRange(summary, timezone)
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
@@ -93,15 +93,36 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	}
 
 	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
-	location, err := loadLocation(timezone)
-	if err != nil {
-		return model.Summary{}, err
-	}
 	start, end, err := dayRange(date, timezone)
 	if err != nil {
 		return model.Summary{}, err
 	}
+	return s.runSummaryForWindow(ctx, chat, date, model.SummaryTypeDaily, start, end, settings, timezone)
+}
 
+func (s *Service) RunRollingSummary(ctx context.Context, chat model.Chat, date string, start, end time.Time) (model.Summary, error) {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return model.Summary{}, err
+	}
+	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
+	return s.runSummaryForWindow(ctx, chat, date, model.SummaryTypeRolling, start, end, settings, timezone)
+}
+
+func (s *Service) runSummaryForWindow(
+	ctx context.Context,
+	chat model.Chat,
+	date string,
+	summaryType model.SummaryType,
+	start time.Time,
+	end time.Time,
+	settings model.AppSettings,
+	timezone string,
+) (model.Summary, error) {
+	location, err := loadLocation(timezone)
+	if err != nil {
+		return model.Summary{}, err
+	}
 	messages, err := s.store.Messages.ListForRange(ctx, chat.ID, start, end)
 	if err != nil {
 		return model.Summary{}, err
@@ -114,6 +135,9 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	summary := model.Summary{
 		ChatID:             chat.ID,
 		SummaryDate:        date,
+		SummaryType:        summaryType,
+		WindowStart:        timePtr(start),
+		WindowEnd:          timePtr(end),
 		Status:             model.SummaryStatusSucceeded,
 		Model:              resolveSummaryModel(chat, settings),
 		SourceMessageCount: len(filteredMessages),
@@ -210,6 +234,13 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	summary.Content = strings.TrimSpace(finalResp.Content)
 	summary.Model = finalResp.Model
 	return summary, nil
+}
+
+func summaryRange(summary model.Summary, timezone string) (time.Time, time.Time, error) {
+	if summary.WindowStart != nil && summary.WindowEnd != nil {
+		return *summary.WindowStart, *summary.WindowEnd, nil
+	}
+	return dayRange(summary.SummaryDate, timezone)
 }
 
 func resolveSummaryModel(chat model.Chat, settings model.AppSettings) string {
@@ -353,6 +384,10 @@ func dayRange(date string, timezone string) (time.Time, time.Time, error) {
 	}
 	end := start.Add(24 * time.Hour)
 	return start.UTC(), end.UTC(), nil
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
 }
 
 func min(a, b int) int {

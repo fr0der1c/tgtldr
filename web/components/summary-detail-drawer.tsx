@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown } from "@/components/summary-markdown";
 import { StatusPill } from "@/components/ui";
 import { Chat, Summary } from "@/lib/types";
-import { deliveryState, statusText, statusTone } from "@/components/summaries-panel-sections";
+import { deliveryState, statusText, statusTone, summaryPeriodText, summaryTypeText } from "@/components/summaries-panel-sections";
 
 export function SummaryDetailDrawer({
   botReady,
@@ -46,7 +46,8 @@ export function SummaryDetailDrawer({
         <div className="summary-detail-stack">
           <div className="summary-detail-header">
             <h2>
-              {chatTitle} · {selectedSummary.summaryDate}
+              {summaryTypeText(selectedSummary.summaryType)} ·{" "}
+              {chatTitle} · {summaryPeriodText(selectedSummary)}
             </h2>
           </div>
           <div className="summary-status-actions">
@@ -79,13 +80,15 @@ export function SummaryDetailDrawer({
               <button className="text-link-button" onClick={onOpenContext} type="button">
                 查看原始 prompt
               </button>
-              <button
-                className="text-link-button"
-                onClick={() => startTransition(() => void onRerunSummary(selectedSummary))}
-                type="button"
-              >
-                重新生成
-              </button>
+              {selectedSummary.summaryType === "daily" ? (
+                <button
+                  className="text-link-button"
+                  onClick={() => startTransition(() => void onRerunSummary(selectedSummary))}
+                  type="button"
+                >
+                  重新生成
+                </button>
+              ) : null}
             </div>
           </div>
           <SummaryContent summary={selectedSummary} summaryRetryLimit={summaryRetryLimit} />

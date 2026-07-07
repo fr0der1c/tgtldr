@@ -222,7 +222,8 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 									<div className="entity-row-main">
 										<strong>{chatTitles.get(item.chatId) ?? "未知群组"}</strong>
 										<p>
-											{item.summaryDate} · {item.model || "未记录模型"} · {messageCountText}
+											<span>{summaryTypeText(item.summaryType)} · </span>
+											{summaryPeriodText(item)} · {item.model || "未记录模型"} · {messageCountText}
 										</p>
 										{searching && item.matchSnippet ? (
 											<p className="entity-row-snippet">
@@ -277,8 +278,24 @@ export function statusText(status: Summary["status"]) {
 	return "等待中"
 }
 
+export function summaryTypeText(summaryType: Summary["summaryType"]) {
+	if (summaryType === "rolling") return "滚动摘要"
+	return "每日摘要"
+}
+
+export function summaryPeriodText(summary: Summary) {
+	if (summary.summaryType === "rolling" && summary.windowStart && summary.windowEnd) {
+		return `${formatDateTimeMinute(summary.windowStart)}-${formatTimeMinute(summary.windowEnd)}`
+	}
+	return summary.summaryDate
+}
+
 export function deliveryState(summary: Summary, chat: Chat | null, botReady: boolean): DeliveryState {
-	if (!chat || chat.deliveryMode !== "bot") {
+	const botDeliveryEnabled = summary.summaryType === "rolling"
+		? Boolean(chat?.rollingSummaryBotEnabled)
+		: chat?.deliveryMode === "bot"
+
+	if (!chat || !botDeliveryEnabled) {
 		return { label: "不发送", tone: "neutral", detail: "当前群组设置为不通过 Bot 推送。", retryable: false }
 	}
 	if (!botReady) {
@@ -294,6 +311,32 @@ export function deliveryState(summary: Summary, chat: Chat | null, botReady: boo
 		return { label: "发送失败", tone: "bad", detail: summary.deliveryError, retryable: true }
 	}
 	return { label: "待发送", tone: "warn", detail: "摘要已生成，等待自动发送或手动重试。", retryable: true }
+}
+
+function formatDateTimeMinute(value: string) {
+	const date = new Date(value)
+	if (Number.isNaN(date.getTime())) {
+		return value
+	}
+	return date.toLocaleString("zh-CN", {
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	})
+}
+
+function formatTimeMinute(value: string) {
+	const date = new Date(value)
+	if (Number.isNaN(date.getTime())) {
+		return value
+	}
+	return date.toLocaleTimeString("zh-CN", {
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	})
 }
 
 export function localDateInputValue() {

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -19,7 +20,9 @@ func TestLoadOrCreateMasterKeyFile(t *testing.T) {
 
 		stat, err := os.Stat(path)
 		So(err, ShouldBeNil)
-		So(stat.Mode().Perm(), ShouldEqual, 0o600)
+		if runtime.GOOS != "windows" {
+			So(stat.Mode().Perm(), ShouldEqual, 0o600)
+		}
 
 		second, err := loadOrCreateMasterKeyFile(path)
 		So(err, ShouldBeNil)

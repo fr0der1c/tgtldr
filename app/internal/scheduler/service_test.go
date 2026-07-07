@@ -248,3 +248,118 @@ func TestIsRepairableEmptySummary(t *testing.T) {
 		}), ShouldBeFalse)
 	})
 }
+
+func TestRollingSummaryWindow(t *testing.T) {
+	Convey("rolling summary uses today's local midnight through current time", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+
+		now := time.Date(2026, time.July, 7, 15, 30, 0, 0, shanghai)
+		window, ok := rollingSummaryWindow(now, "Asia/Shanghai")
+
+		So(ok, ShouldBeTrue)
+		So(window.SummaryDate, ShouldEqual, "2026-07-07")
+		So(window.Start, ShouldResemble, time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC())
+		So(window.End, ShouldResemble, now.UTC())
+	})
+}
+
+func TestRollingSummaryEligibility(t *testing.T) {
+	Convey("rolling summary skips until interval elapses", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		now := time.Date(2026, time.July, 7, 15, 30, 0, 0, shanghai)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+		lastEnd := time.Date(2026, time.July, 7, 13, 0, 0, 0, shanghai)
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{
+			SummaryType: model.SummaryTypeRolling,
+			WindowEnd:   &lastEnd,
+		}, true, 1, 10, windowStart, now)
+
+		So(eligible, ShouldBeFalse)
+	})
+
+	Convey("rolling summary runs when interval elapsed and new messages exist", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		now := time.Date(2026, time.July, 7, 16, 30, 0, 0, shanghai)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+		lastEnd := time.Date(2026, time.July, 7, 13, 0, 0, 0, shanghai)
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{
+			SummaryType: model.SummaryTypeRolling,
+			WindowEnd:   &lastEnd,
+		}, true, 1, 10, windowStart, now)
+
+		So(eligible, ShouldBeTrue)
+	})
+
+	Convey("rolling summary respects max sends per day", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		now := time.Date(2026, time.July, 7, 16, 30, 0, 0, shanghai)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{}, false, 5, 10, windowStart, now)
+
+		So(eligible, ShouldBeFalse)
+	})
+
+	Convey("rolling summary requires new messages", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		now := time.Date(2026, time.July, 7, 16, 30, 0, 0, shanghai)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{}, false, 0, 0, windowStart, now)
+
+		So(eligible, ShouldBeFalse)
+	})
+
+	Convey("first rolling summary waits for the configured interval after midnight", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+		now := time.Date(2026, time.July, 7, 1, 30, 0, 0, shanghai)
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{}, false, 0, 10, windowStart, now)
+
+		So(eligible, ShouldBeFalse)
+	})
+
+	Convey("first rolling summary runs after the configured interval", t, func() {
+		shanghai, err := time.LoadLocation("Asia/Shanghai")
+		So(err, ShouldBeNil)
+		windowStart := time.Date(2026, time.July, 7, 0, 0, 0, 0, shanghai).UTC()
+		now := time.Date(2026, time.July, 7, 3, 0, 0, 0, shanghai)
+
+		eligible := rollingSummaryEligible(model.Chat{
+			RollingSummaryEnabled:         true,
+			RollingSummaryIntervalMinutes: 180,
+			RollingSummaryMaxPerDay:       5,
+		}, model.Summary{}, false, 0, 10, windowStart, now)
+
+		So(eligible, ShouldBeTrue)
+	})
+}

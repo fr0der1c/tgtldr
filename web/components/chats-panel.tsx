@@ -233,6 +233,10 @@ function normalizeChat(chat: Chat): Chat {
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
     keepBotMessages: chat.keepBotMessages ?? true,
+    rollingSummaryEnabled: chat.rollingSummaryEnabled ?? false,
+    rollingSummaryIntervalMinutes: chat.rollingSummaryIntervalMinutes || 180,
+    rollingSummaryMaxPerDay: chat.rollingSummaryMaxPerDay || 5,
+    rollingSummaryBotEnabled: chat.rollingSummaryBotEnabled ?? true,
     messageActivity: Array.isArray(chat.messageActivity) ? chat.messageActivity : []
   };
 }
@@ -351,6 +355,66 @@ function ChatTableRow({
 
                   {chat.summaryEnabled ? (
                     <>
+                      <div className="form-grid">
+                        <Field label="今日滚动摘要">
+                          <AppSelect
+                            onChange={(value) =>
+                              onPatch({ rollingSummaryEnabled: value === "yes" })
+                            }
+                            options={[
+                              { value: "yes", label: "启用" },
+                              { value: "no", label: "停用" }
+                            ]}
+                            value={chat.rollingSummaryEnabled ? "yes" : "no"}
+                          />
+                        </Field>
+
+                        <Field label="滚动间隔">
+                          <AppSelect
+                            onChange={(value) =>
+                              onPatch({ rollingSummaryIntervalMinutes: Number(value) })
+                            }
+                            options={[
+                              { value: "60", label: "1 小时" },
+                              { value: "120", label: "2 小时" },
+                              { value: "180", label: "3 小时" },
+                              { value: "360", label: "6 小时" }
+                            ]}
+                            value={String(chat.rollingSummaryIntervalMinutes || 180)}
+                          />
+                        </Field>
+
+                        <Field label="每日上限">
+                          <Input
+                            min={1}
+                            max={24}
+                            type="number"
+                            value={chat.rollingSummaryMaxPerDay || 5}
+                            onChange={(event) =>
+                              onPatch({
+                                rollingSummaryMaxPerDay: Number(event.target.value || "5")
+                              })
+                            }
+                          />
+                        </Field>
+
+                        <Field label="滚动推送">
+                          <AppSelect
+                            onChange={(value) =>
+                              onPatch({ rollingSummaryBotEnabled: value === "yes" })
+                            }
+                            options={[
+                              { value: "yes", label: "推送到 Telegram" },
+                              { value: "no", label: "仅网页记录" }
+                            ]}
+                            value={chat.rollingSummaryBotEnabled ? "yes" : "no"}
+                          />
+                        </Field>
+                      </div>
+                      <p className="table-editor-note">
+                        滚动摘要会总结今天 00:00 到当前时间的新增消息；达到间隔、未超过每日上限且有新消息时才会推送。
+                      </p>
+
                       <div className="form-grid">
                         <Field label="AI 总结交付方式">
                           <AppSelect

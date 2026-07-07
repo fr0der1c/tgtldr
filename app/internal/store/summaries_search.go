@@ -87,11 +87,11 @@ func buildDeliveryClause(delivery string) string {
 	case "sent":
 		return "s.delivered_at is not null"
 	case "pending":
-		return "c.delivery_mode = 'bot' and s.delivered_at is null and s.delivery_error = ''"
+		return "((s.summary_type = 'daily' and c.delivery_mode = 'bot') or (s.summary_type = 'rolling' and c.rolling_summary_bot_enabled = true)) and s.delivered_at is null and s.delivery_error = ''"
 	case "failed":
-		return "c.delivery_mode = 'bot' and s.delivered_at is null and s.delivery_error <> ''"
+		return "((s.summary_type = 'daily' and c.delivery_mode = 'bot') or (s.summary_type = 'rolling' and c.rolling_summary_bot_enabled = true)) and s.delivered_at is null and s.delivery_error <> ''"
 	case "disabled":
-		return "c.delivery_mode <> 'bot'"
+		return "(s.summary_type = 'daily' and c.delivery_mode <> 'bot') or (s.summary_type = 'rolling' and c.rolling_summary_bot_enabled = false)"
 	default:
 		return ""
 	}

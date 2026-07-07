@@ -92,6 +92,10 @@ export type Chat = {
   summaryTimeLocal: string;
   deliveryMode: DeliveryMode;
   modelOverride: string;
+  rollingSummaryEnabled: boolean;
+  rollingSummaryIntervalMinutes: number;
+  rollingSummaryMaxPerDay: number;
+  rollingSummaryBotEnabled: boolean;
   keepBotMessages: boolean;
   filteredSenders: string[];
   filteredKeywords: string[];
@@ -116,6 +120,9 @@ export type Summary = {
   id: number;
   chatId: number;
   summaryDate: string;
+  summaryType: "daily" | "rolling";
+  windowStart?: string;
+  windowEnd?: string;
   status: "pending" | "running" | "succeeded" | "failed";
   content: string;
   model: string;
