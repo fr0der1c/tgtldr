@@ -1579,8 +1579,29 @@ select {
   gap: 6px;
 }
 
-.data-row-title strong {
+.data-row-title strong,
+.chat-summary-link {
   font-size: 1rem;
+}
+
+.chat-summary-link {
+  width: fit-content;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.chat-summary-link:hover {
+  color: var(--accent-strong);
+  text-decoration-color: currentColor;
+}
+
+.chat-summary-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgba(185, 137, 59, 0.35);
+  outline-offset: 3px;
 }
 
 .data-row-title span {

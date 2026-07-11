@@ -24,12 +24,6 @@ This project exists because many Telegram groups are large, noisy communities th
 - OpenAI-compatible Base URL, API Key, and model name
 - Optional: Telegram Bot Token for sending summaries back to Telegram
 
-## TGTLDR Cloud
-
-If you do not have a server that can stay online 24/7, or if you cannot get a Telegram App, contact [Talk to Frederic Bot](https://t.me/fredericc_bot) (`@fredericc_bot`) on Telegram.
-
-TGTLDR Cloud costs $5 per month and provides a TGTLDR instance with the Telegram App already configured. You only need to log in to your Telegram account and configure the AI settings to start using it.
-
 ## Local Startup
 
 ### Recommended: use prebuilt images

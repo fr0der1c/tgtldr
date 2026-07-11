@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   startTransition,
   useCallback,
@@ -295,7 +296,12 @@ function ChatTableRow({
       <tr className={expanded ? "data-row active" : "data-row"}>
         <td>
           <div className="data-row-title">
-            <strong>{chat.title}</strong>
+            <Link
+              className="chat-summary-link"
+              href={`/dashboard/summaries?chatId=${encodeURIComponent(String(chat.id))}`}
+            >
+              {chat.title}
+            </Link>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
             <ChatActivityStrip activity={chat.messageActivity ?? []} />
           </div>

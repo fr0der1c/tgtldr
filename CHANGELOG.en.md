@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-11
+
+### Added
+
+- Chat names in the chat list now link directly to the summaries page with that chat automatically selected.
+
 ## 2026-06-14
 
 ### Added

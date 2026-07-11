@@ -26,7 +26,7 @@ import { useToast } from "@/components/toast";
 
 const summaryPageSize = 20;
 
-export function SummariesPanel() {
+export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: string }) {
 	const [summaries, setSummaries] = useState<Summary[]>([]);
 	const [summaryStats, setSummaryStats] = useState<SummaryStats>({
 		total: 0,
@@ -45,7 +45,7 @@ export function SummariesPanel() {
 	const [filter, setFilter] = useState<SummaryFilter>("all");
 	const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>("all");
 	const [query, setQuery] = useState("");
-	const [chatFilter, setChatFilter] = useState("all");
+	const [chatFilter, setChatFilter] = useState(initialChatId);
 	const [dateFrom, setDateFrom] = useState("");
 	const [dateTo, setDateTo] = useState("");
 	const [page, setPage] = useState(1);
