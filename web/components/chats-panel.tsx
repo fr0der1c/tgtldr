@@ -1,12 +1,21 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
 import { Chat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
+import { onHistoryBackfillCompleted } from "@/lib/history-backfill-sync";
 
 type ChatTypeFilter = "all" | Chat["chatType"];
 type SwitchFilter = "all" | "yes" | "no";
@@ -30,12 +39,13 @@ export function ChatsPanel() {
   const [summaryFilter, setSummaryFilter] = useState<SwitchFilter>("all");
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
+  const showErrorRef = useRef(toast.showError);
 
   useEffect(() => {
-    void load();
-  }, []);
+    showErrorRef.current = toast.showError;
+  }, [toast.showError]);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const chats = (await api.listChats()).map(normalizeChat);
       setItems(chats);
@@ -44,9 +54,19 @@ export function ChatsPanel() {
         current && chats.some((chat) => chat.id === current) ? current : null
       );
     } catch (err) {
-      toast.showError(asMessage(err));
+      showErrorRef.current(asMessage(err));
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    return onHistoryBackfillCompleted(() => {
+      void load();
+    });
+  }, [load]);
 
   async function saveChat(chat: Chat) {
     try {

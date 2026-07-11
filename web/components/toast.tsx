@@ -10,6 +10,7 @@ import {
   useState
 } from "react";
 import { api } from "@/lib/api";
+import { notifyHistoryBackfillCompleted } from "@/lib/history-backfill-sync";
 import { HistoryBackfillTask } from "@/lib/types";
 
 type ToastTone = "good" | "bad" | "neutral";
@@ -55,17 +56,6 @@ export function ToastProvider({ children }: PropsWithChildren) {
     if (timeoutID) {
       window.clearTimeout(timeoutID);
       timeoutsRef.current.delete(id);
-    }
-    for (const [taskID, toastID] of backfillToastRef.current.entries()) {
-      if (toastID !== id) {
-        continue;
-      }
-      const pollerID = backfillPollersRef.current.get(taskID);
-      if (pollerID) {
-        window.clearInterval(pollerID);
-        backfillPollersRef.current.delete(taskID);
-      }
-      backfillToastRef.current.delete(taskID);
     }
     setToasts((current) => current.filter((item) => item.id !== id));
   }, []);
@@ -159,6 +149,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
           backfillToastRef.current.delete(task.id);
 
           if (latest.status === "succeeded") {
+            notifyHistoryBackfillCompleted(latest);
             updateToast(toastID, {
               message: `「${latest.chatTitle}」历史消息回补完成，已处理 ${latest.importedCount} 条消息。`,
               persist: true,
