@@ -352,10 +352,7 @@ function ChatTableRow({
               {editing ? (
                 <>
                   <div className="form-grid table-editor-primary-grid">
-                    <Field
-                      label="使用账号"
-                      hint="系统将通过这个账号接收该群的新消息并加载历史消息。"
-                    >
+                    <Field label="使用账号">
                       <AppSelect
                         disabled={collectorAccounts.length <= 1}
                         onChange={(value) =>

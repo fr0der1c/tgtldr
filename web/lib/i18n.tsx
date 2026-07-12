@@ -102,7 +102,6 @@ const textTranslations = {
   "只有启用 AI 总结的群组才会参与每日摘要。": "Only chats with AI summaries enabled are included in daily summaries.",
   "群组列表": "Chat List",
   "使用账号": "Account used for this chat",
-  "系统将通过这个账号接收该群的新消息并加载历史消息。": "The system uses this account to receive new messages and load message history for this chat.",
   "需要重新登录": "Sign-in required",
   "先查看每个群当前是否启用，再通过操作按钮调整摘要规则、补充群聊背景或回补历史消息。": "Review each chat's status, then use actions to adjust summary rules, add context, or backfill history.",
   "搜索群组": "Search chats",
