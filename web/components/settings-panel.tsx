@@ -124,9 +124,6 @@ export function SettingsPanel() {
         return authorized[0]?.id ?? 0;
       });
       setPendingAuth(bootstrapData.pendingAuth ?? null);
-      if (!bootstrapData.pendingAuth && bootstrapData.telegramAuthorized) {
-        setAuthEditorOpen(false);
-      }
     } catch (err) {
       toast.showError(asMessage(err));
     }

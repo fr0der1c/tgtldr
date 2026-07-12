@@ -12,6 +12,10 @@
 
 - Reorganized the settings page into categorized tabs and refined multi-account management, Bot target-conversation binding, and page-transition interactions.
 
+### Fixed
+
+- Fixed an issue where the sign-in card could collapse after sending a verification code while adding a Telegram account.
+
 ## 2026-07-11
 
 ### Added
