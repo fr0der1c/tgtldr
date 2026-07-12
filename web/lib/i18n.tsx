@@ -86,7 +86,7 @@ const textTranslations = {
   "Telegram 账号已删除。": "Telegram account deleted.",
   "已连接": "Connected",
   "未连接": "Not connected",
-  "Bot 推送": "Telegram Bot Delivery",
+  "Bot 推送": "Bot Delivery",
   "启用中": "Enabled",
   "未启用": "Disabled",
   "在这里选择需要保存消息和生成摘要的群组，并调整每个群的摘要设置。": "Choose which chats should save messages and generate summaries, then tune each chat's summary settings.",

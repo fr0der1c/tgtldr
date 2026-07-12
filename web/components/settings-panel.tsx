@@ -21,7 +21,7 @@ import { DashboardPage, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill } from "@/components/ui";
 import { listTimezoneOptions } from "@/lib/timezones";
-import { normalizeLanguage, useI18n } from "@/lib/i18n";
+import { normalizeLanguage, translateText, useI18n } from "@/lib/i18n";
 
 type SecretPlaceholders = {
   botToken: string;
@@ -1075,6 +1075,7 @@ function TelegramAccountSection({
   retryLabel: string | null;
   stage: AuthStage;
 }) {
+  const { language } = useI18n();
   const reauthAccount = (bootstrap?.telegramAccounts ?? []).find(
     (account) => account.id === reauthAccountId,
   );
@@ -1110,7 +1111,10 @@ function TelegramAccountSection({
               <span className="account-delete-tooltip">
                 <Button disabled type="button" variant="ghost">删除账号</Button>
                 <span className="account-delete-tooltip-content" role="tooltip">
-                  有 {account.usedByChatCount} 个群组正在使用此账号，请先为这些群组选择其他账号。
+                  {translateText(
+                    `有 ${account.usedByChatCount} 个群组正在使用此账号，请先为这些群组选择其他账号。`,
+                    language,
+                  )}
                 </span>
               </span>
             ) : (
