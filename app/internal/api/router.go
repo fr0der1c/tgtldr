@@ -64,6 +64,9 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/telegram/auth/start", r.handleStartAuth)
 	mux.HandleFunc("/api/telegram/auth/code", r.handleVerifyCode)
 	mux.HandleFunc("/api/telegram/auth/password", r.handleVerifyPassword)
+	mux.HandleFunc("/api/telegram/auth/cancel", r.handleCancelTelegramAuth)
+	mux.HandleFunc("/api/telegram/accounts", r.handleTelegramAccounts)
+	mux.HandleFunc("/api/telegram/accounts/", r.handleTelegramAccountByID)
 	mux.HandleFunc("/api/telegram/chats/sync", r.handleSyncChats)
 	mux.HandleFunc("/api/chats", r.handleChats)
 	mux.HandleFunc("/api/chats/", r.handleChatByID)
@@ -86,7 +89,7 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		if req.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -202,17 +205,30 @@ func (r *Router) handleBootstrap(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	accounts, err := r.store.Auth.List(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	authorizedCount := 0
+	for _, account := range accounts {
+		if account.Status == "authorized" {
+			authorizedCount++
+		}
+	}
 	payload := map[string]any{
-		"settingsConfigured": settingsConfigured(settings),
-		"passwordConfigured": passwordConfigured,
-		"authenticated":      authenticated,
-		"telegramAuthorized": auth != nil && auth.Status == "authorized",
-		"enabledChatCount":   count,
-		"botEnabled":         settings.BotEnabled,
-		"language":           model.NormalizeLanguage(settings.Language),
-		"settings":           settings.Sanitized(),
-		"auth":               auth,
-		"pendingAuth":        r.telegram.PendingAuthState(),
+		"settingsConfigured":     settingsConfigured(settings),
+		"passwordConfigured":     passwordConfigured,
+		"authenticated":          authenticated,
+		"telegramAuthorized":     authorizedCount > 0,
+		"authorizedAccountCount": authorizedCount,
+		"telegramAccounts":       accounts,
+		"enabledChatCount":       count,
+		"botEnabled":             settings.BotEnabled,
+		"language":               model.NormalizeLanguage(settings.Language),
+		"settings":               settings.Sanitized(),
+		"auth":                   auth,
+		"pendingAuth":            r.telegram.PendingAuthState(),
 	}
 	httpx.JSON(w, http.StatusOK, payload)
 }
@@ -335,14 +351,15 @@ func (r *Router) handleResolveBotTargetChat(w http.ResponseWriter, req *http.Req
 	}
 
 	var payload struct {
-		BotToken string `json:"botToken"`
+		BotToken          string `json:"botToken"`
+		TelegramAccountID int64  `json:"telegramAccountId"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	auth, err := r.telegram.BootstrapAuth(req.Context())
+	auth, err := r.botTargetTelegramAccount(req.Context(), payload.TelegramAccountID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
@@ -382,6 +399,13 @@ func (r *Router) handleResolveBotTargetChat(w http.ResponseWriter, req *http.Req
 	})
 }
 
+func (r *Router) botTargetTelegramAccount(ctx context.Context, accountID int64) (*model.TelegramAuth, error) {
+	if accountID == 0 {
+		return r.telegram.BootstrapAuth(ctx)
+	}
+	return r.store.Auth.GetByID(ctx, accountID)
+}
+
 func (r *Router) handleStartAuth(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -389,13 +413,14 @@ func (r *Router) handleStartAuth(w http.ResponseWriter, req *http.Request) {
 	}
 	var payload struct {
 		PhoneNumber string `json:"phoneNumber"`
+		AccountID   int64  `json:"accountId"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	state, err := r.telegram.StartAuth(req.Context(), payload.PhoneNumber)
+	state, err := r.telegram.StartAuth(req.Context(), payload.PhoneNumber, payload.AccountID)
 	if err != nil {
 		if floodErr, ok := asFloodWaitError(err); ok {
 			httpx.ErrorWithCode(w, http.StatusTooManyRequests, floodErr.Error(), "telegram_flood_wait", floodErr.RetryAfterSeconds())
@@ -405,6 +430,18 @@ func (r *Router) handleStartAuth(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, state)
+}
+
+func (r *Router) handleCancelTelegramAuth(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := r.telegram.CancelPendingAuth(req.Context()); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (r *Router) handleVerifyCode(w http.ResponseWriter, req *http.Request) {
@@ -480,6 +517,10 @@ func (r *Router) handleSyncChats(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := r.attachAvailableAccounts(req.Context(), chats); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.JSON(w, http.StatusOK, chats)
 }
 
@@ -511,7 +552,26 @@ func (r *Router) handleChats(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := r.attachAvailableAccounts(req.Context(), chats); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.JSON(w, http.StatusOK, chats)
+}
+
+func (r *Router) attachAvailableAccounts(ctx context.Context, chats []model.Chat) error {
+	chatIDs := make([]int64, 0, len(chats))
+	for _, chat := range chats {
+		chatIDs = append(chatIDs, chat.ID)
+	}
+	accountsByChat, err := r.store.AccountChats.ListForChats(ctx, chatIDs)
+	if err != nil {
+		return err
+	}
+	for i := range chats {
+		chats[i].AvailableAccounts = accountsByChat[chats[i].ID]
+	}
+	return nil
 }
 
 func (r *Router) chatMessageActivityWindow(ctx context.Context) (time.Time, string, error) {
@@ -553,16 +613,17 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Enabled          bool               `json:"enabled"`
-		SummaryEnabled   bool               `json:"summaryEnabled"`
-		SummaryContext   string             `json:"summaryContext"`
-		SummaryPrompt    string             `json:"summaryPrompt"`
-		SummaryTimeLocal string             `json:"summaryTimeLocal"`
-		DeliveryMode     model.DeliveryMode `json:"deliveryMode"`
-		ModelOverride    string             `json:"modelOverride"`
-		KeepBotMessages  bool               `json:"keepBotMessages"`
-		FilteredSenders  []string           `json:"filteredSenders"`
-		FilteredKeywords []string           `json:"filteredKeywords"`
+		Enabled            bool               `json:"enabled"`
+		SummaryEnabled     bool               `json:"summaryEnabled"`
+		SummaryContext     string             `json:"summaryContext"`
+		SummaryPrompt      string             `json:"summaryPrompt"`
+		SummaryTimeLocal   string             `json:"summaryTimeLocal"`
+		DeliveryMode       model.DeliveryMode `json:"deliveryMode"`
+		ModelOverride      string             `json:"modelOverride"`
+		KeepBotMessages    bool               `json:"keepBotMessages"`
+		FilteredSenders    []string           `json:"filteredSenders"`
+		FilteredKeywords   []string           `json:"filteredKeywords"`
+		CollectorAccountID int64              `json:"collectorAccountId"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -579,8 +640,20 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	current.KeepBotMessages = payload.KeepBotMessages
 	current.FilteredSenders = compactStrings(payload.FilteredSenders)
 	current.FilteredKeywords = compactStrings(payload.FilteredKeywords)
+	if payload.CollectorAccountID != current.CollectorAccountID {
+		if err := r.store.Chats.SetCollectorAccount(req.Context(), current.ID, payload.CollectorAccountID); err != nil {
+			httpx.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		current.CollectorAccountID = payload.CollectorAccountID
+	}
 
 	saved, err := r.store.Chats.Save(req.Context(), current)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	saved.AvailableAccounts, err = r.store.AccountChats.ListForChat(req.Context(), saved.ID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return

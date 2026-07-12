@@ -313,6 +313,27 @@ select {
   gap: 12px;
 }
 
+.bot-target-binding {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(185, 137, 59, 0.22);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(185, 137, 59, 0.1), rgba(255, 255, 255, 0.62));
+}
+
+.bot-target-binding-heading {
+  display: flex;
+  align-items: center;
+}
+
+.bot-target-binding-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+
 .bot-chat-candidate {
   justify-content: flex-start;
   border-radius: 16px;
@@ -332,6 +353,13 @@ select {
 
 .bot-target-chat-value.empty {
   color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .bot-target-binding {
+    padding: 16px;
+  }
+
 }
 
 .button {
@@ -753,41 +781,76 @@ select {
 }
 
 .nav-stack {
+  position: relative;
   display: grid;
   gap: 10px;
+  isolation: isolate;
 }
 
-.nav-link {
-  padding: 12px 14px;
+.nav-active-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.56);
-  border: 1px solid rgba(28, 25, 23, 0.04);
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
-}
-
-.nav-link:hover {
-  transform: translateY(-1px);
-  border-color: rgba(185, 137, 59, 0.18);
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.nav-link.active {
-  color: #fffdfb;
-  border-color: rgba(28, 25, 23, 0.45);
   background: linear-gradient(
     135deg,
     rgba(28, 25, 23, 0.96),
     rgba(52, 43, 35, 0.92)
   );
-  box-shadow: 0 12px 28px rgba(28, 25, 23, 0.12);
+  box-shadow:
+    0 12px 28px rgba(28, 25, 23, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateY(calc(var(--active-nav-index) * 60px));
+  transition: transform 360ms cubic-bezier(0.22, 1.22, 0.36, 1);
+}
+
+.nav-link {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.nav-link:hover {
+  color: var(--ink);
+  border-color: rgba(185, 137, 59, 0.18);
+}
+
+.nav-link.active {
+  color: #fffdfb;
+  border-color: transparent;
 }
 
 .dashboard-main {
   min-width: 0;
+}
+
+.dashboard-main-content {
+  animation: dashboard-content-enter 240ms ease-out both;
+}
+
+@keyframes dashboard-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-sidebar-status {
@@ -927,6 +990,94 @@ select {
 
 .settings-workspace {
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.settings-workspace-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-tab-content {
+  animation: settings-tab-enter 220ms ease-out both;
+}
+
+@keyframes settings-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-column:empty {
+  display: none;
+}
+
+.settings-tabs {
+  margin-bottom: 18px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid rgba(28, 25, 23, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tabs-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(118px, 1fr));
+  min-width: 590px;
+  width: 100%;
+  isolation: isolate;
+}
+
+.settings-tab-indicator {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 20%;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #1f1b18, #3c332d);
+  box-shadow:
+    0 10px 24px rgba(35, 29, 25, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transform: translateX(calc(var(--active-tab-index) * 100%));
+  transition: transform 360ms cubic-bezier(0.22, 1.22, 0.36, 1);
+}
+
+.settings-tab {
+  position: relative;
+  z-index: 1;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.settings-tab:hover {
+  color: var(--ink);
+}
+
+.settings-tab.active {
+  color: #fff;
+}
+
+.settings-tab:focus-visible {
+  outline: 3px solid rgba(222, 166, 55, 0.35);
+  outline-offset: 2px;
 }
 
 .settings-column,
@@ -1893,33 +2044,115 @@ select {
   font-weight: 700;
 }
 
-.settings-overview-grid {
+.telegram-account-row {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.settings-overview-item {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(28, 25, 23, 0.06);
 }
 
-.settings-overview-item span {
+.telegram-account-identity {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.telegram-account-identity span {
   color: var(--muted);
   font-size: 0.88rem;
 }
 
-.settings-overview-item strong {
+.telegram-account-identity strong {
   font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.telegram-account-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.telegram-account-actions .field-hint {
+  flex-basis: 100%;
+}
+
+.account-delete-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.account-delete-tooltip-content {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(40, 34, 30, 0.96);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  box-shadow: 0 12px 28px rgba(35, 29, 25, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.account-delete-tooltip:hover .account-delete-tooltip-content {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .settings-account-stack {
   display: grid;
   gap: 16px;
+}
+
+.telegram-auth-editor {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(185, 137, 59, 0.25);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(185, 137, 59, 0.1), rgba(255, 255, 255, 0.76));
+  animation: telegram-auth-editor-enter 220ms ease-out both;
+}
+
+.telegram-auth-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.telegram-auth-editor-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+@keyframes telegram-auth-editor-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .feature-list {

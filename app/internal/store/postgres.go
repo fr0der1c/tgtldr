@@ -14,6 +14,7 @@ type Store struct {
 	Cipher        Cipher
 	Settings      *SettingsRepository
 	Auth          *AuthRepository
+	AccountChats  *AccountChatRepository
 	LocalAuth     *LocalAuthRepository
 	LocalSessions *LocalSessionRepository
 	Chats         *ChatRepository
@@ -41,6 +42,7 @@ func Open(ctx context.Context, cfg config.Config) (*Store, error) {
 		Cipher:        cipher,
 		Settings:      &SettingsRepository{pool: pool, cipher: cipher},
 		Auth:          &AuthRepository{pool: pool, cipher: cipher},
+		AccountChats:  &AccountChatRepository{pool: pool},
 		LocalAuth:     &LocalAuthRepository{pool: pool},
 		LocalSessions: &LocalSessionRepository{pool: pool},
 		Chats:         &ChatRepository{pool: pool},

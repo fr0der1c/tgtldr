@@ -132,7 +132,7 @@ export function ChatsPanel() {
           label="已同步群组"
           value={syncedCount}
           badge="最新"
-          detail="当前 Telegram 账号下可管理的群组与超级群组。"
+          detail="所有已绑定 Telegram 账号下可管理的群组与超级群组。"
         />
         <MetricCard
           label="已启用消息保存"
@@ -254,7 +254,8 @@ function normalizeChat(chat: Chat): Chat {
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
     keepBotMessages: chat.keepBotMessages ?? true,
-    messageActivity: Array.isArray(chat.messageActivity) ? chat.messageActivity : []
+    messageActivity: Array.isArray(chat.messageActivity) ? chat.messageActivity : [],
+    availableAccounts: Array.isArray(chat.availableAccounts) ? chat.availableAccounts : []
   };
 }
 
@@ -290,6 +291,7 @@ function ChatTableRow({
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const historyRange = resolveHistoryRange(historyMode, historyFromDate, historyToDate);
   const expanded = editing || historyExpanded;
+  const collectorAccounts = availableCollectorAccounts(chat);
 
   return (
     <>
@@ -350,6 +352,22 @@ function ChatTableRow({
               {editing ? (
                 <>
                   <div className="form-grid table-editor-primary-grid">
+                    <Field
+                      label="使用账号"
+                      hint="系统将通过这个账号接收该群的新消息并加载历史消息。"
+                    >
+                      <AppSelect
+                        disabled={collectorAccounts.length <= 1}
+                        onChange={(value) =>
+                          onPatch({ collectorAccountId: Number(value) })
+                        }
+                        options={collectorAccounts.map((account) => ({
+                          value: String(account.accountId),
+                          label: `${account.accountName || "Telegram 账号"}${account.accountHandle ? ` (@${account.accountHandle})` : ""}${account.accountStatus === "authorized" ? "" : " · 需要重新登录"}`
+                        }))}
+                        value={String(chat.collectorAccountId || "")}
+                      />
+                    </Field>
                     <Field label="消息保存">
                       <AppSelect
                         onChange={(value) => onPatch({ enabled: value === "yes" })}
@@ -551,6 +569,14 @@ function ChatTableRow({
         </tr>
       ) : null}
     </>
+  );
+}
+
+function availableCollectorAccounts(chat: Chat) {
+  return chat.availableAccounts.filter(
+    (account) =>
+      account.accountStatus === "authorized" ||
+      account.accountId === chat.collectorAccountId
   );
 }
 

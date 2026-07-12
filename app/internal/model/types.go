@@ -99,32 +99,44 @@ type TelegramAuth struct {
 	TelegramHandle  string    `json:"telegramHandle"`
 	SessionData     []byte    `json:"-"`
 	Status          string    `json:"status"`
+	UsedByChatCount int       `json:"usedByChatCount"`
 	LastConnectedAt time.Time `json:"lastConnectedAt"`
 	CreatedAt       time.Time `json:"createdAt"`
 	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
+type TelegramAccountChat struct {
+	AccountID      int64  `json:"accountId"`
+	ChatID         int64  `json:"chatId"`
+	TelegramAccess int64  `json:"telegramAccessHash"`
+	AccountName    string `json:"accountName"`
+	AccountHandle  string `json:"accountHandle"`
+	AccountStatus  string `json:"accountStatus"`
+}
+
 type Chat struct {
-	ID               int64                 `json:"id"`
-	TelegramChatID   int64                 `json:"telegramChatId"`
-	TelegramAccess   int64                 `json:"telegramAccessHash"`
-	Title            string                `json:"title"`
-	Username         string                `json:"username"`
-	ChatType         string                `json:"chatType"`
-	Enabled          bool                  `json:"enabled"`
-	SummaryEnabled   bool                  `json:"summaryEnabled"`
-	SummaryContext   string                `json:"summaryContext"`
-	SummaryPrompt    string                `json:"summaryPrompt"`
-	SummaryTimeLocal string                `json:"summaryTimeLocal"`
-	SummaryTimezone  string                `json:"summaryTimezone"`
-	DeliveryMode     DeliveryMode          `json:"deliveryMode"`
-	ModelOverride    string                `json:"modelOverride"`
-	KeepBotMessages  bool                  `json:"keepBotMessages"`
-	FilteredSenders  []string              `json:"filteredSenders"`
-	FilteredKeywords []string              `json:"filteredKeywords"`
-	MessageActivity  []ChatMessageActivity `json:"messageActivity,omitempty"`
-	CreatedAt        time.Time             `json:"createdAt"`
-	UpdatedAt        time.Time             `json:"updatedAt"`
+	ID                 int64                 `json:"id"`
+	TelegramChatID     int64                 `json:"telegramChatId"`
+	TelegramAccess     int64                 `json:"telegramAccessHash"`
+	CollectorAccountID int64                 `json:"collectorAccountId"`
+	AvailableAccounts  []TelegramAccountChat `json:"availableAccounts,omitempty"`
+	Title              string                `json:"title"`
+	Username           string                `json:"username"`
+	ChatType           string                `json:"chatType"`
+	Enabled            bool                  `json:"enabled"`
+	SummaryEnabled     bool                  `json:"summaryEnabled"`
+	SummaryContext     string                `json:"summaryContext"`
+	SummaryPrompt      string                `json:"summaryPrompt"`
+	SummaryTimeLocal   string                `json:"summaryTimeLocal"`
+	SummaryTimezone    string                `json:"summaryTimezone"`
+	DeliveryMode       DeliveryMode          `json:"deliveryMode"`
+	ModelOverride      string                `json:"modelOverride"`
+	KeepBotMessages    bool                  `json:"keepBotMessages"`
+	FilteredSenders    []string              `json:"filteredSenders"`
+	FilteredKeywords   []string              `json:"filteredKeywords"`
+	MessageActivity    []ChatMessageActivity `json:"messageActivity,omitempty"`
+	CreatedAt          time.Time             `json:"createdAt"`
+	UpdatedAt          time.Time             `json:"updatedAt"`
 }
 
 type ChatMessageActivity struct {
@@ -261,6 +273,7 @@ const (
 )
 
 type AuthSessionState struct {
+	AccountID   int64     `json:"accountId"`
 	Step        AuthStep  `json:"step"`
 	PhoneNumber string    `json:"phoneNumber"`
 	CodeHash    string    `json:"-"`

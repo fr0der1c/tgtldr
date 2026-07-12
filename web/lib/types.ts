@@ -24,6 +24,7 @@ export type AppSettings = {
 };
 
 export type PendingAuth = {
+  accountId: number;
   step: AuthStep;
   phoneNumber: string;
   deadline: string;
@@ -36,7 +37,17 @@ export type TelegramAuth = {
   telegramName: string;
   telegramHandle: string;
   status: string;
+  usedByChatCount: number;
   lastConnectedAt: string;
+};
+
+export type TelegramAccountChat = {
+  accountId: number;
+  chatId: number;
+  telegramAccessHash: number;
+  accountName: string;
+  accountHandle: string;
+  accountStatus: string;
 };
 
 export type Bootstrap = {
@@ -49,6 +60,8 @@ export type Bootstrap = {
   language: Language;
   settings: AppSettings;
   auth?: TelegramAuth;
+  telegramAccounts: TelegramAuth[];
+  authorizedAccountCount: number;
   pendingAuth?: PendingAuth;
 };
 
@@ -85,6 +98,8 @@ export type Chat = {
   title: string;
   username: string;
   chatType: string;
+  collectorAccountId: number;
+  availableAccounts: TelegramAccountChat[];
   enabled: boolean;
   summaryEnabled: boolean;
   summaryContext: string;

@@ -2,6 +2,16 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-12
+
+### Added
+
+- Added support for connecting and managing multiple Telegram accounts in one TGTLDR instance. Each Telegram chat still has a single record, and you can choose which account receives its messages and loads its message history.
+
+### Changed
+
+- Reorganized the settings page into categorized tabs and refined multi-account management, Bot target-conversation binding, and page-transition interactions.
+
 ## 2026-07-11
 
 ### Added

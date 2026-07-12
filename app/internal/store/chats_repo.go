@@ -16,7 +16,7 @@ type ChatRepository struct {
 
 func (r *ChatRepository) List(ctx context.Context) ([]model.Chat, error) {
 	rows, err := r.pool.Query(ctx, `
-		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
+		select id, telegram_chat_id, telegram_access_hash, coalesce(collector_account_id, 0), title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
 		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
@@ -35,6 +35,7 @@ func (r *ChatRepository) List(ctx context.Context) ([]model.Chat, error) {
 			&chat.ID,
 			&chat.TelegramChatID,
 			&chat.TelegramAccess,
+			&chat.CollectorAccountID,
 			&chat.Title,
 			&chat.Username,
 			&chat.ChatType,
@@ -123,7 +124,7 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 		    filtered_keywords = $10,
 		    updated_at = now()
 		where id = $11
-		returning id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
+		returning id, telegram_chat_id, telegram_access_hash, coalesce(collector_account_id, 0), title, username, chat_type,
 		          enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
 		          delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
 		          created_at, updated_at
@@ -143,6 +144,7 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 		&saved.ID,
 		&saved.TelegramChatID,
 		&saved.TelegramAccess,
+		&saved.CollectorAccountID,
 		&saved.Title,
 		&saved.Username,
 		&saved.ChatType,
@@ -169,7 +171,7 @@ func (r *ChatRepository) Save(ctx context.Context, chat model.Chat) (model.Chat,
 func (r *ChatRepository) GetByID(ctx context.Context, id int64) (model.Chat, error) {
 	var chat model.Chat
 	err := r.pool.QueryRow(ctx, `
-		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
+		select id, telegram_chat_id, telegram_access_hash, coalesce(collector_account_id, 0), title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
 		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
@@ -179,6 +181,7 @@ func (r *ChatRepository) GetByID(ctx context.Context, id int64) (model.Chat, err
 		&chat.ID,
 		&chat.TelegramChatID,
 		&chat.TelegramAccess,
+		&chat.CollectorAccountID,
 		&chat.Title,
 		&chat.Username,
 		&chat.ChatType,
@@ -204,7 +207,7 @@ func (r *ChatRepository) GetByID(ctx context.Context, id int64) (model.Chat, err
 
 func (r *ChatRepository) ListSummaryEnabled(ctx context.Context) ([]model.Chat, error) {
 	rows, err := r.pool.Query(ctx, `
-		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
+		select id, telegram_chat_id, telegram_access_hash, coalesce(collector_account_id, 0), title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
 		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
@@ -224,6 +227,7 @@ func (r *ChatRepository) ListSummaryEnabled(ctx context.Context) ([]model.Chat, 
 			&chat.ID,
 			&chat.TelegramChatID,
 			&chat.TelegramAccess,
+			&chat.CollectorAccountID,
 			&chat.Title,
 			&chat.Username,
 			&chat.ChatType,
@@ -252,7 +256,7 @@ func (r *ChatRepository) ListSummaryEnabled(ctx context.Context) ([]model.Chat, 
 func (r *ChatRepository) GetByTelegramID(ctx context.Context, telegramID int64) (model.Chat, error) {
 	var chat model.Chat
 	err := r.pool.QueryRow(ctx, `
-		select id, telegram_chat_id, telegram_access_hash, title, username, chat_type,
+		select id, telegram_chat_id, telegram_access_hash, coalesce(collector_account_id, 0), title, username, chat_type,
 		       enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone,
 		       delivery_mode, model_override, keep_bot_messages, filtered_senders, filtered_keywords,
 		       created_at, updated_at
@@ -262,6 +266,7 @@ func (r *ChatRepository) GetByTelegramID(ctx context.Context, telegramID int64) 
 		&chat.ID,
 		&chat.TelegramChatID,
 		&chat.TelegramAccess,
+		&chat.CollectorAccountID,
 		&chat.Title,
 		&chat.Username,
 		&chat.ChatType,
@@ -283,6 +288,27 @@ func (r *ChatRepository) GetByTelegramID(ctx context.Context, telegramID int64) 
 		return model.Chat{}, fmt.Errorf("get chat by telegram id %d: %w", telegramID, err)
 	}
 	return chat, nil
+}
+
+func (r *ChatRepository) SetCollectorAccount(ctx context.Context, chatID, accountID int64) error {
+	command, err := r.pool.Exec(ctx, `
+		update chats c
+		set collector_account_id = $1, updated_at = now()
+		where c.id = $2
+		  and exists (
+		      select 1 from telegram_account_chats ac
+		      join telegram_accounts a on a.id = ac.telegram_account_id
+		      where ac.chat_id = c.id and ac.telegram_account_id = $1
+		        and a.status = 'authorized'
+		  )
+	`, accountID, chatID)
+	if err != nil {
+		return fmt.Errorf("set collector account: %w", err)
+	}
+	if command.RowsAffected() == 0 {
+		return fmt.Errorf("telegram account %d is not available for chat %d", accountID, chatID)
+	}
+	return nil
 }
 
 func (r *ChatRepository) EnsureExists(ctx context.Context, chat model.Chat) (model.Chat, error) {

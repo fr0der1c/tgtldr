@@ -8,15 +8,16 @@ import (
 )
 
 type SessionStorage struct {
-	auth *AuthRepository
+	auth      *AuthRepository
+	accountID int64
 }
 
-func NewSessionStorage(auth *AuthRepository) *SessionStorage {
-	return &SessionStorage{auth: auth}
+func NewSessionStorage(auth *AuthRepository, accountID int64) *SessionStorage {
+	return &SessionStorage{auth: auth, accountID: accountID}
 }
 
 func (s *SessionStorage) LoadSession(ctx context.Context) ([]byte, error) {
-	current, err := s.auth.Get(ctx)
+	current, err := s.auth.GetByID(ctx, s.accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -27,12 +28,12 @@ func (s *SessionStorage) LoadSession(ctx context.Context) ([]byte, error) {
 }
 
 func (s *SessionStorage) StoreSession(ctx context.Context, data []byte) error {
-	current, err := s.auth.Get(ctx)
+	current, err := s.auth.GetByID(ctx, s.accountID)
 	if err != nil {
 		return err
 	}
 	if current == nil {
-		current = &model.TelegramAuth{Status: "logged_in"}
+		current = &model.TelegramAuth{ID: s.accountID, Status: "logged_in"}
 	}
 	current.SessionData = data
 	return s.auth.Save(ctx, *current)

@@ -6,7 +6,7 @@ import { I18nProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "TGTLDR",
-  description: "Telegram 群组监听与每日摘要平台",
+  description: "Telegram 群消息与每日摘要平台",
   icons: {
     icon: "/icon.png",
     apple: "/apple-icon.png"

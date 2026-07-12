@@ -8,10 +8,12 @@ export type AppSelectOption = {
 };
 
 export function AppSelect({
+  disabled = false,
   onChange,
   options,
   value
 }: {
+  disabled?: boolean;
   onChange: (value: string) => void;
   options: AppSelectOption[];
   value: string;
@@ -62,6 +64,7 @@ export function AppSelect({
       <button
         aria-expanded={open}
         className="app-select-trigger"
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={onTriggerKeyDown}
         type="button"

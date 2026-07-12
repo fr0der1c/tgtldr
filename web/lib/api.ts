@@ -134,16 +134,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  resolveBotTargetChat: (botToken?: string) =>
+  resolveBotTargetChat: (botToken?: string, telegramAccountId?: number) =>
     request<BotTargetChatResolveResult>("/api/bot/target-chat/resolve", {
       method: "POST",
-      body: JSON.stringify({ botToken: botToken?.trim() || "" }),
+      body: JSON.stringify({
+        botToken: botToken?.trim() || "",
+        telegramAccountId: telegramAccountId || 0,
+      }),
     }),
-  startAuth: (phoneNumber: string) =>
+  startAuth: (phoneNumber: string, accountId?: number) =>
     request("/api/telegram/auth/start", {
       method: "POST",
-      body: JSON.stringify({ phoneNumber }),
+      body: JSON.stringify({ phoneNumber, accountId: accountId || 0 }),
     }),
+  cancelTelegramAuth: () =>
+    request<AuthStatus>("/api/telegram/auth/cancel", { method: "POST" }),
   verifyCode: (code: string) =>
     request("/api/telegram/auth/code", {
       method: "POST",
@@ -160,6 +165,14 @@ export const api = {
         method: "POST",
       }),
     ),
+  syncTelegramAccount: (accountId: number) =>
+    request<AuthStatus>(`/api/telegram/accounts/${accountId}/sync`, {
+      method: "POST",
+    }),
+  deleteTelegramAccount: (accountId: number) =>
+    request<AuthStatus>(`/api/telegram/accounts/${accountId}`, {
+      method: "DELETE",
+    }),
   listChats: async () =>
     normalizeList(await request<Chat[] | null>("/api/chats")),
   saveChat: (chat: Chat) =>
@@ -176,6 +189,7 @@ export const api = {
         keepBotMessages: chat.keepBotMessages,
         filteredSenders: chat.filteredSenders,
         filteredKeywords: chat.filteredKeywords,
+        collectorAccountId: chat.collectorAccountId,
       }),
     }),
   startHistoryBackfill: (chatId: number, fromDate: string, toDate: string) =>

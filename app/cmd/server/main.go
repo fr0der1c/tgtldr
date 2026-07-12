@@ -63,8 +63,12 @@ func run() error {
 		cfg.RequestTimout,
 	)
 
-	if auth, err := telegramService.BootstrapAuth(ctx); err == nil && auth != nil && auth.Status == "authorized" {
-		telegramService.EnsureListener()
+	if accounts, err := st.Auth.List(ctx); err == nil {
+		for _, account := range accounts {
+			if account.Status == "authorized" {
+				telegramService.EnsureListener(account.ID)
+			}
+		}
 	}
 
 	server := &http.Server{

@@ -136,7 +136,15 @@ func (s *Service) runHistoryBackfillAttempt(
 	processedIDs map[int]struct{},
 	progress historyBackfillProgress,
 ) (int, historyBackfillProgress, error) {
-	client, _, err := s.newClient()
+	if chat.CollectorAccountID == 0 {
+		return len(processedIDs), progress, fmt.Errorf("群组尚未选择使用账号")
+	}
+	accountChat, err := s.store.AccountChats.Get(s.root, chat.CollectorAccountID, chat.ID)
+	if err != nil {
+		return len(processedIDs), progress, err
+	}
+	chat.TelegramAccess = accountChat.TelegramAccess
+	client, _, err := s.newClient(chat.CollectorAccountID)
 	if err != nil {
 		return len(processedIDs), progress, err
 	}
@@ -149,7 +157,7 @@ func (s *Service) runHistoryBackfillAttempt(
 			return err
 		}
 		if !status.Authorized {
-			return s.markAuthLoggedOut(ctx)
+			return s.markAuthLoggedOut(ctx, chat.CollectorAccountID)
 		}
 
 		inputPeer, err := inputPeerForChat(chat)
@@ -195,7 +203,7 @@ func (s *Service) runHistoryBackfillAttempt(
 		return nil
 	})
 	if err != nil {
-		if authErr := s.markAuthLoggedOutOnInvalidSession(s.root, err); authErr != err {
+		if authErr := s.markAuthLoggedOutOnInvalidSession(s.root, chat.CollectorAccountID, err); authErr != err {
 			return count, current, authErr
 		}
 		return count, current, err

@@ -9,7 +9,7 @@ import (
 	"github.com/gotd/td/telegram"
 )
 
-func (s *Service) newClient() (*telegram.Client, model.AppSettings, error) {
+func (s *Service) newClient(accountID int64) (*telegram.Client, model.AppSettings, error) {
 	settings, err := s.store.Settings.Get(context.Background())
 	if err != nil {
 		return nil, model.AppSettings{}, err
@@ -17,14 +17,14 @@ func (s *Service) newClient() (*telegram.Client, model.AppSettings, error) {
 	if settings.TelegramAPIID == 0 || strings.TrimSpace(settings.TelegramAPIHash) == "" {
 		return nil, model.AppSettings{}, ErrConfigIncomplete
 	}
-	client, err := s.newConfiguredClient(nil)
+	client, err := s.newConfiguredClient(accountID, nil)
 	if err != nil {
 		return nil, model.AppSettings{}, err
 	}
 	return client, settings, nil
 }
 
-func (s *Service) newConfiguredClient(handler telegram.UpdateHandler) (*telegram.Client, error) {
+func (s *Service) newConfiguredClient(accountID int64, handler telegram.UpdateHandler) (*telegram.Client, error) {
 	settings, _ := s.store.Settings.Get(context.Background())
 	resolver, err := telegramProxyResolverFromEnv()
 	if err != nil {
@@ -32,7 +32,7 @@ func (s *Service) newConfiguredClient(handler telegram.UpdateHandler) (*telegram
 	}
 
 	options := telegram.Options{
-		SessionStorage: store.NewSessionStorage(s.store.Auth),
+		SessionStorage: store.NewSessionStorage(s.store.Auth, accountID),
 		UpdateHandler:  handler,
 		Device: telegram.DeviceConfig{
 			DeviceModel:    "TGTLDR",
