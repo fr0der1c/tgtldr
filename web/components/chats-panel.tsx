@@ -303,18 +303,20 @@ function ChatTableRow({
       <tr className={expanded ? "data-row active" : "data-row"}>
         <td>
           <div className="data-row-title">
-            <Link
-              className="chat-summary-link"
-              href={`/dashboard/summaries?chatId=${encodeURIComponent(String(chat.id))}`}
-            >
-              {chat.title}
-            </Link>
+            <div className="chat-title-line">
+              <Link
+                className="chat-summary-link"
+                href={`/dashboard/summaries?chatId=${encodeURIComponent(String(chat.id))}`}
+              >
+                {chat.title}
+              </Link>
+              {shouldShowCollectorAccount ? (
+                <span className="chat-collector-account">
+                  · {formatCollectorAccount(selectedCollectorAccount)}
+                </span>
+              ) : null}
+            </div>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
-            {shouldShowCollectorAccount ? (
-              <span className="chat-collector-account">
-                使用账号 · {formatCollectorAccount(selectedCollectorAccount)}
-              </span>
-            ) : null}
             <ChatActivityStrip activity={chat.messageActivity ?? []} />
           </div>
         </td>
