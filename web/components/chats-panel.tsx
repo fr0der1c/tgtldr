@@ -12,7 +12,7 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
-import { Chat } from "@/lib/types";
+import { Chat, TelegramAccountChat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
@@ -292,6 +292,11 @@ function ChatTableRow({
   const historyRange = resolveHistoryRange(historyMode, historyFromDate, historyToDate);
   const expanded = editing || historyExpanded;
   const collectorAccounts = availableCollectorAccounts(chat);
+  const selectedCollectorAccount = chat.availableAccounts.find(
+    (account) => account.accountId === chat.collectorAccountId,
+  );
+  const shouldShowCollectorAccount =
+    chat.availableAccounts.length > 1 && selectedCollectorAccount !== undefined;
 
   return (
     <>
@@ -305,6 +310,11 @@ function ChatTableRow({
               {chat.title}
             </Link>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
+            {shouldShowCollectorAccount ? (
+              <span className="chat-collector-account">
+                使用账号 · {formatCollectorAccount(selectedCollectorAccount)}
+              </span>
+            ) : null}
             <ChatActivityStrip activity={chat.messageActivity ?? []} />
           </div>
         </td>
@@ -575,6 +585,11 @@ function availableCollectorAccounts(chat: Chat) {
       account.accountStatus === "authorized" ||
       account.accountId === chat.collectorAccountId
   );
+}
+
+function formatCollectorAccount(account: TelegramAccountChat) {
+  const name = account.accountName || "Telegram 账号";
+  return account.accountHandle ? `${name} (@${account.accountHandle})` : name;
 }
 
 function ChatActivityStrip({ activity }: { activity: NonNullable<Chat["messageActivity"]> }) {

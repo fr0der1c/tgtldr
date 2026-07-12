@@ -10,7 +10,7 @@
 
 ### Changed
 
-- Reorganized the settings page into categorized tabs and refined multi-account management, Bot target-conversation binding, and page-transition interactions.
+- Reorganized the settings page into categorized tabs and refined multi-account management, Bot target-conversation binding, and page-transition interactions; the chat list now shows the active account for chats shared by multiple accounts.
 
 ### Fixed
 

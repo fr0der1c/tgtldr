@@ -1760,6 +1760,18 @@ select {
   font-size: 0.88rem;
 }
 
+.data-row-title .chat-collector-account {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(185, 137, 59, 0.1);
+  color: #805617;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
 .chat-activity-strip {
   display: grid;
   grid-template-columns: repeat(30, 7px);
