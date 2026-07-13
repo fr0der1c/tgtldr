@@ -2,6 +2,16 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-13
+
+### Changed
+
+- The web app now adapts to phones: the dashboard uses bottom navigation, chat lists become touch-friendly cards, and summary filters and detail reading are rearranged for narrow screens.
+
+### Fixed
+
+- Fixed the desktop summary-detail drawer expanding beyond its intended width when it contains long content.
+
 ## 2026-07-12
 
 ### Added

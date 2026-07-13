@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import { AppSelect } from "@/components/app-select";
 import { SearchSelect } from "@/components/search-select";
 import {
@@ -59,6 +59,7 @@ type SummaryListSectionProps = {
 
 export function SummaryListSection(props: SummaryListSectionProps) {
 	const { language } = useI18n();
+	const [filtersOpen, setFiltersOpen] = useState(false);
 	const {
 		allChats,
 		botReady,
@@ -99,10 +100,22 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 			description="在这里搜索和筛选摘要记录；点开某条摘要后，会从右侧展开完整正文。"
 			title="摘要记录"
 		>
-			<div className="toolbar-grid summary-search-grid">
+			<div className="summary-search-field">
 				<Field label="搜索摘要关键词">
 					<Input onChange={(event) => onQueryChange(event.target.value)} placeholder="搜索摘要关键词" value={query} />
 				</Field>
+				<button
+					aria-controls="summary-filters"
+					aria-expanded={filtersOpen}
+					className="summary-filter-toggle"
+					onClick={() => setFiltersOpen((current) => !current)}
+					type="button"
+				>
+					{filtersOpen ? "收起筛选" : "筛选"}
+				</button>
+			</div>
+
+			<div className={`toolbar-grid summary-search-grid ${filtersOpen ? "mobile-open" : ""}`} id="summary-filters">
 				<Field label="群组">
 					<SearchSelect
 						emptyText="没有匹配的群组"

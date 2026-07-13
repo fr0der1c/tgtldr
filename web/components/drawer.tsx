@@ -1,6 +1,7 @@
 "use client";
 
 import { PropsWithChildren, ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export function Drawer({
   open,
@@ -37,7 +38,7 @@ export function Drawer({
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       aria-modal="true"
       className="drawer-backdrop"
@@ -61,6 +62,7 @@ export function Drawer({
         <div className="drawer-body">{children}</div>
         {actions ? <div className="drawer-actions">{actions}</div> : null}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -448,6 +448,7 @@ export function SettingsPanel() {
       title="系统配置"
       description="在这里管理 Telegram App、摘要引擎、偏好设置和 Bot 推送。"
     >
+      <SettingsMobileStatus bootstrap={bootstrap} />
       <SettingsTabs active={activeTab} onChange={selectTab} />
 
       <div className="settings-tab-content" key={activeTab}>
@@ -974,6 +975,25 @@ export function SettingsPanel() {
       </div>
       ) : null}
     </DashboardPage>
+  );
+}
+
+function SettingsMobileStatus({ bootstrap }: { bootstrap: Bootstrap | null }) {
+  return (
+    <div className="settings-mobile-status" aria-label="连接状态">
+      <div className="settings-mobile-status-item">
+        <span>Telegram</span>
+        <StatusPill tone={bootstrap?.telegramAuthorized ? "good" : "warn"}>
+          {bootstrap?.telegramAuthorized ? "已连接" : "未连接"}
+        </StatusPill>
+      </div>
+      <div className="settings-mobile-status-item">
+        <span>Bot 推送</span>
+        <StatusPill tone={bootstrap?.botEnabled ? "good" : "neutral"}>
+          {bootstrap?.botEnabled ? "启用中" : "未启用"}
+        </StatusPill>
+      </div>
+    </div>
   );
 }
 

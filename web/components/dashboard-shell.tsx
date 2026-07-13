@@ -54,7 +54,10 @@ export function DashboardShell({ children }: PropsWithChildren) {
               href={item.href}
               key={item.href}
             >
-              {item.label}
+              <span aria-hidden="true" className="nav-link-icon">
+                <NavigationIcon name={item.icon} />
+              </span>
+              <span className="nav-link-label">{item.label}</span>
             </Link>
           ))}
         </nav>
@@ -84,12 +87,39 @@ export function DashboardShell({ children }: PropsWithChildren) {
 }
 
 const dashboardNavigation = [
-  { href: "/dashboard/chats", label: "群组" },
-  { href: "/dashboard/summaries", label: "摘要" },
-  { href: "/dashboard/settings", label: "系统配置" },
-];
+  { href: "/dashboard/chats", label: "群组", icon: "chats" },
+  { href: "/dashboard/summaries", label: "摘要", icon: "summaries" },
+  { href: "/dashboard/settings", label: "系统配置", icon: "settings" },
+] as const;
 
 function activeNavigationIndex(pathname: string) {
   const index = dashboardNavigation.findIndex((item) => item.href === pathname);
   return index < 0 ? 0 : index;
+}
+
+function NavigationIcon({ name }: { name: (typeof dashboardNavigation)[number]["icon"] }) {
+  if (name === "chats") {
+    return (
+      <svg fill="none" viewBox="0 0 24 24">
+        <path d="M7 18.5 3.5 21v-14A3.5 3.5 0 0 1 7 3.5h10A3.5 3.5 0 0 1 20.5 7v6A3.5 3.5 0 0 1 17 16.5H9.5L7 18.5Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        <path d="M8 9.5h8M8 12.5h5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (name === "summaries") {
+    return (
+      <svg fill="none" viewBox="0 0 24 24">
+        <path d="M7 3.5h8.5L20 8v12.5H7a3 3 0 0 1-3-3v-11a3 3 0 0 1 3-3Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        <path d="M15 3.5V8h5M8 12h8M8 15.5h6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg fill="none" viewBox="0 0 24 24">
+      <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <path d="M9 5.5v3M15 10.5v3M11 15.5v3" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" />
+    </svg>
+  );
 }

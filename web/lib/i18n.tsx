@@ -378,6 +378,8 @@ const textTranslations = {
   "仅在网页端查看摘要": "View summaries in the web app only",
   "在这里搜索和筛选摘要记录；点开某条摘要后，会从右侧展开完整正文。": "Search and filter summary records here. Select a summary to open the full content from the right.",
   "进行中": "In progress",
+  "筛选": "Filters",
+  "收起筛选": "Hide filters",
 } as const;
 
 const attributeNames = ["placeholder", "title", "aria-label"] as const;
