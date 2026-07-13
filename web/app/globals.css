@@ -2534,7 +2534,8 @@ select {
 @media (max-width: 1100px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
-    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    padding-bottom: 132px;
+    padding-bottom: calc(132px + env(safe-area-inset-bottom));
   }
 
   .dashboard-sidebar {
@@ -2573,10 +2574,6 @@ select {
     justify-content: space-between;
     gap: 10px;
     padding: 12px 14px;
-  }
-
-  .settings-mobile-status-item + .settings-mobile-status-item {
-    border-top: 1px solid var(--line);
   }
 
   .settings-mobile-status-item > span {
@@ -2667,7 +2664,8 @@ select {
     width: min(100% - 24px, 1460px);
     gap: 14px;
     padding-top: 12px;
-    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    padding-bottom: 132px;
+    padding-bottom: calc(132px + env(safe-area-inset-bottom));
   }
 
   .dashboard-page,
