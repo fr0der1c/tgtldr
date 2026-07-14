@@ -1,12 +1,11 @@
 "use client";
 
 import type { PropsWithChildren } from "react";
-import { SummaryContextPreview } from "@/lib/types";
-import { Button } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
-import { Modal } from "@/components/modal";
+import { SummaryContextPreview } from "@/lib/types";
 
-export function SummaryContextModal({
+export function SummaryContextDrawer({
   open,
   loading,
   preview,
@@ -17,22 +16,10 @@ export function SummaryContextModal({
   preview: SummaryContextPreview | null;
   onClose: () => void;
 }) {
+  const chunks = Array.isArray(preview?.chunks) ? preview.chunks : [];
+
   return (
-    <Modal
-      actions={
-        <Button onClick={onClose} type="button" variant="secondary">
-          关闭
-        </Button>
-      }
-      description={
-        preview
-          ? `阶段提示词 1 段 · 消息 ${preview.messageCount} 条 · 分块 ${preview.chunkCount}`
-          : "查看这条摘要按当前规则重建出的完整 AI 输入上下文。"
-      }
-      onClose={onClose}
-      open={open}
-      title="原始 prompt"
-    >
+    <Drawer layer="top" onClose={onClose} open={open} title="原始 prompt">
       {loading ? (
         <p className="muted">正在加载上下文预览…</p>
       ) : !preview ? (
@@ -42,17 +29,18 @@ export function SummaryContextModal({
         />
       ) : (
         <div className="summary-context-stack">
+          <p className="summary-context-drawer-meta">
+            阶段提示词 1 段 · 消息 {preview.messageCount} 条 · 分块 {preview.chunkCount}
+          </p>
           <ContextDisclosure
-            defaultOpen={false}
             meta={`字符 ${preview.systemPrompt.length}`}
             title="系统提示词"
           >
             <pre className="summary-context-block">{preview.systemPrompt}</pre>
           </ContextDisclosure>
 
-          {preview.chunks.map((chunk) => (
+          {chunks.map((chunk) => (
             <ContextDisclosure
-              defaultOpen={false}
               key={chunk.index}
               meta={`消息 ${chunk.messageCount} 条 · 字符 ${chunk.content.length}`}
               title={`Chunk ${chunk.index + 1}`}
@@ -62,11 +50,7 @@ export function SummaryContextModal({
           ))}
 
           {preview.finalPrompt ? (
-            <ContextDisclosure
-              defaultOpen={false}
-              meta="最终汇总阶段"
-              title="合并提示词"
-            >
+            <ContextDisclosure meta="最终汇总阶段" title="合并提示词">
               <pre className="summary-context-block">{preview.finalPrompt}</pre>
               {preview.finalInputNotice ? (
                 <p className="muted">{preview.finalInputNotice}</p>
@@ -77,22 +61,20 @@ export function SummaryContextModal({
           <p className="muted">{preview.previewNotice}</p>
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 
 function ContextDisclosure({
   title,
   meta,
-  defaultOpen,
   children
 }: PropsWithChildren<{
   title: string;
   meta: string;
-  defaultOpen?: boolean;
 }>) {
   return (
-    <details className="summary-context-disclosure" open={defaultOpen}>
+    <details className="summary-context-disclosure">
       <summary className="summary-context-summary">
         <div className="summary-context-summary-copy">
           <strong>{title}</strong>

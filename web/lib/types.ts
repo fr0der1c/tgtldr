@@ -189,7 +189,7 @@ export type SummaryContextPreview = {
   finalPrompt: string;
   messageCount: number;
   chunkCount: number;
-  chunks: SummaryContextChunk[];
+  chunks: SummaryContextChunk[] | null;
   finalInputNotice: string;
   previewNotice: string;
 };

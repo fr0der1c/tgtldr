@@ -68,6 +68,7 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 		FinalPrompt:      finalPrompt,
 		MessageCount:     len(filteredMessages),
 		ChunkCount:       len(chunks),
+		Chunks:           []model.SummaryContextChunk{},
 		FinalInputNotice: finalInputNotice(settings.Language),
 		PreviewNotice:    previewNotice(settings.Language),
 	}

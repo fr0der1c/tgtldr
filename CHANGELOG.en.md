@@ -2,6 +2,18 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-14
+
+### Changed
+
+- Raw prompts now open in a dedicated drawer; closing it returns to the existing summary details, with prompt content directly accessible and scrollable on both desktop and mobile.
+- Summary details and raw prompts now animate in and out: they slide from the right on desktop and rise from the bottom on mobile. Opening a raw prompt also reuses the existing backdrop instead of adding more blur.
+
+### Fixed
+
+- Fixed the raw-prompt window appearing behind the summary drawer backdrop and requiring page scrolling before it became visible.
+- Fixed a client-side exception when opening raw prompts for zero-message summaries and other empty-context cases.
+
 ## 2026-07-13
 
 ### Changed

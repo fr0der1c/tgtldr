@@ -9,6 +9,7 @@ import { Chat, Summary } from "@/lib/types";
 import { deliveryState, statusText, statusTone } from "@/components/summaries-panel-sections";
 
 export function SummaryDetailDrawer({
+  active,
   botReady,
   chatTitle,
   onClose,
@@ -20,6 +21,7 @@ export function SummaryDetailDrawer({
   selectedSummary,
   summaryRetryLimit
 }: {
+  active: boolean;
   botReady: boolean;
   chatTitle: string;
   onClose: () => void;
@@ -36,7 +38,7 @@ export function SummaryDetailDrawer({
     : null;
 
   return (
-    <Drawer onClose={onClose} open={open}>
+    <Drawer active={active} onClose={onClose} open={open}>
       {!selectedSummary ? (
         <EmptyState
           description="从列表中选择一条摘要后，这里会展示完整正文。"

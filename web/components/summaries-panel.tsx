@@ -14,7 +14,7 @@ import {
 	MetricCard,
 	MetricRail,
 } from "@/components/dashboard-page";
-import { SummaryContextModal } from "@/components/summary-context-modal";
+import { SummaryContextDrawer } from "@/components/summary-context-drawer";
 import {
 	DeliveryFilter,
 	SummaryFilter,
@@ -337,6 +337,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			/>
 
 			<SummaryDetailDrawer
+				active={!contextOpen}
 				botReady={botReady}
 				chatTitle={selectedSummary ? chatTitles.get(selectedSummary.chatId) ?? "未知群组" : "未知群组"}
 				onClose={() => setDetailOpen(false)}
@@ -349,7 +350,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 				summaryRetryLimit={summaryRetryLimit}
 			/>
 
-			<SummaryContextModal
+			<SummaryContextDrawer
 				loading={contextLoading}
 				onClose={() => setContextOpen(false)}
 				open={contextOpen}
