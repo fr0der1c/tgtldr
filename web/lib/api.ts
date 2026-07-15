@@ -4,6 +4,8 @@ import {
   Bootstrap,
   BotTargetChatResolveResult,
   Chat,
+  ChatMessageListResponse,
+  ChatMessageSearchResponse,
   HistoryBackfillTask,
   SummaryListResponse,
   SummarySearchFilters,
@@ -175,6 +177,40 @@ export const api = {
     }),
   listChats: async () =>
     normalizeList(await request<Chat[] | null>("/api/chats")),
+  listChatMessages: (
+    chatId: number,
+    options?: {
+      date?: string;
+      limit?: number;
+      before?: string;
+      focusMessageId?: number;
+      filters?: boolean;
+      signal?: AbortSignal;
+    },
+  ) =>
+    request<ChatMessageListResponse>(
+      `/api/chats/${chatId}/messages${buildQuery({
+        date: options?.date,
+        limit: options?.limit,
+        before: options?.before,
+        focusMessageId: options?.focusMessageId,
+        filters: options?.filters ? 1 : undefined,
+      })}`,
+      { signal: options?.signal },
+    ),
+  searchChatMessages: (
+    chatId: number,
+    options: { query: string; page?: number; pageSize?: number; filters?: boolean; signal?: AbortSignal },
+  ) =>
+    request<ChatMessageSearchResponse>(
+      `/api/chats/${chatId}/messages/search${buildQuery({
+        q: options.query.trim(),
+        page: options.page,
+        pageSize: options.pageSize,
+        filters: options.filters ? 1 : undefined,
+      })}`,
+      { signal: options.signal },
+    ),
   saveChat: (chat: Chat) =>
     request<Chat>(`/api/chats/${chat.id}`, {
       method: "PUT",

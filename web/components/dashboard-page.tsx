@@ -62,19 +62,26 @@ export function Surface({
   title,
   description,
   actions,
+  className,
+  leading,
   children
 }: PropsWithChildren<{
-  title?: string;
+  title?: ReactNode;
   description?: string;
   actions?: ReactNode;
+  className?: string;
+  leading?: ReactNode;
 }>) {
   return (
-    <section className="dashboard-surface">
+    <section className={`dashboard-surface${className ? ` ${className}` : ""}`}>
       {title || description || actions ? (
         <div className="dashboard-surface-head">
-          <div>
-            {title ? <h2>{title}</h2> : null}
-            {description ? <p>{description}</p> : null}
+          <div className="dashboard-surface-heading">
+            {leading ? <div className="dashboard-surface-leading">{leading}</div> : null}
+            <div>
+              {title ? <h2>{title}</h2> : null}
+              {description ? <p>{description}</p> : null}
+            </div>
           </div>
           {actions ? <div className="dashboard-surface-actions">{actions}</div> : null}
         </div>

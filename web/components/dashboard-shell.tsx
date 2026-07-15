@@ -50,7 +50,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
           <span aria-hidden="true" className="nav-active-indicator" />
           {dashboardNavigation.map((item) => (
             <Link
-              className={`nav-link ${pathname === item.href ? "active" : ""}`}
+              className={`nav-link ${isNavigationActive(pathname, item.href) ? "active" : ""}`}
               href={item.href}
               key={item.href}
             >
@@ -93,8 +93,14 @@ const dashboardNavigation = [
 ] as const;
 
 function activeNavigationIndex(pathname: string) {
-  const index = dashboardNavigation.findIndex((item) => item.href === pathname);
+  const index = dashboardNavigation.findIndex((item) =>
+    isNavigationActive(pathname, item.href)
+  );
   return index < 0 ? 0 : index;
+}
+
+function isNavigationActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function NavigationIcon({ name }: { name: (typeof dashboardNavigation)[number]["icon"] }) {

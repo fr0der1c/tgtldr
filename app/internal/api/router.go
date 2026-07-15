@@ -69,6 +69,8 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/telegram/accounts/", r.handleTelegramAccountByID)
 	mux.HandleFunc("/api/telegram/chats/sync", r.handleSyncChats)
 	mux.HandleFunc("/api/chats", r.handleChats)
+	mux.HandleFunc("GET /api/chats/{chatID}/messages/search", r.handleChatMessageSearch)
+	mux.HandleFunc("GET /api/chats/{chatID}/messages", r.handleChatMessages)
 	mux.HandleFunc("/api/chats/", r.handleChatByID)
 	mux.HandleFunc("/api/history-backfills", r.handleStartHistoryBackfill)
 	mux.HandleFunc("/api/history-backfills/", r.handleHistoryBackfillByID)

@@ -92,6 +92,64 @@ export type ChatMessageActivity = {
   messageCount: number;
 };
 
+export type ChatMessageReply = {
+  telegramMessageId: number;
+  found: boolean;
+  senderName: string;
+  textContent: string;
+  caption: string;
+  messageType: string;
+  mediaKind: string;
+};
+
+export type ChatMessage = {
+  id: number;
+  telegramMessageId: number;
+  senderName: string;
+  senderUsername: string;
+  senderIsBot: boolean;
+  textContent: string;
+  caption: string;
+  messageType: string;
+  mediaKind: string;
+  messageTime: string;
+  reply?: ChatMessageReply;
+};
+
+export type ChatMessageListResponse = {
+  chat: {
+    id: number;
+    title: string;
+    username: string;
+    enabled: boolean;
+  };
+  date: string;
+  timezone: string;
+  total: number;
+  messages: ChatMessage[];
+  messageActivity: ChatMessageActivity[];
+  previousDate?: string;
+  nextDate?: string;
+  hasMoreBefore: boolean;
+  beforeCursor?: string;
+  focusedMessageId?: number;
+  hasMessageFilters: boolean;
+  filtersApplied: boolean;
+};
+
+export type ChatMessageSearchItem = ChatMessage & {
+  localDate: string;
+  matchSnippet: string;
+  matchedFields: string[];
+};
+
+export type ChatMessageSearchResponse = {
+  items: ChatMessageSearchItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type Chat = {
   id: number;
   telegramChatId: number;

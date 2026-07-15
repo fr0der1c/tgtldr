@@ -12,6 +12,7 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
+import { ChatActivityStrip } from "@/components/chat-activity-strip";
 import { Chat, TelegramAccountChat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
@@ -306,7 +307,7 @@ function ChatTableRow({
             <div className="chat-title-line">
               <Link
                 className="chat-summary-link"
-                href={`/dashboard/summaries?chatId=${encodeURIComponent(String(chat.id))}`}
+                href={`/dashboard/chats/${encodeURIComponent(String(chat.id))}/messages`}
               >
                 {chat.title}
               </Link>
@@ -317,7 +318,12 @@ function ChatTableRow({
               ) : null}
             </div>
             <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
-            <ChatActivityStrip activity={chat.messageActivity ?? []} />
+            <ChatActivityStrip
+              activity={chat.messageActivity ?? []}
+              hrefForDate={(date) =>
+                `/dashboard/chats/${encodeURIComponent(String(chat.id))}/messages?date=${encodeURIComponent(date)}`
+              }
+            />
           </div>
         </td>
         <td>{chat.chatType === "supergroup" ? "超级群组" : "群组"}</td>
@@ -592,27 +598,6 @@ function availableCollectorAccounts(chat: Chat) {
 function formatCollectorAccount(account: TelegramAccountChat) {
   const name = account.accountName || "Telegram 账号";
   return account.accountHandle ? `${name} (@${account.accountHandle})` : name;
-}
-
-function ChatActivityStrip({ activity }: { activity: NonNullable<Chat["messageActivity"]> }) {
-  if (activity.length === 0) {
-    return null;
-  }
-
-  return (
-    <div aria-label="最近 30 天消息" className="chat-activity-strip" role="list">
-      {activity.map((item) => (
-        <span
-          aria-label={`${item.date}：${item.messageCount} 条消息`}
-          className={item.messageCount > 0 ? "chat-activity-day active" : "chat-activity-day"}
-          data-tooltip={`${item.date}：${item.messageCount} 条消息`}
-          key={item.date}
-          role="listitem"
-          tabIndex={0}
-        />
-      ))}
-    </div>
-  );
 }
 
 function resolveHistoryRange(

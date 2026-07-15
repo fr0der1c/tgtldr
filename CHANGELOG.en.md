@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-16
+
+### Added
+
+- Added per-chat message history with entry points from chats and activity dates, daily browsing, 30-day date navigation, the latest 2,000 messages loaded by default with upward loading for earlier messages, in-chat search, optional sender and keyword filtering from chat settings, and same-page access to the day's summary and raw-prompt drawers shared with the summaries page.
+
 ## 2026-07-14
 
 ### Changed

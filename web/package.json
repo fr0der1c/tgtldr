@@ -8,8 +8,10 @@
     "start": "next start -p 3000"
   },
   "dependencies": {
+    "@radix-ui/react-popover": "^1.1.19",
     "next": "16.1.6",
     "react": "19.2.0",
+    "react-day-picker": "^10.0.1",
     "react-dom": "19.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"

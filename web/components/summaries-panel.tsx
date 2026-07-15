@@ -5,7 +5,6 @@ import { api } from "@/lib/api";
 import {
 	Chat,
 	Summary,
-	SummaryContextPreview,
 	SummarySearchFilters,
 	SummaryStats,
 } from "@/lib/types";
@@ -14,14 +13,13 @@ import {
 	MetricCard,
 	MetricRail,
 } from "@/components/dashboard-page";
-import { SummaryContextDrawer } from "@/components/summary-context-drawer";
 import {
 	DeliveryFilter,
 	SummaryFilter,
 	SummaryListSection,
 	localDateInputValue,
 } from "@/components/summaries-panel-sections";
-import { SummaryDetailDrawer } from "@/components/summary-detail-drawer";
+import { SummaryDrawerPair } from "@/components/summary-drawer-pair";
 import { useToast } from "@/components/toast";
 
 const summaryPageSize = 20;
@@ -52,10 +50,6 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const [pageSize] = useState(summaryPageSize);
 	const [total, setTotal] = useState(0);
 	const [manualEditorOpen, setManualEditorOpen] = useState(false);
-	const [contextOpen, setContextOpen] = useState(false);
-	const [contextPreview, setContextPreview] = useState<SummaryContextPreview | null>(null);
-	const [contextPreviewSummaryID, setContextPreviewSummaryID] = useState<number | null>(null);
-	const [contextLoading, setContextLoading] = useState(false);
 	const deferredQuery = useDeferredValue(query);
 	const loadRef = useRef<() => Promise<void>>(async () => {});
 	const loadStatsRef = useRef<() => Promise<void>>(async () => {});
@@ -102,44 +96,6 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			setDetailOpen(false);
 		}
 	}, [selectedSummaryId, summaries]);
-
-	useEffect(() => {
-		if (!contextOpen || !selectedSummaryId) {
-			setContextPreview(null);
-			return;
-		}
-		if (contextPreviewSummaryID === selectedSummaryId && contextPreview) {
-			return;
-		}
-		let cancelled = false;
-		setContextLoading(true);
-		void api
-			.summaryContextPreview(selectedSummaryId)
-			.then((preview) => {
-				if (cancelled) {
-					return;
-				}
-				setContextPreview(preview);
-				setContextPreviewSummaryID(selectedSummaryId);
-			})
-			.catch((err) => {
-				if (cancelled) {
-					return;
-				}
-				setContextPreview(null);
-				toast.showError(asMessage(err));
-			})
-			.finally(() => {
-				if (cancelled) {
-					return;
-				}
-				setContextLoading(false);
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [contextOpen, contextPreview, contextPreviewSummaryID, selectedSummaryId, toast]);
 
 	const searchTerms = useMemo(() => {
 		return deferredQuery
@@ -224,26 +180,6 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			await api.runSummary(Number(selectedChatId), manualDate);
 			toast.showSuccess("已提交摘要生成任务。");
 			setManualEditorOpen(false);
-			await Promise.all([loadRef.current(), loadStatsRef.current()]);
-		} catch (err) {
-			toast.showError(asMessage(err));
-		}
-	}
-
-	async function retryDelivery(summary: Summary) {
-		try {
-			await api.retrySummaryDelivery(summary.id);
-			toast.showSuccess("已提交通过 Bot 发送。");
-			await loadRef.current();
-		} catch (err) {
-			toast.showError(asMessage(err));
-		}
-	}
-
-	async function rerunSummary(summary: Summary) {
-		try {
-			await api.runSummary(summary.chatId, summary.summaryDate);
-			toast.showSuccess("已提交重新生成。");
 			await Promise.all([loadRef.current(), loadStatsRef.current()]);
 		} catch (err) {
 			toast.showError(asMessage(err));
@@ -336,25 +272,17 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 				totalPages={totalPages}
 			/>
 
-			<SummaryDetailDrawer
-				active={!contextOpen}
+			<SummaryDrawerPair
 				botReady={botReady}
 				chatTitle={selectedSummary ? chatTitles.get(selectedSummary.chatId) ?? "未知群组" : "未知群组"}
 				onClose={() => setDetailOpen(false)}
-				onOpenContext={() => setContextOpen(true)}
-				onRerunSummary={rerunSummary}
-				onRetryDelivery={retryDelivery}
+				onRefresh={async () => {
+					await Promise.all([loadRef.current(), loadStatsRef.current()]);
+				}}
 				open={detailOpen && Boolean(selectedSummary)}
 				selectedChat={selectedChat}
 				selectedSummary={selectedSummary}
 				summaryRetryLimit={summaryRetryLimit}
-			/>
-
-			<SummaryContextDrawer
-				loading={contextLoading}
-				onClose={() => setContextOpen(false)}
-				open={contextOpen}
-				preview={contextPreview}
 			/>
 		</DashboardPage>
 	);

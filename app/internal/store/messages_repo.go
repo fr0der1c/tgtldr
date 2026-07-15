@@ -13,6 +13,11 @@ type MessageRepository struct {
 	pool *pgxpool.Pool
 }
 
+type MessageCursor struct {
+	MessageTime       time.Time
+	TelegramMessageID int
+}
+
 func (r *MessageRepository) Upsert(ctx context.Context, message model.Message) error {
 	_, err := r.pool.Exec(ctx, `
 		insert into messages (
@@ -96,13 +101,159 @@ func (r *MessageRepository) ListForRange(ctx context.Context, chatID int64, star
 	return messages, rows.Err()
 }
 
-func (r *MessageRepository) CountForRange(ctx context.Context, chatID int64, start, end time.Time) (int, error) {
+func (r *MessageRepository) ListPageForRange(
+	ctx context.Context,
+	chatID int64,
+	start time.Time,
+	end time.Time,
+	before *MessageCursor,
+	limit int,
+	filter MessageDisplayFilter,
+) ([]model.Message, bool, error) {
+	query := `
+		select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
+		       sender_username, sender_is_bot,
+		       text_content, caption, message_type, media_kind, reply_to_message_id,
+		       message_time, raw_json::text, created_at
+		from messages m
+		where m.chat_id = $1 and m.message_time >= $2 and m.message_time < $3`
+	args := []any{chatID, start, end}
+	if before != nil {
+		query += ` and (m.message_time, m.telegram_message_id) < ($4, $5)`
+		args = append(args, before.MessageTime, before.TelegramMessageID)
+	}
+	filterSQL, args := appendMessageDisplayFilter("m", args, filter)
+	query += filterSQL
+	query += ` order by m.message_time desc, m.telegram_message_id desc limit $` + fmt.Sprint(len(args)+1)
+	args = append(args, limit+1)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, false, fmt.Errorf("query message page: %w", err)
+	}
+	defer rows.Close()
+
+	messages := make([]model.Message, 0, limit+1)
+	for rows.Next() {
+		message, err := scanMessage(rows)
+		if err != nil {
+			return nil, false, err
+		}
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, fmt.Errorf("iterate message page: %w", err)
+	}
+
+	messages, hasMore := normalizeMessagePage(messages, limit)
+	return messages, hasMore, nil
+}
+
+func (r *MessageRepository) LatestDateAtOrBefore(
+	ctx context.Context,
+	chatID int64,
+	timezone string,
+	date string,
+	filter MessageDisplayFilter,
+) (string, error) {
+	args := []any{chatID, timezone, date}
+	filterSQL, args := appendMessageDisplayFilter("m", args, filter)
+	var latest *time.Time
+	err := r.pool.QueryRow(ctx, `
+		select max((m.message_time at time zone $2)::date)
+		from messages m
+		where m.chat_id = $1 and (m.message_time at time zone $2)::date <= $3::date`+
+		filterSQL, args...).Scan(&latest)
+	if err != nil {
+		return "", fmt.Errorf("query latest message date: %w", err)
+	}
+	if latest == nil {
+		return "", nil
+	}
+	return latest.Format("2006-01-02"), nil
+}
+
+func (r *MessageRepository) AdjacentDates(
+	ctx context.Context,
+	chatID int64,
+	timezone string,
+	date string,
+	filter MessageDisplayFilter,
+) (string, string, error) {
+	args := []any{chatID, timezone, date}
+	filterSQL, args := appendMessageDisplayFilter("m", args, filter)
+	var previous *time.Time
+	var next *time.Time
+	err := r.pool.QueryRow(ctx, `
+		select
+			max((m.message_time at time zone $2)::date)
+				filter (where (m.message_time at time zone $2)::date < $3::date),
+			min((m.message_time at time zone $2)::date)
+				filter (where (m.message_time at time zone $2)::date > $3::date)
+		from messages m
+		where m.chat_id = $1`+filterSQL, args...).Scan(&previous, &next)
+	if err != nil {
+		return "", "", fmt.Errorf("query adjacent message dates: %w", err)
+	}
+	return formatOptionalDate(previous), formatOptionalDate(next), nil
+}
+
+func (r *MessageRepository) ActivityForRange(
+	ctx context.Context,
+	chatID int64,
+	startLocal time.Time,
+	days int,
+	timezone string,
+	filter MessageDisplayFilter,
+) ([]model.ChatMessageActivity, error) {
+	endLocal := startLocal.AddDate(0, 0, days)
+	args := []any{chatID, startLocal.UTC(), endLocal.UTC(), timezone}
+	filterSQL, args := appendMessageDisplayFilter("m", args, filter)
+	rows, err := r.pool.Query(ctx, `
+		select (m.message_time at time zone $4)::date::text, count(*)::int
+		from messages m
+		where m.chat_id = $1 and m.message_time >= $2 and m.message_time < $3`+filterSQL+`
+		group by 1
+		order by 1
+	`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query message activity: %w", err)
+	}
+	defer rows.Close()
+
+	sparse := make([]model.ChatMessageActivity, 0, days)
+	for rows.Next() {
+		var item model.ChatMessageActivity
+		if err := rows.Scan(&item.Date, &item.MessageCount); err != nil {
+			return nil, fmt.Errorf("scan message activity: %w", err)
+		}
+		sparse = append(sparse, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate message activity: %w", err)
+	}
+	return completeMessageActivity(startLocal, days, sparse), nil
+}
+
+func (r *MessageRepository) CountForRange(
+	ctx context.Context,
+	chatID int64,
+	start time.Time,
+	end time.Time,
+	filters ...MessageDisplayFilter,
+) (int, error) {
+	filter := MessageDisplayFilter{}
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+	args := []any{chatID, start, end}
+	filterSQL, args := appendMessageDisplayFilter("m", args, filter)
 	var count int
 	err := r.pool.QueryRow(ctx, `
 		select count(*)
-		from messages
-		where chat_id = $1 and message_time >= $2 and message_time < $3
-	`, chatID, start, end).Scan(&count)
+		from messages m
+		where m.chat_id = $1 and m.message_time >= $2 and m.message_time < $3`+
+		filterSQL, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count messages: %w", err)
 	}
@@ -153,4 +304,55 @@ func (r *MessageRepository) LookupByTelegramIDs(ctx context.Context, chatID int6
 		lookup[message.TelegramMessageID] = message
 	}
 	return lookup, rows.Err()
+}
+
+type messageScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanMessage(scanner messageScanner) (model.Message, error) {
+	var message model.Message
+	err := scanner.Scan(
+		&message.ID,
+		&message.ChatID,
+		&message.TelegramMessageID,
+		&message.TelegramSenderID,
+		&message.SenderName,
+		&message.SenderUsername,
+		&message.SenderIsBot,
+		&message.TextContent,
+		&message.Caption,
+		&message.MessageType,
+		&message.MediaKind,
+		&message.ReplyToMessageID,
+		&message.MessageTime,
+		&message.RawJSON,
+		&message.CreatedAt,
+	)
+	if err != nil {
+		return model.Message{}, fmt.Errorf("scan message: %w", err)
+	}
+	return message, nil
+}
+
+func reverseMessages(messages []model.Message) {
+	for left, right := 0, len(messages)-1; left < right; left, right = left+1, right-1 {
+		messages[left], messages[right] = messages[right], messages[left]
+	}
+}
+
+func normalizeMessagePage(messages []model.Message, limit int) ([]model.Message, bool) {
+	hasMore := len(messages) > limit
+	if hasMore {
+		messages = messages[:limit]
+	}
+	reverseMessages(messages)
+	return messages, hasMore
+}
+
+func formatOptionalDate(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.Format("2006-01-02")
 }

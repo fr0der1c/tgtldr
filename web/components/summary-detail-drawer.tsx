@@ -12,6 +12,9 @@ export function SummaryDetailDrawer({
   active,
   botReady,
   chatTitle,
+  emptyDescription = "从列表中选择一条摘要后，这里会展示完整正文。",
+  emptyTitle = "没有可查看的摘要",
+  loading = false,
   onClose,
   onOpenContext,
   onRerunSummary,
@@ -24,6 +27,9 @@ export function SummaryDetailDrawer({
   active: boolean;
   botReady: boolean;
   chatTitle: string;
+  emptyDescription?: string;
+  emptyTitle?: string;
+  loading?: boolean;
   onClose: () => void;
   onOpenContext: () => void;
   onRerunSummary: (summary: Summary) => Promise<void>;
@@ -39,10 +45,12 @@ export function SummaryDetailDrawer({
 
   return (
     <Drawer active={active} onClose={onClose} open={open}>
-      {!selectedSummary ? (
+      {loading ? (
+        <p className="muted">正在读取当天摘要…</p>
+      ) : !selectedSummary ? (
         <EmptyState
-          description="从列表中选择一条摘要后，这里会展示完整正文。"
-          title="没有可查看的摘要"
+          description={emptyDescription}
+          title={emptyTitle}
         />
       ) : (
         <div className="summary-detail-stack">

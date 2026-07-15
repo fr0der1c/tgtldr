@@ -1,3 +1,11 @@
+@import "react-day-picker/style.css";
+@import "./chat-history-controls.css";
+@import "./chat-history.css";
+@import "./chat-calendar.css";
+@import "./chat-history-header.css";
+@import "./chat-search.css";
+@import "./chat-focus.css";
+
 :root {
   color-scheme: light;
   --bg: #f7f4ee;
@@ -1717,6 +1725,17 @@ select {
   flex-wrap: wrap;
 }
 
+.dashboard-surface-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dashboard-surface-leading {
+  display: flex;
+  flex: 0 0 auto;
+}
+
 .dashboard-surface-head h2 {
   margin: 0 0 6px;
   font-family: var(--font-serif);
@@ -1857,13 +1876,21 @@ select {
   position: relative;
   height: 9px;
   min-width: 7px;
+  padding: 0;
+  border: 0;
   border-radius: 2px;
   background: rgba(28, 25, 23, 0.14);
+  cursor: default;
   outline: none;
 }
 
 .chat-activity-day.active {
   background: #2f8f53;
+  cursor: pointer;
+}
+
+.chat-activity-day.selected {
+  box-shadow: 0 0 0 2px var(--panel-strong), 0 0 0 4px var(--accent);
 }
 
 .chat-activity-day::after {
@@ -1897,6 +1924,10 @@ select {
 
 .chat-activity-day:focus-visible {
   box-shadow: 0 0 0 2px rgba(185, 137, 59, 0.35);
+}
+
+.chat-activity-day.selected:focus-visible {
+  box-shadow: 0 0 0 2px var(--panel-strong), 0 0 0 4px var(--accent);
 }
 
 .table-row-actions {
