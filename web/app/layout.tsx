@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/toast";
 import { I18nProvider } from "@/lib/i18n";
@@ -11,6 +11,12 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: "/apple-icon.png"
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover"
 };
 
 const languageBootScript = `

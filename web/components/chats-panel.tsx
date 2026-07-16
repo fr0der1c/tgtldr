@@ -311,13 +311,15 @@ function ChatTableRow({
               >
                 {chat.title}
               </Link>
+            </div>
+            <div className="chat-secondary-line">
+              <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
               {shouldShowCollectorAccount ? (
                 <span className="chat-collector-account">
                   · {formatCollectorAccount(selectedCollectorAccount)}
                 </span>
               ) : null}
             </div>
-            <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
             <ChatActivityStrip
               activity={chat.messageActivity ?? []}
               hrefForDate={(date) =>

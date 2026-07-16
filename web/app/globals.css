@@ -1829,6 +1829,20 @@ select {
   min-width: 0;
 }
 
+.chat-secondary-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chat-secondary-line > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-summary-link {
   width: fit-content;
   font-weight: 700;
@@ -2625,6 +2639,25 @@ select {
     box-shadow: 0 14px 36px rgba(24, 19, 15, 0.18);
   }
 
+  .dashboard-sidebar::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    right: 18px;
+    bottom: calc(0px - max(12px, env(safe-area-inset-bottom)));
+    left: 18px;
+    height: calc(36px + max(12px, env(safe-area-inset-bottom)));
+    border-radius: 999px;
+    background: linear-gradient(
+      to bottom,
+      rgba(24, 19, 15, 0.14),
+      rgba(24, 19, 15, 0.04) 62%,
+      transparent
+    );
+    filter: blur(14px);
+    pointer-events: none;
+  }
+
   .dashboard-brand,
   .dashboard-sidebar-status {
     display: none;
@@ -2750,7 +2783,6 @@ select {
   .dashboard-page-head,
   .dashboard-surface-head,
   .summary-detail-meta,
-  .summary-status-actions,
   .summary-pagination,
   .page-savebar,
   .history-backfill-actions,
@@ -2781,6 +2813,67 @@ select {
   .setup-auth-block {
     padding: 18px;
     border-radius: 20px;
+  }
+
+  .metric-rail {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+    overflow: hidden;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: rgba(255, 252, 247, 0.88);
+    box-shadow: var(--shadow);
+  }
+
+  .metric-card {
+    min-width: 0;
+    gap: 5px;
+    padding: 9px 5px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: center;
+  }
+
+  .metric-card + .metric-card {
+    border-left: 1px solid rgba(28, 25, 23, 0.08);
+  }
+
+  .metric-card-head {
+    display: block;
+    min-width: 0;
+  }
+
+  .metric-card-head span:not(.status-pill) {
+    display: block;
+    overflow: hidden;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .metric-card-head .status-pill,
+  .metric-card p {
+    display: none;
+  }
+
+  .metric-card strong {
+    font-size: 1.55rem;
+    line-height: 1;
+  }
+
+  .summary-status-actions {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .summary-status-actions .status-pill {
+    width: fit-content;
+    flex: none;
   }
 
   .hero-card h1 {
