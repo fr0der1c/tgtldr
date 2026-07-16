@@ -60,7 +60,7 @@ export function ChatMessageItem({
   );
 }
 
-// 展示资源下载状态，并提供超限确认或失败重试入口。
+// 展示资源下载状态，并提供手动下载、超限确认或失败重试入口。
 function MediaAttachment({
   media,
   language,
@@ -73,7 +73,7 @@ function MediaAttachment({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // 将超限或失败资源重新提交给后台下载队列。
+  // 将策略暂停、超限或失败资源重新提交给后台下载队列。
   async function queueDownload() {
     setSubmitting(true);
     setError("");
@@ -94,6 +94,8 @@ function MediaAttachment({
   const waiting = media.status === "pending" || media.status === "downloading";
   const label = waiting
     ? (language === "en" ? "Downloading media…" : "正在下载媒体…")
+    : media.status === "manual"
+      ? (language === "en" ? "Attachment is waiting for manual download" : "附件等待手动下载")
     : media.status === "skipped_oversize"
       ? (language === "en" ? "File exceeds the 100 MB automatic download limit" : "文件超过 100 MB 自动下载上限")
       : (language === "en" ? "Media download failed" : "媒体下载失败");
@@ -104,6 +106,8 @@ function MediaAttachment({
         <button disabled={submitting} onClick={() => void queueDownload()} type="button">
           {submitting
             ? (language === "en" ? "Queuing…" : "正在提交…")
+            : media.status === "manual"
+              ? (language === "en" ? "Download attachment" : "下载附件")
             : media.canDownload
               ? (language === "en" ? "Download anyway" : "仍要下载")
               : (language === "en" ? "Retry" : "重试")}

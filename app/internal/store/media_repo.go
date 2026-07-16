@@ -51,7 +51,11 @@ func (r *MediaAssetRepository) UpsertMessage(ctx context.Context, chatID int64, 
 			file_reference, thumb_size, status
 		)
 		select $3, 'message', m.id, $4, $5, $6, $7::bigint, $8, $9, $10, $11, $12,
-		       case when $7::bigint > 104857600 then 'skipped_oversize' else 'pending' end
+		       case
+		         when $7::bigint > 104857600 then 'skipped_oversize'
+		         when coalesce((select auto_download_attachments from app_settings order by id limit 1), true) then 'pending'
+		         else 'manual'
+		       end
 		from messages m where m.chat_id = $1 and m.telegram_message_id = $2
 		on conflict (message_id) where owner_type = 'message' do update
 		set telegram_account_id = excluded.telegram_account_id,
@@ -61,9 +65,10 @@ func (r *MediaAssetRepository) UpsertMessage(ctx context.Context, chatID int64, 
 		    telegram_access_hash = excluded.telegram_access_hash,
 		    file_reference = excluded.file_reference, thumb_size = excluded.thumb_size,
 		    status = case
-		      when media_assets.status in ('pending', 'downloading', 'succeeded', 'failed') then media_assets.status
+		      when media_assets.status in ('manual', 'pending', 'downloading', 'succeeded', 'failed') then media_assets.status
 		      when excluded.file_size > 104857600 and not media_assets.force_download then 'skipped_oversize'
-		      else 'pending'
+		      when coalesce((select auto_download_attachments from app_settings order by id limit 1), true) then 'pending'
+		      else 'manual'
 		    end,
 		    next_retry_at = case when media_assets.status = 'pending' then media_assets.next_retry_at else null end,
 		    error_message = case
@@ -76,6 +81,24 @@ func (r *MediaAssetRepository) UpsertMessage(ctx context.Context, chatID int64, 
 		asset.TelegramAccessHash, asset.FileReference, asset.ThumbSize)
 	if err != nil {
 		return fmt.Errorf("upsert message media %d: %w", telegramMessageID, err)
+	}
+	return nil
+}
+
+// ApplyAutoDownloadPolicy 暂停或恢复尚未开始的消息附件任务，头像任务不受影响。
+func (r *MediaAssetRepository) ApplyAutoDownloadPolicy(ctx context.Context, enabled bool) error {
+	fromStatus := "pending"
+	toStatus := "manual"
+	if enabled {
+		fromStatus = "manual"
+		toStatus = "pending"
+	}
+	_, err := r.pool.Exec(ctx, `
+		update media_assets set status = $2, updated_at = now()
+		where owner_type = 'message' and status = $1 and not force_download
+	`, fromStatus, toStatus)
+	if err != nil {
+		return fmt.Errorf("apply attachment auto download policy: %w", err)
 	}
 	return nil
 }
@@ -123,7 +146,12 @@ func (r *MediaAssetRepository) UpsertAvatar(ctx context.Context, entity model.Te
 // RecoverInterrupted 将进程退出时遗留的下载中任务重新排队。
 func (r *MediaAssetRepository) RecoverInterrupted(ctx context.Context, accountID int64) error {
 	_, err := r.pool.Exec(ctx, `
-		update media_assets set status = 'pending', updated_at = now()
+		update media_assets set status = case
+		  when owner_type = 'message' and not force_download
+		    and not coalesce((select auto_download_attachments from app_settings order by id limit 1), true)
+		  then 'manual'
+		  else 'pending'
+		end, updated_at = now()
 		where telegram_account_id = $1 and status = 'downloading'
 	`, accountID)
 	if err != nil {
@@ -144,6 +172,8 @@ func (r *MediaAssetRepository) ClaimNext(ctx context.Context, accountID int64) (
 		where telegram_account_id = $1
 		  and status = 'pending'
 		  and (next_retry_at is null or next_retry_at <= now())
+		  and (owner_type = 'avatar' or force_download or
+		       coalesce((select auto_download_attachments from app_settings order by id limit 1), true))
 		order by created_at desc
 		for update skip locked limit 1
 	`, accountID)
@@ -192,8 +222,20 @@ func (r *MediaAssetRepository) Fail(ctx context.Context, id int64, message strin
 		next = &value
 	}
 	_, err := r.pool.Exec(ctx, `
-		update media_assets set status = $2, retry_count = retry_count + 1,
-		       next_retry_at = $3, error_message = $4, updated_at = now()
+		update media_assets set status = case
+		         when $2 = 'pending' and owner_type = 'message' and not force_download
+		           and not coalesce((select auto_download_attachments from app_settings order by id limit 1), true)
+		         then 'manual'
+		         else $2
+		       end,
+		       retry_count = retry_count + 1,
+		       next_retry_at = case
+		         when $2 = 'pending' and owner_type = 'message' and not force_download
+		           and not coalesce((select auto_download_attachments from app_settings order by id limit 1), true)
+		         then null
+		         else $3::timestamptz
+		       end,
+		       error_message = $4, updated_at = now()
 		where id = $1
 	`, id, status, next, message)
 	if err != nil {
@@ -202,12 +244,12 @@ func (r *MediaAssetRepository) Fail(ctx context.Context, id int64, message strin
 	return nil
 }
 
-// RequestDownload 允许用户重试失败资源或显式下载超限资源。
+// RequestDownload 允许用户下载策略暂停、失败或超限的资源。
 func (r *MediaAssetRepository) RequestDownload(ctx context.Context, id int64) error {
 	result, err := r.pool.Exec(ctx, `
 		update media_assets set status = 'pending', force_download = true,
 		       retry_count = 0, next_retry_at = null, error_message = '', updated_at = now()
-		where id = $1 and status in ('failed', 'skipped_oversize')
+		where id = $1 and status in ('manual', 'failed', 'skipped_oversize')
 	`, id)
 	if err != nil {
 		return fmt.Errorf("request media download %d: %w", id, err)

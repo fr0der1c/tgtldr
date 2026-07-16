@@ -354,7 +354,7 @@ func mediaResponse(asset model.MediaAsset) *chatMessageMedia {
 	response := &chatMessageMedia{
 		ID: asset.ID, Kind: asset.Kind, MIMEType: asset.MIMEType,
 		FileName: asset.FileName, Size: asset.FileSize, Status: asset.Status,
-		Error: asset.ErrorMessage, CanDownload: asset.Status == "skipped_oversize",
+		Error: asset.ErrorMessage, CanDownload: asset.Status == "manual" || asset.Status == "skipped_oversize",
 		CanRetry: asset.Status == "failed",
 	}
 	if asset.Status == "succeeded" {

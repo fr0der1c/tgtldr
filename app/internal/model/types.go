@@ -59,6 +59,7 @@ type AppSettings struct {
 	SummaryRetryBackoffMultiplier  float64           `json:"summaryRetryBackoffMultiplier"`
 	DefaultTimezone                string            `json:"defaultTimezone"`
 	Language                       Language          `json:"language"`
+	AutoDownloadAttachments        bool              `json:"autoDownloadAttachments"`
 	BotEnabled                     bool              `json:"botEnabled"`
 	BotToken                       string            `json:"botToken,omitempty"`
 	BotTargetChatID                string            `json:"botTargetChatId"`

@@ -58,6 +58,7 @@ export const emptySettings: AppSettings = {
   summaryRetryBackoffMultiplier: 3,
   defaultTimezone: "Asia/Shanghai",
   language: "zh-CN",
+  autoDownloadAttachments: true,
   botEnabled: false,
   botToken: "",
   botTargetChatId: "",

@@ -12,6 +12,7 @@
 ### Changed
 
 - Chat names and public usernames are now consistently aligned to the right of the chat icon. A default group icon is shown when no avatar is available or when loading fails, preventing list misalignment.
+- Added an “Automatically download message attachments” preference. When disabled, new and queued attachments wait for manual download while avatar downloads remain unaffected.
 
 ## 2026-07-14
 

@@ -110,6 +110,8 @@ export function SettingsPanel() {
           settingsData.summaryRetryBackoffBaseMinutes || 1,
         summaryRetryBackoffMultiplier:
           settingsData.summaryRetryBackoffMultiplier || 3,
+        autoDownloadAttachments:
+          settingsData.autoDownloadAttachments ?? true,
         botToken: "",
         openAIApiKey: "",
         telegramApiHash: "",
@@ -708,7 +710,7 @@ export function SettingsPanel() {
           {activeTab === "preferences" ? (
           <Surface
             title="偏好设置"
-            description="这些设置会控制摘要日期和定时任务使用的时区。"
+            description="这些设置会控制时区、语言和消息附件的下载行为。"
           >
             <div className="form-stack">
               <Field label="默认时区">
@@ -734,6 +736,24 @@ export function SettingsPanel() {
                     { value: "en", label: dict.language.en },
                   ]}
                   value={settings.language}
+                />
+              </Field>
+              <Field
+                label="自动下载消息附件"
+                hint="关闭后，新附件和尚未开始的附件会等待手动下载；头像不受影响。"
+              >
+                <AppSelect
+                  onChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      autoDownloadAttachments: value === "yes",
+                    })
+                  }
+                  options={[
+                    { value: "yes", label: "启用" },
+                    { value: "no", label: "关闭" },
+                  ]}
+                  value={settings.autoDownloadAttachments ? "yes" : "no"}
                 />
               </Field>
             </div>

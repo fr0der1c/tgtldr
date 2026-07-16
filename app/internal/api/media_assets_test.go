@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -24,5 +25,16 @@ func TestContentDisposition(t *testing.T) {
 		So(contentDisposition("photo", "photo.jpg"), ShouldStartWith, "inline;")
 		So(contentDisposition("document", "report.pdf"), ShouldStartWith, "attachment;")
 		So(contentDisposition("document", "bad\nname.pdf"), ShouldNotContainSubstring, "\n")
+	})
+}
+
+func TestManualMediaResponse(t *testing.T) {
+	Convey("策略暂停的附件允许用户手动下载", t, func() {
+		response := mediaResponse(model.MediaAsset{ID: 12, Status: "manual"})
+
+		So(response.Status, ShouldEqual, "manual")
+		So(response.CanDownload, ShouldBeTrue)
+		So(response.CanRetry, ShouldBeFalse)
+		So(response.ContentURL, ShouldBeEmpty)
 	})
 }

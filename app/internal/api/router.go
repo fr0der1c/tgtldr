@@ -350,6 +350,10 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := r.store.Assets.ApplyAutoDownloadPolicy(req.Context(), saved.AutoDownloadAttachments); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.JSON(w, http.StatusOK, saved.Sanitized())
 }
 

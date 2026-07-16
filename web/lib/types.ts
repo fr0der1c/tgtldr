@@ -18,6 +18,7 @@ export type AppSettings = {
   summaryRetryBackoffMultiplier: number;
   defaultTimezone: string;
   language: Language;
+  autoDownloadAttachments: boolean;
   botEnabled: boolean;
   botToken?: string;
   botTargetChatId: string;
@@ -124,7 +125,7 @@ export type ChatMessageMedia = {
   mimeType: string;
   fileName: string;
   size: number;
-  status: "pending" | "downloading" | "succeeded" | "skipped_oversize" | "failed";
+  status: "manual" | "pending" | "downloading" | "succeeded" | "skipped_oversize" | "failed";
   contentUrl?: string;
   error?: string;
   canDownload: boolean;

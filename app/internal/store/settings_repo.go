@@ -40,7 +40,7 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		select id, telegram_api_id, telegram_api_hash, openai_base_url, openai_api_key,
 		       openai_model, openai_temperature, openai_output_mode, openai_max_output_tokens,
 		       openai_request_mode, summary_parallelism, summary_retry_limit, summary_retry_backoff_base_minutes,
-		       summary_retry_backoff_multiplier, default_timezone, language, bot_enabled,
+		       summary_retry_backoff_multiplier, default_timezone, language, auto_download_attachments, bot_enabled,
 		       bot_token, bot_target_chat_id, created_at, updated_at
 		from app_settings
 		order by id
@@ -62,6 +62,7 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		&row.SummaryRetryBackoffMultiplier,
 		&row.DefaultTimezone,
 		&row.Language,
+		&row.AutoDownloadAttachments,
 		&row.BotEnabled,
 		&encBotToken,
 		&row.BotTargetChatID,
@@ -118,9 +119,10 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		    summary_retry_backoff_multiplier = $13,
 		    default_timezone = $14,
 		    language = $15,
-		    bot_enabled = $16,
-		    bot_token = $17,
-		    bot_target_chat_id = $18,
+		    auto_download_attachments = $16,
+		    bot_enabled = $17,
+		    bot_token = $18,
+		    bot_target_chat_id = $19,
 		    updated_at = now()
 		where id = (select id from app_settings order by id limit 1)
 		returning id, created_at, updated_at
@@ -140,6 +142,7 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		settings.SummaryRetryBackoffMultiplier,
 		settings.DefaultTimezone,
 		settings.Language,
+		settings.AutoDownloadAttachments,
 		settings.BotEnabled,
 		encBotToken,
 		settings.BotTargetChatID,
@@ -163,6 +166,7 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	saved.SummaryRetryBackoffMultiplier = settings.SummaryRetryBackoffMultiplier
 	saved.DefaultTimezone = settings.DefaultTimezone
 	saved.Language = settings.Language
+	saved.AutoDownloadAttachments = settings.AutoDownloadAttachments
 	saved.BotEnabled = settings.BotEnabled
 	saved.BotToken = settings.BotToken
 	saved.BotTargetChatID = settings.BotTargetChatID
