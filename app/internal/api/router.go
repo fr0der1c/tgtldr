@@ -16,6 +16,7 @@ import (
 	"github.com/fr0der1c/tgtldr/app/internal/scheduler"
 	"github.com/fr0der1c/tgtldr/app/internal/store"
 	telegramsvc "github.com/fr0der1c/tgtldr/app/internal/telegram"
+	"github.com/jackc/pgx/v5"
 )
 
 type Router struct {
@@ -26,6 +27,7 @@ type Router struct {
 	auth      *localauth.Service
 	origin    string
 	timeout   time.Duration
+	mediaDir  string
 }
 
 const chatMessageActivityDays = 30
@@ -37,6 +39,7 @@ func New(
 	botService *bot.Service,
 	origin string,
 	timeout time.Duration,
+	mediaDir string,
 ) *Router {
 	return &Router{
 		store:     store,
@@ -46,6 +49,7 @@ func New(
 		auth:      localauth.NewService(store),
 		origin:    origin,
 		timeout:   timeout,
+		mediaDir:  mediaDir,
 	}
 }
 
@@ -71,6 +75,9 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/chats", r.handleChats)
 	mux.HandleFunc("GET /api/chats/{chatID}/messages/search", r.handleChatMessageSearch)
 	mux.HandleFunc("GET /api/chats/{chatID}/messages", r.handleChatMessages)
+	mux.HandleFunc("GET /api/assets/{assetID}/content", r.handleAssetContent)
+	mux.HandleFunc("HEAD /api/assets/{assetID}/content", r.handleAssetContent)
+	mux.HandleFunc("POST /api/assets/{assetID}/download", r.handleAssetDownload)
 	mux.HandleFunc("/api/chats/", r.handleChatByID)
 	mux.HandleFunc("/api/history-backfills", r.handleStartHistoryBackfill)
 	mux.HandleFunc("/api/history-backfills/", r.handleHistoryBackfillByID)
@@ -523,6 +530,10 @@ func (r *Router) handleSyncChats(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := r.attachChatAvatars(req.Context(), chats); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.JSON(w, http.StatusOK, chats)
 }
 
@@ -558,7 +569,30 @@ func (r *Router) handleChats(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := r.attachChatAvatars(req.Context(), chats); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.JSON(w, http.StatusOK, chats)
+}
+
+// attachChatAvatars 为群组列表补充已下载头像地址，未下载时保持空值。
+func (r *Router) attachChatAvatars(ctx context.Context, chats []model.Chat) error {
+	for index := range chats {
+		peerType := "chat"
+		if chats[index].ChatType == "supergroup" {
+			peerType = "channel"
+		}
+		asset, err := r.store.Assets.FindEntityAvatar(ctx, chats[index].CollectorAccountID, peerType, chats[index].TelegramChatID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		chats[index].AvatarURL = assetContentURL(asset.ID)
+	}
+	return nil
 }
 
 func (r *Router) attachAvailableAccounts(ctx context.Context, chats []model.Chat) error {

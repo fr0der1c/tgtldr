@@ -7,6 +7,11 @@
 ### Added
 
 - Added per-chat message history with daily browsing, loading for earlier messages, in-chat search, filtering based on chat settings, and direct access to each day's summary; also improved the mobile browsing experience.
+- Chat history now automatically downloads and displays photos, videos, audio, voice messages, and regular files inline, together with available sender and chat avatars. Files over 100 MB can be downloaded after explicit confirmation, and failed downloads can be retried.
+
+### Changed
+
+- Chat names and public usernames are now consistently aligned to the right of the chat icon. A default group icon is shown when no avatar is available or when loading fails, preventing list misalignment.
 
 ## 2026-07-14
 

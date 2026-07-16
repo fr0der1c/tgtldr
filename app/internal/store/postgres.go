@@ -19,6 +19,8 @@ type Store struct {
 	LocalSessions *LocalSessionRepository
 	Chats         *ChatRepository
 	Messages      *MessageRepository
+	Entities      *TelegramEntityRepository
+	Assets        *MediaAssetRepository
 	Summaries     *SummaryRepository
 }
 
@@ -47,6 +49,8 @@ func Open(ctx context.Context, cfg config.Config) (*Store, error) {
 		LocalSessions: &LocalSessionRepository{pool: pool},
 		Chats:         &ChatRepository{pool: pool},
 		Messages:      &MessageRepository{pool: pool},
+		Entities:      &TelegramEntityRepository{pool: pool},
+		Assets:        &MediaAssetRepository{pool: pool},
 		Summaries:     &SummaryRepository{pool: pool},
 	}
 	return st, nil

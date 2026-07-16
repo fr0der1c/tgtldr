@@ -135,7 +135,7 @@ func (r *MessageRepository) queryMessageWindow(
 }
 
 const messageSelectSQL = `
-	select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
+	select id, chat_id, coalesce(sender_entity_id, 0), telegram_message_id, telegram_sender_id, sender_name,
 	       sender_username, sender_is_bot,
 	       text_content, caption, message_type, media_kind, reply_to_message_id,
 	       message_time, raw_json::text, created_at

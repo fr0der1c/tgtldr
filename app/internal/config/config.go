@@ -18,6 +18,7 @@ type Config struct {
 	WebOrigin     string
 	RequestTimout time.Duration
 	OpenAITimeout time.Duration
+	MediaDir      string
 }
 
 const defaultMasterKeyFile = "/var/lib/tgtldr/master.key"
@@ -29,6 +30,7 @@ func Load() (Config, error) {
 		WebOrigin:     env("TGTLDR_WEB_ORIGIN", "http://localhost:3000"),
 		RequestTimout: envDuration("TGTLDR_REQUEST_TIMEOUT", 30*time.Second),
 		OpenAITimeout: envDuration("TGTLDR_OPENAI_TIMEOUT", 3*time.Minute),
+		MediaDir:      env("TGTLDR_MEDIA_DIR", "/var/lib/tgtldr/media"),
 	}
 
 	key, err := loadMasterKey()

@@ -114,6 +114,21 @@ export type ChatMessage = {
   mediaKind: string;
   messageTime: string;
   reply?: ChatMessageReply;
+  senderAvatarUrl?: string;
+  media?: ChatMessageMedia;
+};
+
+export type ChatMessageMedia = {
+  id: number;
+  kind: "photo" | "video" | "audio" | "voice" | "document";
+  mimeType: string;
+  fileName: string;
+  size: number;
+  status: "pending" | "downloading" | "succeeded" | "skipped_oversize" | "failed";
+  contentUrl?: string;
+  error?: string;
+  canDownload: boolean;
+  canRetry: boolean;
 };
 
 export type ChatMessageListResponse = {
@@ -122,6 +137,7 @@ export type ChatMessageListResponse = {
     title: string;
     username: string;
     enabled: boolean;
+    avatarUrl?: string;
   };
   date: string;
   timezone: string;
@@ -169,6 +185,7 @@ export type Chat = {
   filteredSenders: string[];
   filteredKeywords: string[];
   messageActivity?: ChatMessageActivity[];
+  avatarUrl?: string;
 };
 
 export type HistoryBackfillTask = {

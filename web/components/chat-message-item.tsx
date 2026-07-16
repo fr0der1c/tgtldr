@@ -1,5 +1,8 @@
-import { CSSProperties } from "react";
-import { ChatMessage, ChatMessageReply } from "@/lib/types";
+"use client";
+
+import { CSSProperties, useState } from "react";
+import { api } from "@/lib/api";
+import { ChatMessage, ChatMessageMedia, ChatMessageReply } from "@/lib/types";
 import { StatusPill } from "@/components/ui";
 
 type ChatMessageItemProps = {
@@ -18,12 +21,17 @@ export function ChatMessageItem({
   const sender = message.senderName.trim() || "未知发言人";
   const text = visibleMessageText(message, language);
   const mediaLabel = visibleMediaLabel(message.mediaKind, message.messageType, language);
+	const [media, setMedia] = useState(message.media);
 
   return (
     <article className={`chat-message ${highlighted ? "highlighted" : ""}`} data-message-id={message.id}>
-      <div className="chat-message-avatar" style={avatarStyle(sender)}>
-        {sender.slice(0, 1).toUpperCase()}
-      </div>
+      {message.senderAvatarUrl ? (
+        <img alt="" className="chat-message-avatar image" src={message.senderAvatarUrl} />
+      ) : (
+        <div className="chat-message-avatar" style={avatarStyle(sender)}>
+          {sender.slice(0, 1).toUpperCase()}
+        </div>
+      )}
       <div className="chat-message-content">
         <header className="chat-message-meta">
           <strong>{sender}</strong>
@@ -36,7 +44,9 @@ export function ChatMessageItem({
         {message.reply ? (
           <ReplyPreview language={language} reply={message.reply} />
         ) : null}
-        {mediaLabel ? (
+        {media ? (
+          <MediaAttachment language={language} media={media} onQueued={() => setMedia({ ...media, status: "pending", canDownload: false, canRetry: false })} />
+        ) : mediaLabel ? (
           <div className="chat-message-media-label">
             <MediaIcon />
             <span>{mediaLabel}</span>
@@ -48,6 +58,86 @@ export function ChatMessageItem({
       </div>
     </article>
   );
+}
+
+// 展示资源下载状态，并提供超限确认或失败重试入口。
+function MediaAttachment({
+  media,
+  language,
+  onQueued,
+}: {
+  media: ChatMessageMedia;
+  language: "zh-CN" | "en";
+  onQueued: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // 将超限或失败资源重新提交给后台下载队列。
+  async function queueDownload() {
+    setSubmitting(true);
+    setError("");
+    try {
+      await api.downloadAsset(media.id);
+      onQueued();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (media.status === "succeeded" && media.contentUrl) {
+    return <DownloadedMedia language={language} media={media} />;
+  }
+
+  const waiting = media.status === "pending" || media.status === "downloading";
+  const label = waiting
+    ? (language === "en" ? "Downloading media…" : "正在下载媒体…")
+    : media.status === "skipped_oversize"
+      ? (language === "en" ? "File exceeds the 100 MB automatic download limit" : "文件超过 100 MB 自动下载上限")
+      : (language === "en" ? "Media download failed" : "媒体下载失败");
+  return (
+    <div className="chat-message-media-state">
+      <div><MediaIcon /><span>{label}</span></div>
+      {!waiting ? (
+        <button disabled={submitting} onClick={() => void queueDownload()} type="button">
+          {submitting
+            ? (language === "en" ? "Queuing…" : "正在提交…")
+            : media.canDownload
+              ? (language === "en" ? "Download anyway" : "仍要下载")
+              : (language === "en" ? "Retry" : "重试")}
+        </button>
+      ) : null}
+      {error ? <small>{error}</small> : null}
+    </div>
+  );
+}
+
+// 根据媒体类型选择浏览器原生预览控件或附件卡片。
+function DownloadedMedia({ media, language }: { media: ChatMessageMedia; language: "zh-CN" | "en" }) {
+  if (media.kind === "photo") {
+    return <a href={media.contentUrl} rel="noreferrer" target="_blank"><img alt={media.fileName} className="chat-message-photo" loading="lazy" src={media.contentUrl} /></a>;
+  }
+  if (media.kind === "video") {
+    return <video className="chat-message-video" controls preload="metadata" src={media.contentUrl} />;
+  }
+  if (media.kind === "audio" || media.kind === "voice") {
+    return <audio className="chat-message-audio" controls preload="metadata" src={media.contentUrl} />;
+  }
+  return (
+    <a className="chat-message-file" download href={media.contentUrl}>
+      <MediaIcon />
+      <span><strong>{media.fileName}</strong><small>{formatFileSize(media.size, language)}</small></span>
+    </a>
+  );
+}
+
+// 使用当前界面语言格式化文件大小。
+function formatFileSize(size: number, language: "zh-CN" | "en") {
+  if (!size) return language === "en" ? "Unknown size" : "未知大小";
+  return new Intl.NumberFormat(language, { style: "unit", unit: size >= 1024 * 1024 ? "megabyte" : "kilobyte", maximumFractionDigits: 1 })
+    .format(size / (size >= 1024 * 1024 ? 1024 * 1024 : 1024));
 }
 
 function ReplyPreview({

@@ -135,6 +135,7 @@ type Chat struct {
 	FilteredSenders    []string              `json:"filteredSenders"`
 	FilteredKeywords   []string              `json:"filteredKeywords"`
 	MessageActivity    []ChatMessageActivity `json:"messageActivity,omitempty"`
+	AvatarURL          string                `json:"avatarUrl,omitempty"`
 	CreatedAt          time.Time             `json:"createdAt"`
 	UpdatedAt          time.Time             `json:"updatedAt"`
 }
@@ -147,6 +148,7 @@ type ChatMessageActivity struct {
 type Message struct {
 	ID                int64     `json:"id"`
 	ChatID            int64     `json:"chatId"`
+	SenderEntityID    int64     `json:"-"`
 	TelegramMessageID int       `json:"telegramMessageId"`
 	TelegramSenderID  int64     `json:"telegramSenderId"`
 	SenderName        string    `json:"senderName"`
@@ -160,6 +162,47 @@ type Message struct {
 	MessageTime       time.Time `json:"messageTime"`
 	RawJSON           string    `json:"rawJson"`
 	CreatedAt         time.Time `json:"createdAt"`
+}
+
+type MediaAsset struct {
+	ID                 int64      `json:"id"`
+	TelegramAccountID  int64      `json:"-"`
+	OwnerType          string     `json:"-"`
+	MessageID          int64      `json:"-"`
+	EntityID           int64      `json:"-"`
+	PhotoID            int64      `json:"-"`
+	Kind               string     `json:"kind"`
+	MIMEType           string     `json:"mimeType"`
+	FileName           string     `json:"fileName"`
+	FileSize           int64      `json:"size"`
+	LocationType       string     `json:"-"`
+	TelegramFileID     int64      `json:"-"`
+	TelegramAccessHash int64      `json:"-"`
+	FileReference      []byte     `json:"-"`
+	ThumbSize          string     `json:"-"`
+	PeerType           string     `json:"-"`
+	PeerID             int64      `json:"-"`
+	PeerAccessHash     int64      `json:"-"`
+	Status             string     `json:"status"`
+	ForceDownload      bool       `json:"-"`
+	LocalPath          string     `json:"-"`
+	RetryCount         int        `json:"-"`
+	NextRetryAt        *time.Time `json:"-"`
+	ErrorMessage       string     `json:"error,omitempty"`
+	DownloadedAt       *time.Time `json:"-"`
+	CreatedAt          time.Time  `json:"-"`
+	UpdatedAt          time.Time  `json:"-"`
+}
+
+type TelegramEntity struct {
+	ID                int64  `json:"-"`
+	TelegramAccountID int64  `json:"-"`
+	PeerType          string `json:"-"`
+	TelegramID        int64  `json:"-"`
+	AccessHash        int64  `json:"-"`
+	DisplayName       string `json:"-"`
+	Username          string `json:"-"`
+	CurrentPhotoID    int64  `json:"-"`
 }
 
 func (m Message) SummaryText() string {

@@ -304,21 +304,24 @@ function ChatTableRow({
       <tr className={expanded ? "data-row active" : "data-row"}>
         <td>
           <div className="data-row-title">
-            <div className="chat-title-line">
-              <Link
-                className="chat-summary-link"
-                href={`/dashboard/chats/${encodeURIComponent(String(chat.id))}/messages`}
-              >
-                {chat.title}
-              </Link>
-            </div>
-            <div className="chat-secondary-line">
-              <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
-              {shouldShowCollectorAccount ? (
-                <span className="chat-collector-account">
-                  · {formatCollectorAccount(selectedCollectorAccount)}
-                </span>
-              ) : null}
+            <div className="chat-identity">
+              <ChatAvatar key={chat.avatarUrl ?? "fallback"} src={chat.avatarUrl} />
+              <div className="chat-identity-copy">
+                <Link
+                  className="chat-summary-link"
+                  href={`/dashboard/chats/${encodeURIComponent(String(chat.id))}/messages`}
+                >
+                  {chat.title}
+                </Link>
+                <div className="chat-secondary-line">
+                  <span>{chat.username ? `@${chat.username}` : "无公开用户名"}</span>
+                  {shouldShowCollectorAccount ? (
+                    <span className="chat-collector-account">
+                      · {formatCollectorAccount(selectedCollectorAccount)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <ChatActivityStrip
               activity={chat.messageActivity ?? []}
@@ -586,6 +589,34 @@ function ChatTableRow({
         </tr>
       ) : null}
     </>
+  );
+}
+
+// ChatAvatar 始终保留群图标位置，真实头像缺失或加载失败时展示统一占位图标。
+function ChatAvatar({ src }: { src?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showFallback = !src || failed;
+
+  return (
+    <span className={showFallback ? "chat-list-avatar-frame fallback" : "chat-list-avatar-frame"}>
+      {showFallback ? (
+        <GroupIcon />
+      ) : (
+        <img alt="" className="chat-list-avatar" onError={() => setFailed(true)} src={src} />
+      )}
+    </span>
+  );
+}
+
+// GroupIcon 使用中性的双人轮廓表示没有可用头像的群组。
+function GroupIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+      <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M15.8 10a2.4 2.4 0 1 0 0-4.8" />
+      <path d="M3.5 18.5v-1.2a4.5 4.5 0 0 1 4.5-4.5h1a4.5 4.5 0 0 1 4.5 4.5v1.2" />
+      <path d="M14.2 13.2a4 4 0 0 1 6.3 3.3v1" />
+    </svg>
   );
 }
 

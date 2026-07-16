@@ -19,6 +19,7 @@ import (
 	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
 	"github.com/gotd/td/tgerr"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -50,9 +51,10 @@ func (e *FloodWaitError) RetryAfterSeconds() int {
 }
 
 type Service struct {
-	store *store.Store
-	clock clock.Clock
-	root  context.Context
+	store    *store.Store
+	clock    clock.Clock
+	root     context.Context
+	mediaDir string
 
 	historyBackfills *historyBackfillStore
 
@@ -63,11 +65,12 @@ type Service struct {
 	listeners map[int64]context.CancelFunc
 }
 
-func NewService(root context.Context, st *store.Store, c clock.Clock) *Service {
+func NewService(root context.Context, st *store.Store, c clock.Clock, mediaDir string) *Service {
 	return &Service{
 		store:            st,
 		clock:            c,
 		root:             root,
+		mediaDir:         mediaDir,
 		historyBackfills: newHistoryBackfillStore(),
 		listeners:        make(map[int64]context.CancelFunc),
 	}
@@ -117,10 +120,15 @@ func (s *Service) SyncChats(ctx context.Context, accountIDs ...int64) error {
 		}
 
 		builder := dialogsquery.NewQueryBuilder(client.API()).GetDialogs().BatchSize(100)
-		if err := builder.ForEach(ctx, func(_ context.Context, elem dialogsquery.Elem) error {
+		if err := builder.ForEach(ctx, func(ctx context.Context, elem dialogsquery.Elem) error {
 			chat, ok := dialogToChat(elem)
 			if !ok {
 				return nil
+			}
+			if entity, ok := dialogEntity(accountID, elem); ok {
+				if _, err := s.upsertEntityAssets(ctx, entity); err != nil {
+					return err
+				}
 			}
 			chats = append(chats, chat)
 			return nil
@@ -253,7 +261,14 @@ func (s *Service) runListener(ctx context.Context, accountID int64) error {
 		if !status.Authorized || status.User == nil {
 			return s.markAuthLoggedOut(ctx, accountID)
 		}
-		if err := manager.Run(ctx, client.API(), status.User.ID, updates.AuthOptions{IsBot: false}); err != nil {
+		group, groupCtx := errgroup.WithContext(ctx)
+		group.Go(func() error {
+			return manager.Run(groupCtx, client.API(), status.User.ID, updates.AuthOptions{IsBot: false})
+		})
+		group.Go(func() error {
+			return s.runDownloadWorker(groupCtx, accountID, client.API())
+		})
+		if err := group.Wait(); err != nil {
 			if authorized := s.checkCurrentAuthStatus(ctx, client); !authorized {
 				return s.markAuthLoggedOut(ctx, accountID)
 			}
@@ -352,8 +367,16 @@ func (s *Service) storeIncomingMessage(ctx context.Context, accountID int64, ent
 
 	payload, _ := json.Marshal(msg)
 	senderID, senderName, senderUsername, senderIsBot := resolveSender(msg, entities)
+	senderEntityID := int64(0)
+	if entity, ok := senderEntityFromUpdate(accountID, msg, entities); ok {
+		senderEntityID, err = s.upsertEntityAssets(ctx, entity)
+		if err != nil {
+			return err
+		}
+	}
 	item := model.Message{
 		ChatID:            chat.ID,
+		SenderEntityID:    senderEntityID,
 		TelegramMessageID: msg.ID,
 		TelegramSenderID:  senderID,
 		SenderName:        senderName,
@@ -367,7 +390,26 @@ func (s *Service) storeIncomingMessage(ctx context.Context, accountID int64, ent
 		MessageTime:       time.Unix(int64(msg.Date), 0).UTC(),
 		RawJSON:           string(payload),
 	}
-	return s.store.Messages.Upsert(ctx, item)
+	if err := s.store.Messages.Upsert(ctx, item); err != nil {
+		return err
+	}
+	asset, ok := messageMediaAsset(accountID, msg)
+	if !ok {
+		return nil
+	}
+	return s.store.Assets.UpsertMessage(ctx, chat.ID, msg.ID, asset)
+}
+
+// upsertEntityAssets 同步 Telegram 实体，并在头像发生变化时确保下载任务存在。
+func (s *Service) upsertEntityAssets(ctx context.Context, entity model.TelegramEntity) (int64, error) {
+	entityID, err := s.store.Entities.Upsert(ctx, entity)
+	if err != nil {
+		return 0, err
+	}
+	if err := s.store.Assets.UpsertAvatar(ctx, entity, entityID); err != nil {
+		return 0, err
+	}
+	return entityID, nil
 }
 
 func (s *Service) persistAuthorizedUser(ctx context.Context, client *telegram.Client, accountID int64, phone string) error {

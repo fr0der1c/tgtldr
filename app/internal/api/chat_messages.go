@@ -39,10 +39,11 @@ type chatMessageResponse struct {
 }
 
 type chatMessageChat struct {
-	ID       int64  `json:"id"`
-	Title    string `json:"title"`
-	Username string `json:"username"`
-	Enabled  bool   `json:"enabled"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Username  string `json:"username"`
+	Enabled   bool   `json:"enabled"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
 }
 
 type chatMessageItem struct {
@@ -57,6 +58,21 @@ type chatMessageItem struct {
 	MediaKind         string                   `json:"mediaKind"`
 	MessageTime       time.Time                `json:"messageTime"`
 	Reply             *chatMessageReplyPreview `json:"reply,omitempty"`
+	Media             *chatMessageMedia        `json:"media,omitempty"`
+	SenderAvatarURL   string                   `json:"senderAvatarUrl,omitempty"`
+}
+
+type chatMessageMedia struct {
+	ID          int64  `json:"id"`
+	Kind        string `json:"kind"`
+	MIMEType    string `json:"mimeType"`
+	FileName    string `json:"fileName"`
+	Size        int64  `json:"size"`
+	Status      string `json:"status"`
+	ContentURL  string `json:"contentUrl,omitempty"`
+	Error       string `json:"error,omitempty"`
+	CanDownload bool   `json:"canDownload"`
+	CanRetry    bool   `json:"canRetry"`
 }
 
 type chatMessageReplyPreview struct {
@@ -246,6 +262,15 @@ func (r *Router) buildChatMessageResponse(
 		HasMessageFilters: hasChatMessageFilters(chat),
 		FiltersApplied:    filter.ExcludeBots || len(filter.Senders) > 0 || len(filter.Keywords) > 0,
 	}
+	peerType := "chat"
+	if chat.ChatType == "supergroup" {
+		peerType = "channel"
+	}
+	if avatar, err := r.store.Assets.FindEntityAvatar(req.Context(), chat.CollectorAccountID, peerType, chat.TelegramChatID); err == nil {
+		response.Chat.AvatarURL = assetContentURL(avatar.ID)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return chatMessageResponse{}, err
+	}
 	if hasMore && len(messages) > 0 {
 		response.BeforeCursor = encodeMessageCursor(messages[0])
 	}
@@ -293,6 +318,14 @@ func (r *Router) chatMessageItems(
 	if err != nil {
 		return nil, err
 	}
+	messageIDs := make([]int64, 0, len(messages))
+	for _, message := range messages {
+		messageIDs = append(messageIDs, message.ID)
+	}
+	media, avatars, err := r.store.Assets.ListForMessages(req.Context(), messageIDs)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]chatMessageItem, 0, len(messages))
 	for _, message := range messages {
 		item := chatMessageItem{
@@ -305,9 +338,33 @@ func (r *Router) chatMessageItems(
 		if message.ReplyToMessageID > 0 {
 			item.Reply = buildReplyPreview(message.ReplyToMessageID, replies)
 		}
+		if avatar, ok := avatars[message.ID]; ok {
+			item.SenderAvatarURL = assetContentURL(avatar.ID)
+		}
+		if asset, ok := media[message.ID]; ok {
+			item.Media = mediaResponse(asset)
+		}
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// mediaResponse 只向网页暴露状态和受保护 URL，不返回本地路径或 Telegram 凭据。
+func mediaResponse(asset model.MediaAsset) *chatMessageMedia {
+	response := &chatMessageMedia{
+		ID: asset.ID, Kind: asset.Kind, MIMEType: asset.MIMEType,
+		FileName: asset.FileName, Size: asset.FileSize, Status: asset.Status,
+		Error: asset.ErrorMessage, CanDownload: asset.Status == "skipped_oversize",
+		CanRetry: asset.Status == "failed",
+	}
+	if asset.Status == "succeeded" {
+		response.ContentURL = assetContentURL(asset.ID)
+	}
+	return response
+}
+
+func assetContentURL(id int64) string {
+	return fmt.Sprintf("/api/assets/%d/content", id)
 }
 
 func buildReplyPreview(

@@ -18,15 +18,111 @@ type MessageCursor struct {
 	TelegramMessageID int
 }
 
+type MessageEntityCandidate struct {
+	MessageID          int64
+	ChatID             int64
+	TelegramMessageID  int
+	TelegramChatID     int64
+	TelegramAccessHash int64
+	ChatType           string
+}
+
+// GetMediaMessageCandidate 返回刷新单条消息媒体引用所需的群组定位信息。
+func (r *MessageRepository) GetMediaMessageCandidate(ctx context.Context, accountID int64, messageID int64) (MessageEntityCandidate, error) {
+	var item MessageEntityCandidate
+	err := r.pool.QueryRow(ctx, `
+		select m.id, m.chat_id, m.telegram_message_id, c.telegram_chat_id,
+		       coalesce(tac.telegram_access_hash, c.telegram_access_hash), c.chat_type
+		from messages m
+		join chats c on c.id = m.chat_id
+		left join telegram_account_chats tac
+		  on tac.chat_id = c.id and tac.telegram_account_id = $1
+		where m.id = $2 and c.collector_account_id = $1
+	`, accountID, messageID).Scan(&item.MessageID, &item.ChatID, &item.TelegramMessageID,
+		&item.TelegramChatID, &item.TelegramAccessHash, &item.ChatType)
+	if err != nil {
+		return MessageEntityCandidate{}, fmt.Errorf("get media message candidate %d: %w", messageID, err)
+	}
+	return item, nil
+}
+
+// ListMissingSenderEntities 返回升级前尚未关联 Telegram 实体的消息。
+func (r *MessageRepository) ListMissingSenderEntities(ctx context.Context, accountID int64, afterID int64, limit int) ([]MessageEntityCandidate, error) {
+	rows, err := r.pool.Query(ctx, `
+		select m.id, m.chat_id, m.telegram_message_id, c.telegram_chat_id,
+		       coalesce(tac.telegram_access_hash, c.telegram_access_hash), c.chat_type
+		from messages m
+		join chats c on c.id = m.chat_id
+		left join telegram_account_chats tac
+		  on tac.chat_id = c.id and tac.telegram_account_id = $1
+		where c.collector_account_id = $1 and m.sender_entity_id is null
+		  and m.telegram_sender_id <> 0 and m.id > $2
+		order by m.id asc limit $3
+	`, accountID, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list missing sender entities: %w", err)
+	}
+	defer rows.Close()
+	items := make([]MessageEntityCandidate, 0, limit)
+	for rows.Next() {
+		var item MessageEntityCandidate
+		if err := rows.Scan(&item.MessageID, &item.ChatID, &item.TelegramMessageID,
+			&item.TelegramChatID, &item.TelegramAccessHash, &item.ChatType); err != nil {
+			return nil, fmt.Errorf("scan missing sender entity: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// AttachSenderEntity 关联补齐的发言人实体，并刷新原消息中的 Telegram 文件引用。
+func (r *MessageRepository) AttachSenderEntity(ctx context.Context, messageID int64, entityID int64, rawJSON string) error {
+	_, err := r.pool.Exec(ctx, `
+		update messages set sender_entity_id = $2, raw_json = $3::jsonb where id = $1
+	`, messageID, entityID, rawJSON)
+	if err != nil {
+		return fmt.Errorf("attach sender entity to message %d: %w", messageID, err)
+	}
+	return nil
+}
+
+// ListMediaAfter 按本地消息 ID 扫描账号已有媒体，供升级后的后台补齐使用。
+func (r *MessageRepository) ListMediaAfter(ctx context.Context, accountID int64, afterID int64, limit int) ([]model.Message, error) {
+	rows, err := r.pool.Query(ctx, `
+		select m.id, m.chat_id, coalesce(m.sender_entity_id, 0), m.telegram_message_id,
+		       m.telegram_sender_id, m.sender_name, m.sender_username, m.sender_is_bot,
+		       m.text_content, m.caption, m.message_type, m.media_kind, m.reply_to_message_id,
+		       m.message_time, m.raw_json::text, m.created_at
+		from messages m
+		join chats c on c.id = m.chat_id
+		where c.collector_account_id = $1 and m.id > $2 and m.media_kind in ('photo', 'document')
+		order by m.id asc limit $3
+	`, accountID, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list stored media after %d: %w", afterID, err)
+	}
+	defer rows.Close()
+	messages := make([]model.Message, 0, limit)
+	for rows.Next() {
+		message, err := scanMessage(rows)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+	return messages, rows.Err()
+}
+
 func (r *MessageRepository) Upsert(ctx context.Context, message model.Message) error {
 	_, err := r.pool.Exec(ctx, `
 		insert into messages (
-			chat_id, telegram_message_id, telegram_sender_id, sender_name, sender_username, sender_is_bot,
+			chat_id, sender_entity_id, telegram_message_id, telegram_sender_id, sender_name, sender_username, sender_is_bot,
 			text_content, caption, message_type, media_kind, reply_to_message_id,
 			message_time, raw_json
-		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+		) values ($1, nullif($2, 0), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
 		on conflict (chat_id, telegram_message_id) do update
-		set telegram_sender_id = excluded.telegram_sender_id,
+		set sender_entity_id = coalesce(excluded.sender_entity_id, messages.sender_entity_id),
+		    telegram_sender_id = excluded.telegram_sender_id,
 		    sender_name = excluded.sender_name,
 		    sender_username = excluded.sender_username,
 		    sender_is_bot = excluded.sender_is_bot,
@@ -39,6 +135,7 @@ func (r *MessageRepository) Upsert(ctx context.Context, message model.Message) e
 		    raw_json = excluded.raw_json
 	`,
 		message.ChatID,
+		message.SenderEntityID,
 		message.TelegramMessageID,
 		message.TelegramSenderID,
 		message.SenderName,
@@ -60,7 +157,7 @@ func (r *MessageRepository) Upsert(ctx context.Context, message model.Message) e
 
 func (r *MessageRepository) ListForRange(ctx context.Context, chatID int64, start, end time.Time) ([]model.Message, error) {
 	rows, err := r.pool.Query(ctx, `
-		select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
+		select id, chat_id, coalesce(sender_entity_id, 0), telegram_message_id, telegram_sender_id, sender_name,
 		       sender_username, sender_is_bot,
 		       text_content, caption, message_type, media_kind, reply_to_message_id,
 		       message_time, raw_json::text, created_at
@@ -79,6 +176,7 @@ func (r *MessageRepository) ListForRange(ctx context.Context, chatID int64, star
 		err := rows.Scan(
 			&message.ID,
 			&message.ChatID,
+			&message.SenderEntityID,
 			&message.TelegramMessageID,
 			&message.TelegramSenderID,
 			&message.SenderName,
@@ -111,7 +209,7 @@ func (r *MessageRepository) ListPageForRange(
 	filter MessageDisplayFilter,
 ) ([]model.Message, bool, error) {
 	query := `
-		select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
+		select id, chat_id, coalesce(sender_entity_id, 0), telegram_message_id, telegram_sender_id, sender_name,
 		       sender_username, sender_is_bot,
 		       text_content, caption, message_type, media_kind, reply_to_message_id,
 		       message_time, raw_json::text, created_at
@@ -266,7 +364,7 @@ func (r *MessageRepository) LookupByTelegramIDs(ctx context.Context, chatID int6
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
+		select id, chat_id, coalesce(sender_entity_id, 0), telegram_message_id, telegram_sender_id, sender_name,
 		       sender_username, sender_is_bot,
 		       text_content, caption, message_type, media_kind, reply_to_message_id,
 		       message_time, raw_json::text, created_at
@@ -284,6 +382,7 @@ func (r *MessageRepository) LookupByTelegramIDs(ctx context.Context, chatID int6
 		err := rows.Scan(
 			&message.ID,
 			&message.ChatID,
+			&message.SenderEntityID,
 			&message.TelegramMessageID,
 			&message.TelegramSenderID,
 			&message.SenderName,
@@ -315,6 +414,7 @@ func scanMessage(scanner messageScanner) (model.Message, error) {
 	err := scanner.Scan(
 		&message.ID,
 		&message.ChatID,
+		&message.SenderEntityID,
 		&message.TelegramMessageID,
 		&message.TelegramSenderID,
 		&message.SenderName,

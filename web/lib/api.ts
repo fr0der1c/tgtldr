@@ -211,6 +211,8 @@ export const api = {
       })}`,
       { signal: options.signal },
     ),
+  downloadAsset: (assetId: number) =>
+    request<{ status: string }>(`/api/assets/${assetId}/download`, { method: "POST" }),
   saveChat: (chat: Chat) =>
     request<Chat>(`/api/chats/${chat.id}`, {
       method: "PUT",

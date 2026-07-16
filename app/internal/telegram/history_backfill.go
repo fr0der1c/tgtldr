@@ -188,8 +188,21 @@ func (s *Service) runHistoryBackfillAttempt(
 			if !ok {
 				continue
 			}
+			msg := elem.Msg.(*tg.Message)
+			if entity, ok := senderEntityFromHistory(chat.CollectorAccountID, msg, elem.Entities); ok {
+				entityID, err := s.upsertEntityAssets(ctx, entity)
+				if err != nil {
+					return err
+				}
+				item.SenderEntityID = entityID
+			}
 			if err := s.store.Messages.Upsert(ctx, item); err != nil {
 				return err
+			}
+			if asset, ok := messageMediaAsset(chat.CollectorAccountID, msg); ok {
+				if err := s.store.Assets.UpsertMessage(ctx, chat.ID, msg.ID, asset); err != nil {
+					return err
+				}
 			}
 			if _, exists := processedIDs[item.TelegramMessageID]; !exists {
 				processedIDs[item.TelegramMessageID] = struct{}{}

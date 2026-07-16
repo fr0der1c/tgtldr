@@ -49,7 +49,7 @@ func run() error {
 	sysClock := clock.System{}
 	botService := bot.New()
 	summaryService := summary.NewService(st, sysClock, cfg.OpenAITimeout)
-	telegramService := telegramsvc.NewService(ctx, st, sysClock)
+	telegramService := telegramsvc.NewService(ctx, st, sysClock, cfg.MediaDir)
 	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService)
 	telegramService.SetHistoryBackfillCompletionHook(func(chat model.Chat, fromDate, toDate string) {
 		_ = schedulerService.RepairEmptySummariesInRange(context.Background(), chat, fromDate, toDate)
@@ -61,6 +61,7 @@ func run() error {
 		botService,
 		cfg.WebOrigin,
 		cfg.RequestTimout,
+		cfg.MediaDir,
 	)
 
 	if accounts, err := st.Auth.List(ctx); err == nil {
