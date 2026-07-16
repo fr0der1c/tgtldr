@@ -65,7 +65,7 @@ export function ChatHistoryToolbar(props: ChatHistoryToolbarProps) {
 
         <label
           className={`chat-filter-toggle${props.filtersApplied ? " active" : ""}`}
-          title={props.hasMessageFilters ? "过滤发言人和关键词" : "该群尚未配置过滤发言人或关键词"}
+          title={props.hasMessageFilters ? "应用群组过滤规则" : "该群尚未配置消息过滤规则"}
         >
           <input
             checked={props.filtersApplied}
@@ -74,7 +74,7 @@ export function ChatHistoryToolbar(props: ChatHistoryToolbarProps) {
             type="checkbox"
           />
           <span aria-hidden="true"><i /></span>
-          <b>过滤发言人和关键词</b>
+          <b>应用群组过滤规则</b>
         </label>
       </div>
     </div>

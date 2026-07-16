@@ -243,8 +243,8 @@ func (r *Router) buildChatMessageResponse(
 		PreviousDate:      previousDate,
 		NextDate:          nextDate,
 		HasMoreBefore:     hasMore,
-		HasMessageFilters: len(chat.FilteredSenders) > 0 || len(chat.FilteredKeywords) > 0,
-		FiltersApplied:    len(filter.Senders) > 0 || len(filter.Keywords) > 0,
+		HasMessageFilters: hasChatMessageFilters(chat),
+		FiltersApplied:    filter.ExcludeBots || len(filter.Senders) > 0 || len(filter.Keywords) > 0,
 	}
 	if hasMore && len(messages) > 0 {
 		response.BeforeCursor = encodeMessageCursor(messages[0])
@@ -257,8 +257,14 @@ func chatMessageDisplayFilter(chat model.Chat, enabled bool) store.MessageDispla
 		return store.MessageDisplayFilter{}
 	}
 	return store.MessageDisplayFilter{
-		Senders: chat.FilteredSenders, Keywords: chat.FilteredKeywords,
+		ExcludeBots: !chat.KeepBotMessages,
+		Senders:     chat.FilteredSenders,
+		Keywords:    chat.FilteredKeywords,
 	}
+}
+
+func hasChatMessageFilters(chat model.Chat) bool {
+	return !chat.KeepBotMessages || len(chat.FilteredSenders) > 0 || len(chat.FilteredKeywords) > 0
 }
 
 func parseOptionalBool(value string, name string) (bool, error) {

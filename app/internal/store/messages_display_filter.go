@@ -6,8 +6,9 @@ import (
 )
 
 type MessageDisplayFilter struct {
-	Senders  []string
-	Keywords []string
+	ExcludeBots bool
+	Senders     []string
+	Keywords    []string
 }
 
 func appendMessageDisplayFilter(
@@ -17,7 +18,10 @@ func appendMessageDisplayFilter(
 ) (string, []any) {
 	senders := normalizeMessageFilterValues(filter.Senders, "")
 	keywords := normalizeMessageKeywordValues(filter.Keywords)
-	clauses := make([]string, 0, 2)
+	clauses := make([]string, 0, 3)
+	if filter.ExcludeBots {
+		clauses = append(clauses, fmt.Sprintf("not %s.sender_is_bot", alias))
+	}
 	if len(senders) > 0 {
 		args = append(args, senders)
 		index := len(args)

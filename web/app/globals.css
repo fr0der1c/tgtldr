@@ -2938,6 +2938,7 @@ select {
   }
 
   .toast-viewport {
+    top: auto;
     right: 12px;
     bottom: calc(84px + env(safe-area-inset-bottom));
     left: 12px;

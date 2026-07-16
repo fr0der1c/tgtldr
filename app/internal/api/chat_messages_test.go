@@ -61,6 +61,36 @@ func TestParseOptionalBool(t *testing.T) {
 	})
 }
 
+// TestChatMessageDisplayFilter 验证聊天记录开关会完整复用群组消息过滤配置。
+func TestChatMessageDisplayFilter(t *testing.T) {
+	chat := model.Chat{
+		KeepBotMessages:  false,
+		FilteredSenders:  []string{"sender"},
+		FilteredKeywords: []string{"keyword"},
+	}
+
+	Convey("关闭开关时不应该过滤任何已保存消息", t, func() {
+		filter := chatMessageDisplayFilter(chat, false)
+
+		So(filter.ExcludeBots, ShouldBeFalse)
+		So(filter.Senders, ShouldBeEmpty)
+		So(filter.Keywords, ShouldBeEmpty)
+	})
+
+	Convey("开启开关时应该应用机器人、发言人和关键词规则", t, func() {
+		filter := chatMessageDisplayFilter(chat, true)
+
+		So(filter.ExcludeBots, ShouldBeTrue)
+		So(filter.Senders, ShouldResemble, []string{"sender"})
+		So(filter.Keywords, ShouldResemble, []string{"keyword"})
+		So(hasChatMessageFilters(chat), ShouldBeTrue)
+	})
+
+	Convey("保留机器人且没有名单时不应该显示可用过滤开关", t, func() {
+		So(hasChatMessageFilters(model.Chat{KeepBotMessages: true}), ShouldBeFalse)
+	})
+}
+
 func TestChatMessageRouteRegistration(t *testing.T) {
 	Convey("聊天消息路由应该能与现有群组子路由同时注册", t, func() {
 		router := (&Router{}).Handler()
