@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-17
+
+### Fixed
+
+- Fixed web content no longer appearing behind iOS Safari's floating bottom address bar while preserving the mobile bottom navigation's safe spacing and shadow.
+
 ## 2026-07-16
 
 ### Added

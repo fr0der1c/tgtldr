@@ -15,8 +15,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover"
+  initialScale: 1
 };
 
 const languageBootScript = `
