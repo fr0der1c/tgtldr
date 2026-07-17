@@ -2960,6 +2960,41 @@ select {
     text-align: center;
   }
 
+  .chat-activity-day::after {
+    display: none;
+  }
+
+  .chat-activity-strip {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(30, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .chat-activity-day {
+    min-width: 0;
+  }
+
+  .account-delete-tooltip {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .account-delete-tooltip-content {
+    position: static;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--muted);
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
   .data-table-wrap {
     overflow: visible;
     border: 0;

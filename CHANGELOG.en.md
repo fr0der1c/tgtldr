@@ -7,6 +7,7 @@
 ### Fixed
 
 - Fixed web content no longer appearing behind iOS Safari's floating bottom address bar while preserving the mobile bottom navigation's safe spacing and shadow.
+- Fixed chat activity and account deletion tooltips widening mobile pages and allowing users to drag into a blank area on the right.
 
 ## 2026-07-16
 
