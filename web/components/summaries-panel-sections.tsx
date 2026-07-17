@@ -12,7 +12,7 @@ import { TextHighlight } from "@/components/text-highlight";
 import { Chat, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
-export type SummaryFilter = "all" | Summary["status"];
+export type SummaryFilter = "all" | "processing" | Summary["status"];
 export type DeliveryFilter = "all" | "sent" | "pending" | "failed" | "disabled";
 export type DeliveryTone = "neutral" | "good" | "warn" | "bad";
 export type DeliveryState = {
@@ -138,6 +138,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 						options={[
 							{ value: "all", label: "全部状态" },
 							{ value: "succeeded", label: "成功" },
+							{ value: "processing", label: "处理中" },
 							{ value: "running", label: "运行中" },
 							{ value: "pending", label: "等待中" },
 							{ value: "failed", label: "失败" },

@@ -30,6 +30,16 @@ func TestBuildSummaryWhereClause(t *testing.T) {
 		So(args[4], ShouldEqual, "%良心云%")
 		So(args[5], ShouldEqual, "%联通%")
 	})
+
+	Convey("处理中筛选应同时包含等待中和运行中状态", t, func() {
+		whereClause, args := buildSummaryWhereClause(
+			normalizeSummaryListParams(SummaryListParams{Status: "processing"}),
+			nil,
+		)
+
+		So(whereClause, ShouldContainSubstring, "s.status in ('pending', 'running')")
+		So(args, ShouldBeEmpty)
+	})
 }
 
 func TestSummarizeSearchMatch(t *testing.T) {

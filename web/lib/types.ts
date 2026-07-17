@@ -228,7 +228,7 @@ export type Summary = {
 export type SummarySearchFilters = {
   q?: string;
   chatId?: string;
-  status?: "all" | Summary["status"];
+  status?: "all" | "processing" | Summary["status"];
   delivery?: "all" | "sent" | "pending" | "failed" | "disabled";
   dateFrom?: string;
   dateTo?: string;

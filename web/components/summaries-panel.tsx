@@ -53,6 +53,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const deferredQuery = useDeferredValue(query);
 	const loadRef = useRef<() => Promise<void>>(async () => {});
 	const loadStatsRef = useRef<() => Promise<void>>(async () => {});
+	const summaryListRef = useRef<HTMLDivElement | null>(null);
 	const toast = useToast();
 
 	const searchFilters = useMemo<SummarySearchFilters>(
@@ -186,6 +187,20 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 		}
 	}
 
+	/** 将全局统计卡转换为独立的列表筛选入口，并让结果区域立即进入视野。 */
+	function applyMetricFilter(nextFilter: SummaryFilter) {
+		setQuery("");
+		setChatFilter("all");
+		setFilter(nextFilter);
+		setDeliveryFilter("all");
+		setDateFrom("");
+		setDateTo("");
+		setPage(1);
+		window.requestAnimationFrame(() => {
+			summaryListRef.current?.scrollIntoView({ block: "start" });
+		});
+	}
+
 	const chatTitles = useMemo(() => {
 		return new Map(allChats.map((chat) => [chat.id, chat.title]));
 	}, [allChats]);
@@ -210,11 +225,18 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			title="摘要"
 		>
 			<MetricRail>
-				<MetricCard badge="累计" detail="已经写入数据库的摘要任务与结果。" label="摘要记录" value={summaryStats.total} />
+				<MetricCard
+					badge="累计"
+					detail="已经写入数据库的摘要任务与结果。"
+					label="摘要记录"
+					onClick={() => applyMetricFilter("all")}
+					value={summaryStats.total}
+				/>
 				<MetricCard
 					badge={summaryStats.successCount > 0 ? "正常" : "暂无"}
 					detail="状态为 succeeded 的摘要数量。"
 					label="生成成功"
+					onClick={() => applyMetricFilter("succeeded")}
 					tone={summaryStats.successCount > 0 ? "good" : "neutral"}
 					value={summaryStats.successCount}
 				/>
@@ -222,6 +244,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					badge={summaryStats.processingCount > 0 ? "进行中" : "空闲"}
 					detail="当前正在运行或等待完成的摘要。"
 					label="处理中"
+					onClick={() => applyMetricFilter("processing")}
 					tone={summaryStats.processingCount > 0 ? "warn" : "neutral"}
 					value={summaryStats.processingCount}
 				/>
@@ -229,48 +252,51 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					badge={summaryStats.failedCount > 0 ? "需排查" : "稳定"}
 					detail="失败任务建议重新执行，并检查模型配置或上下文限制。"
 					label="生成失败"
+					onClick={() => applyMetricFilter("failed")}
 					tone={summaryStats.failedCount > 0 ? "bad" : "good"}
 					value={summaryStats.failedCount}
 				/>
 			</MetricRail>
 
-			<SummaryListSection
-				allChats={allChats}
-				botReady={botReady}
-				chatFilter={chatFilter}
-				chatTitles={chatTitles}
-				chats={chats}
-				dateFrom={dateFrom}
-				dateTo={dateTo}
-				deliveryFilter={deliveryFilter}
-				filter={filter}
-				loadSummaryDate={manualDate}
-				manualEditorOpen={manualEditorOpen}
-				onChatFilterChange={setChatFilter}
-				onDateFromChange={setDateFrom}
-				onDateToChange={setDateTo}
-				onDeliveryFilterChange={setDeliveryFilter}
-				onFilterChange={setFilter}
-				onLoadSummaryDateChange={setManualDate}
-				onManualEditorToggle={() => setManualEditorOpen((current) => !current)}
-				onManualRun={runManual}
-				onPageChange={setPage}
-				onQueryChange={setQuery}
-				onSelectedChatChange={setSelectedChatId}
-				onSelectSummary={(summaryId) => {
-					setSelectedSummaryId(summaryId);
-					setDetailOpen(true);
-				}}
-				page={page}
-				query={query}
-				searchTerms={searchTerms}
-				searching={searching}
-				selectedChatId={selectedChatId}
-				selectedSummaryId={selectedSummaryId}
-				summaries={summaries}
-				total={total}
-				totalPages={totalPages}
-			/>
+			<div ref={summaryListRef}>
+				<SummaryListSection
+					allChats={allChats}
+					botReady={botReady}
+					chatFilter={chatFilter}
+					chatTitles={chatTitles}
+					chats={chats}
+					dateFrom={dateFrom}
+					dateTo={dateTo}
+					deliveryFilter={deliveryFilter}
+					filter={filter}
+					loadSummaryDate={manualDate}
+					manualEditorOpen={manualEditorOpen}
+					onChatFilterChange={setChatFilter}
+					onDateFromChange={setDateFrom}
+					onDateToChange={setDateTo}
+					onDeliveryFilterChange={setDeliveryFilter}
+					onFilterChange={setFilter}
+					onLoadSummaryDateChange={setManualDate}
+					onManualEditorToggle={() => setManualEditorOpen((current) => !current)}
+					onManualRun={runManual}
+					onPageChange={setPage}
+					onQueryChange={setQuery}
+					onSelectedChatChange={setSelectedChatId}
+					onSelectSummary={(summaryId) => {
+						setSelectedSummaryId(summaryId);
+						setDetailOpen(true);
+					}}
+					page={page}
+					query={query}
+					searchTerms={searchTerms}
+					searching={searching}
+					selectedChatId={selectedChatId}
+					selectedSummaryId={selectedSummaryId}
+					summaries={summaries}
+					total={total}
+					totalPages={totalPages}
+				/>
+			</div>
 
 			<SummaryDrawerPair
 				botReady={botReady}

@@ -53,7 +53,9 @@ func buildSummaryWhereClause(params SummaryListParams, terms []string) (string, 
 		args = append(args, params.ChatID)
 		clauses = append(clauses, fmt.Sprintf("s.chat_id = $%d", len(args)))
 	}
-	if params.Status != "" && params.Status != "all" {
+	if params.Status == "processing" {
+		clauses = append(clauses, "s.status in ('pending', 'running')")
+	} else if params.Status != "" && params.Status != "all" {
 		args = append(args, params.Status)
 		clauses = append(clauses, fmt.Sprintf("s.status = $%d", len(args)))
 	}

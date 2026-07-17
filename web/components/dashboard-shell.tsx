@@ -34,52 +34,54 @@ export function DashboardShell({ children }: PropsWithChildren) {
   }, [router, setLanguage]);
 
   return (
-    <div className="dashboard-layout">
-      <aside className="dashboard-sidebar">
-        <div className="dashboard-brand">
-          <p className="dashboard-brand-mark">TGTLDR</p>
-          <p className="dashboard-brand-copy">
-            Too long, don't read. 为你每天节省时间。
-          </p>
-        </div>
-
-        <nav
-          className="nav-stack"
-          style={{ "--active-nav-index": activeNavigationIndex(pathname) } as CSSProperties}
-        >
-          <span aria-hidden="true" className="nav-active-indicator" />
-          {dashboardNavigation.map((item) => (
-            <Link
-              className={`nav-link ${isNavigationActive(pathname, item.href) ? "active" : ""}`}
-              href={item.href}
-              key={item.href}
-            >
-              <span aria-hidden="true" className="nav-link-icon">
-                <NavigationIcon name={item.icon} />
-              </span>
-              <span className="nav-link-label">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="dashboard-sidebar-status">
-          <div className="sidebar-status-item">
-            <span>Telegram</span>
-            <StatusPill tone={bootstrap?.telegramAuthorized ? "good" : "warn"}>
-              {bootstrap?.telegramAuthorized ? "已连接" : "未连接"}
-            </StatusPill>
+    <div className="dashboard-canvas">
+      <div className="dashboard-layout">
+        <aside className="dashboard-sidebar">
+          <div className="dashboard-brand">
+            <p className="dashboard-brand-mark">TGTLDR</p>
+            <p className="dashboard-brand-copy">
+              Too long, don't read. 为你每天节省时间。
+            </p>
           </div>
-          <div className="sidebar-status-item">
-            <span>Bot 推送</span>
-            <StatusPill tone={bootstrap?.botEnabled ? "good" : "neutral"}>
-              {bootstrap?.botEnabled ? "启用中" : "未启用"}
-            </StatusPill>
+
+          <nav
+            className="nav-stack"
+            style={{ "--active-nav-index": activeNavigationIndex(pathname) } as CSSProperties}
+          >
+            <span aria-hidden="true" className="nav-active-indicator" />
+            {dashboardNavigation.map((item) => (
+              <Link
+                className={`nav-link ${isNavigationActive(pathname, item.href) ? "active" : ""}`}
+                href={item.href}
+                key={item.href}
+              >
+                <span aria-hidden="true" className="nav-link-icon">
+                  <NavigationIcon name={item.icon} />
+                </span>
+                <span className="nav-link-label">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+
+          <div className="dashboard-sidebar-status">
+            <div className="sidebar-status-item">
+              <span>Telegram</span>
+              <StatusPill tone={bootstrap?.telegramAuthorized ? "good" : "warn"}>
+                {bootstrap?.telegramAuthorized ? "已连接" : "未连接"}
+              </StatusPill>
+            </div>
+            <div className="sidebar-status-item">
+              <span>Bot 推送</span>
+              <StatusPill tone={bootstrap?.botEnabled ? "good" : "neutral"}>
+                {bootstrap?.botEnabled ? "启用中" : "未启用"}
+              </StatusPill>
+            </div>
           </div>
-        </div>
-      </aside>
-      <div className="dashboard-main">
-        <div className="dashboard-main-content" key={pathname}>
-          {children}
+        </aside>
+        <div className="dashboard-main">
+          <div className="dashboard-main-content" key={pathname}>
+            {children}
+          </div>
         </div>
       </div>
     </div>

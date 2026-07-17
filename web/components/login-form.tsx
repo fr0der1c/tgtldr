@@ -73,7 +73,7 @@ export function LoginForm() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell login-page-shell">
       <div className="login-shell">
         <Card
           title="访问登录"

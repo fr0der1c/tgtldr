@@ -64,6 +64,7 @@ body {
       transparent 42%
     ),
     linear-gradient(180deg, #fcfbf8 0%, #f5efe6 52%, #f2ece2 100%);
+  background-color: #f2ece2;
   color: var(--text);
   font-family: var(--font-sans);
 }
@@ -761,6 +762,35 @@ select {
   padding: 18px 0 40px;
 }
 
+.dashboard-canvas {
+  min-height: 100vh;
+  min-height: 100lvh;
+  background:
+    radial-gradient(
+      circle at 50% 32%,
+      rgba(185, 137, 59, 0.14),
+      rgba(185, 137, 59, 0.08) 22%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at top left,
+      rgba(185, 137, 59, 0.12),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(28, 25, 23, 0.08),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(185, 137, 59, 0.08),
+      transparent 42%
+    ),
+    linear-gradient(180deg, #fcfbf8 0%, #f5efe6 52%, #f2ece2 100%);
+  background-color: #f2ece2;
+}
+
 .dashboard-sidebar {
   position: sticky;
   top: 18px;
@@ -976,6 +1006,30 @@ select {
   padding: 20px;
   display: grid;
   gap: 14px;
+}
+
+.metric-card-action {
+  width: 100%;
+  appearance: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.metric-card-action:hover {
+  border-color: rgba(185, 137, 59, 0.28);
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: 0 20px 52px rgba(24, 19, 15, 0.12);
+}
+
+.metric-card-action:focus-visible {
+  outline: 3px solid rgba(185, 137, 59, 0.28);
+  outline-offset: 3px;
 }
 
 .metric-card-head {
@@ -2339,6 +2393,45 @@ select {
   margin: 0 auto;
 }
 
+.page-shell.login-page-shell {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100lvh;
+  padding:
+    max(32px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(56px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  isolation: isolate;
+}
+
+.login-page-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 28%,
+      rgba(185, 137, 59, 0.16),
+      rgba(185, 137, 59, 0.08) 24%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 12% 24%,
+      rgba(185, 137, 59, 0.12),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 88% 24%,
+      rgba(28, 25, 23, 0.08),
+      transparent 36%
+    ),
+    linear-gradient(180deg, #fcfbf8 0%, #f5efe6 58%, #f2ece2 100%);
+}
+
 .setup-progress {
   display: grid;
   gap: 18px;
@@ -2800,6 +2893,15 @@ select {
   .page-shell {
     width: min(100% - 24px, 1180px);
     padding: 20px 0 36px;
+  }
+
+  .page-shell.login-page-shell {
+    width: 100%;
+    padding:
+      max(20px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(36px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
   }
 
   .dashboard-layout {

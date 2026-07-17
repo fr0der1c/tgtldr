@@ -38,24 +38,36 @@ export function MetricCard({
   value,
   tone = "neutral",
   detail,
-  badge
+  badge,
+  onClick
 }: {
   label: string;
   value: string | number;
   tone?: "neutral" | "good" | "warn" | "bad";
   detail?: string;
   badge?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <article className="metric-card">
+  const content = (
+    <>
       <div className="metric-card-head">
         <span>{label}</span>
         {badge ? <StatusPill tone={tone}>{badge}</StatusPill> : null}
       </div>
       <strong>{value}</strong>
       {detail ? <p>{detail}</p> : null}
-    </article>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button className="metric-card metric-card-action" onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return <article className="metric-card">{content}</article>;
 }
 
 export function Surface({

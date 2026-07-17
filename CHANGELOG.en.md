@@ -8,6 +8,13 @@
 
 - Fixed web content no longer appearing behind iOS Safari's floating bottom address bar while preserving the mobile bottom navigation's safe spacing and shadow.
 - Fixed chat activity and account deletion tooltips widening mobile pages and allowing users to drag into a blank area on the right.
+- Fixed the login page canvas not extending behind iOS Safari's floating bottom address bar.
+- Fixed the dashboard's transparent outer layer stopping before iOS Safari's floating bottom address bar.
+
+### Changed
+
+- Added a separate web bind-address setting so the web UI can be exposed to the local network while the backend API remains local-only.
+- Summary metric cards can now clear existing criteria and switch directly to all, succeeded, processing, or failed summaries.
 
 ## 2026-07-16
 
