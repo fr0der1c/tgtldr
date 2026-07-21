@@ -53,7 +53,7 @@ type sizedPhoto interface {
 	GetH() int
 }
 
-// messageMediaAsset 把 Telegram 媒体转换为持久下载记录，特殊贴纸和动画返回 false。
+// messageMediaAsset 把 Telegram 媒体转换为持久下载记录，不支持的动画返回 false。
 func messageMediaAsset(accountID int64, msg *tg.Message) (model.MediaAsset, bool) {
 	switch media := msg.Media.(type) {
 	case *tg.MessageMediaPhoto:
@@ -142,12 +142,18 @@ func skipStoredDocument(media *storedMediaJSON) bool {
 	if media.Round || strings.EqualFold(media.Document.MIMEType, "image/gif") {
 		return true
 	}
+	if storedDocumentIsSticker(media.Document) {
+		return false
+	}
 	for _, raw := range media.Document.Attributes {
 		var attribute map[string]json.RawMessage
 		if json.Unmarshal(raw, &attribute) != nil {
 			continue
 		}
-		if _, sticker := attribute["Stickerset"]; sticker {
+		if _, animated := attribute["Animated"]; animated {
+			return true
+		}
+		if _, customEmoji := attribute["CustomEmoji"]; customEmoji {
 			return true
 		}
 	}
@@ -156,6 +162,9 @@ func skipStoredDocument(media *storedMediaJSON) bool {
 
 // storedDocumentKind 根据历史消息顶层标记和 MIME 类型归一媒体类型。
 func storedDocumentKind(media *storedMediaJSON) string {
+	if storedDocumentIsSticker(media.Document) {
+		return "sticker"
+	}
 	if media.Voice {
 		return "voice"
 	}
@@ -178,11 +187,22 @@ func storedDocumentFileName(document *storedDocumentJSON) string {
 			return sanitizeFileName(attribute.FileName)
 		}
 	}
-	extension := ""
-	if extensions, _ := mime.ExtensionsByType(document.MIMEType); len(extensions) > 0 {
-		extension = extensions[0]
-	}
+	extension := mediaExtension(document.MIMEType)
 	return fmt.Sprintf("file-%d%s", document.ID, extension)
+}
+
+// storedDocumentIsSticker 从持久化的属性 JSON 识别升级前保存的贴纸。
+func storedDocumentIsSticker(document *storedDocumentJSON) bool {
+	for _, raw := range document.Attributes {
+		var attribute map[string]json.RawMessage
+		if json.Unmarshal(raw, &attribute) != nil {
+			continue
+		}
+		if _, sticker := attribute["Stickerset"]; sticker {
+			return true
+		}
+	}
+	return false
 }
 
 // largestPhotoSize 按像素面积确定图片消息的最大可用尺寸。
@@ -204,14 +224,17 @@ func largestPhotoSize(sizes []tg.PhotoSizeClass) string {
 	return bestType
 }
 
-// skipDocument 排除第一版不支持的动画、贴纸、自定义表情和视频圆圈。
+// skipDocument 排除普通动画、自定义表情和视频圆圈，贴纸由独立类型处理。
 func skipDocument(document *tg.Document, media *tg.MessageMediaDocument) bool {
 	if media.Round || strings.EqualFold(document.MimeType, "image/gif") {
 		return true
 	}
+	if isStickerDocument(document) {
+		return false
+	}
 	for _, attribute := range document.Attributes {
 		switch attribute.(type) {
-		case *tg.DocumentAttributeAnimated, *tg.DocumentAttributeSticker, *tg.DocumentAttributeCustomEmoji:
+		case *tg.DocumentAttributeAnimated, *tg.DocumentAttributeCustomEmoji:
 			return true
 		}
 	}
@@ -220,6 +243,9 @@ func skipDocument(document *tg.Document, media *tg.MessageMediaDocument) bool {
 
 // documentKind 将 Telegram 文档属性归一为网页支持的媒体类型。
 func documentKind(document *tg.Document, media *tg.MessageMediaDocument) string {
+	if isStickerDocument(document) {
+		return "sticker"
+	}
 	if media.Voice {
 		return "voice"
 	}
@@ -240,11 +266,34 @@ func documentFileName(document *tg.Document) string {
 			return sanitizeFileName(filename.FileName)
 		}
 	}
-	extension := ""
-	if extensions, _ := mime.ExtensionsByType(document.MimeType); len(extensions) > 0 {
-		extension = extensions[0]
-	}
+	extension := mediaExtension(document.MimeType)
 	return fmt.Sprintf("file-%d%s", document.ID, extension)
+}
+
+// isStickerDocument 使用 Telegram 文档属性识别三种格式的贴纸。
+func isStickerDocument(document *tg.Document) bool {
+	for _, attribute := range document.Attributes {
+		if _, ok := attribute.(*tg.DocumentAttributeSticker); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// mediaExtension 为 Telegram 特殊 MIME 类型补充稳定扩展名。
+func mediaExtension(mimeType string) string {
+	switch strings.ToLower(strings.TrimSpace(mimeType)) {
+	case "application/x-tgsticker":
+		return ".tgs"
+	case "video/webm":
+		return ".webm"
+	case "image/webp":
+		return ".webp"
+	}
+	if extensions, _ := mime.ExtensionsByType(mimeType); len(extensions) > 0 {
+		return extensions[0]
+	}
+	return ""
 }
 
 // sanitizeFileName 去除路径和控制字符，防止文件逃逸目标目录。
@@ -265,7 +314,7 @@ func sanitizeFileName(value string) string {
 // senderEntityFromUpdate 提取实时更新中的发言人实体和头像引用。
 func senderEntityFromUpdate(accountID int64, msg *tg.Message, entities tg.Entities) (model.TelegramEntity, bool) {
 	peers := messagepeer.EntitiesFromUpdate(entities)
-	switch from := msg.FromID.(type) {
+	switch from := messageSenderPeer(msg).(type) {
 	case *tg.PeerUser:
 		user, ok := peers.User(from.UserID)
 		if !ok {
@@ -291,7 +340,7 @@ func senderEntityFromUpdate(accountID int64, msg *tg.Message, entities tg.Entiti
 
 // senderEntityFromHistory 提取历史回补结果中的发言人实体和头像引用。
 func senderEntityFromHistory(accountID int64, msg *tg.Message, entities messagepeer.Entities) (model.TelegramEntity, bool) {
-	switch from := msg.FromID.(type) {
+	switch from := messageSenderPeer(msg).(type) {
 	case *tg.PeerUser:
 		user, ok := entities.User(from.UserID)
 		if !ok {

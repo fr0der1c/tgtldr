@@ -16,13 +16,48 @@ type chatMessageSearchResponse struct {
 	Total    int                     `json:"total"`
 	Page     int                     `json:"page"`
 	PageSize int                     `json:"pageSize"`
+	Timezone string                  `json:"timezone,omitempty"`
 }
 
 type chatMessageSearchItem struct {
 	chatMessageItem
+	ChatID        int64    `json:"chatId,omitempty"`
+	ChatTitle     string   `json:"chatTitle,omitempty"`
 	LocalDate     string   `json:"localDate"`
 	MatchSnippet  string   `json:"matchSnippet"`
 	MatchedFields []string `json:"matchedFields"`
+}
+
+// handleGlobalMessageSearch 搜索所有已入库群组的聊天记录。
+func (r *Router) handleGlobalMessageSearch(w http.ResponseWriter, req *http.Request) {
+	query := strings.TrimSpace(req.URL.Query().Get("q"))
+	if query == "" {
+		httpx.Error(w, http.StatusBadRequest, "search query is required")
+		return
+	}
+	page, err := parsePositiveInt(req.URL.Query().Get("page"), 1, 0, "page")
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	pageSize, err := parsePositiveInt(req.URL.Query().Get("pageSize"), 50, 100, "pageSize")
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	_, timezone, err := r.chatMessageActivityWindow(req.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	result, err := r.store.Messages.Search(req.Context(), store.MessageSearchParams{
+		Query: query, Timezone: timezone, Page: page, PageSize: pageSize,
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, newChatMessageSearchResponse(result, timezone))
 }
 
 func (r *Router) handleChatMessageSearch(w http.ResponseWriter, req *http.Request) {
@@ -73,6 +108,11 @@ func (r *Router) handleChatMessageSearch(w http.ResponseWriter, req *http.Reques
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	httpx.JSON(w, http.StatusOK, newChatMessageSearchResponse(result, timezone))
+}
+
+// newChatMessageSearchResponse 将数据层搜索结果转换为网页端所需结构。
+func newChatMessageSearchResponse(result store.MessageSearchResult, timezone string) chatMessageSearchResponse {
 	items := make([]chatMessageSearchItem, 0, len(result.Items))
 	for _, resultItem := range result.Items {
 		message := resultItem.Message
@@ -84,13 +124,15 @@ func (r *Router) handleChatMessageSearch(w http.ResponseWriter, req *http.Reques
 				Caption: message.Caption, MessageType: message.MessageType,
 				MediaKind: message.MediaKind, MessageTime: message.MessageTime,
 			},
+			ChatID: message.ChatID, ChatTitle: resultItem.ChatTitle,
 			LocalDate: resultItem.LocalDate, MatchSnippet: resultItem.MatchSnippet,
 			MatchedFields: resultItem.MatchedFields,
 		})
 	}
-	httpx.JSON(w, http.StatusOK, chatMessageSearchResponse{
+	return chatMessageSearchResponse{
 		Items: items, Total: result.Total, Page: result.Page, PageSize: result.PageSize,
-	})
+		Timezone: timezone,
+	}
 }
 
 func parsePositiveInt(value string, fallback int, max int, name string) (int, error) {

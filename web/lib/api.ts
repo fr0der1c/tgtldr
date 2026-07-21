@@ -6,6 +6,7 @@ import {
   Chat,
   ChatMessageListResponse,
   ChatMessageSearchResponse,
+  GlobalChatMessageSearchResponse,
   HistoryBackfillTask,
   SummaryListResponse,
   SummarySearchFilters,
@@ -208,6 +209,17 @@ export const api = {
         page: options.page,
         pageSize: options.pageSize,
         filters: options.filters ? 1 : undefined,
+      })}`,
+      { signal: options.signal },
+    ),
+  searchAllChatMessages: (
+    options: { query: string; page?: number; pageSize?: number; signal?: AbortSignal },
+  ) =>
+    request<GlobalChatMessageSearchResponse>(
+      `/api/messages/search${buildQuery({
+        q: options.query.trim(),
+        page: options.page,
+        pageSize: options.pageSize,
       })}`,
       { signal: options.signal },
     ),

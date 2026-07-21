@@ -4,6 +4,11 @@
   min-height: 480px;
 }
 
+.chat-list-surface .dashboard-surface-head {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
 .chat-search-summary,
 .chat-search-pagination {
   display: flex;
@@ -123,6 +128,15 @@
 }
 
 @media (max-width: 640px) {
+  .chat-list-surface .dashboard-surface-head {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .chat-list-surface .dashboard-surface-actions {
+    flex: 0 0 auto;
+  }
+
   .chat-search-result-meta,
   .chat-search-result p {
     padding-right: 0;

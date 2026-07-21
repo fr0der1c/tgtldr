@@ -21,6 +21,7 @@ type MessageCursor struct {
 type MessageEntityCandidate struct {
 	MessageID          int64
 	ChatID             int64
+	ChatTitle          string
 	TelegramMessageID  int
 	TelegramChatID     int64
 	TelegramAccessHash int64
@@ -31,14 +32,14 @@ type MessageEntityCandidate struct {
 func (r *MessageRepository) GetMediaMessageCandidate(ctx context.Context, accountID int64, messageID int64) (MessageEntityCandidate, error) {
 	var item MessageEntityCandidate
 	err := r.pool.QueryRow(ctx, `
-		select m.id, m.chat_id, m.telegram_message_id, c.telegram_chat_id,
+		select m.id, m.chat_id, c.title, m.telegram_message_id, c.telegram_chat_id,
 		       coalesce(tac.telegram_access_hash, c.telegram_access_hash), c.chat_type
 		from messages m
 		join chats c on c.id = m.chat_id
 		left join telegram_account_chats tac
 		  on tac.chat_id = c.id and tac.telegram_account_id = $1
 		where m.id = $2 and c.collector_account_id = $1
-	`, accountID, messageID).Scan(&item.MessageID, &item.ChatID, &item.TelegramMessageID,
+	`, accountID, messageID).Scan(&item.MessageID, &item.ChatID, &item.ChatTitle, &item.TelegramMessageID,
 		&item.TelegramChatID, &item.TelegramAccessHash, &item.ChatType)
 	if err != nil {
 		return MessageEntityCandidate{}, fmt.Errorf("get media message candidate %d: %w", messageID, err)
@@ -49,14 +50,18 @@ func (r *MessageRepository) GetMediaMessageCandidate(ctx context.Context, accoun
 // ListMissingSenderEntities 返回升级前尚未关联 Telegram 实体的消息。
 func (r *MessageRepository) ListMissingSenderEntities(ctx context.Context, accountID int64, afterID int64, limit int) ([]MessageEntityCandidate, error) {
 	rows, err := r.pool.Query(ctx, `
-		select m.id, m.chat_id, m.telegram_message_id, c.telegram_chat_id,
+		select m.id, m.chat_id, c.title, m.telegram_message_id, c.telegram_chat_id,
 		       coalesce(tac.telegram_access_hash, c.telegram_access_hash), c.chat_type
 		from messages m
 		join chats c on c.id = m.chat_id
 		left join telegram_account_chats tac
 		  on tac.chat_id = c.id and tac.telegram_account_id = $1
-		where c.collector_account_id = $1 and m.sender_entity_id is null
-		  and m.telegram_sender_id <> 0 and m.id > $2
+		where c.collector_account_id = $1 and m.id > $2
+		  and (
+		    (m.sender_entity_id is null and m.telegram_sender_id <> 0)
+		    or m.telegram_sender_id = 0
+		    or lower(btrim(m.sender_name)) = 'unknown'
+		  )
 		order by m.id asc limit $3
 	`, accountID, afterID, limit)
 	if err != nil {
@@ -66,24 +71,13 @@ func (r *MessageRepository) ListMissingSenderEntities(ctx context.Context, accou
 	items := make([]MessageEntityCandidate, 0, limit)
 	for rows.Next() {
 		var item MessageEntityCandidate
-		if err := rows.Scan(&item.MessageID, &item.ChatID, &item.TelegramMessageID,
+		if err := rows.Scan(&item.MessageID, &item.ChatID, &item.ChatTitle, &item.TelegramMessageID,
 			&item.TelegramChatID, &item.TelegramAccessHash, &item.ChatType); err != nil {
 			return nil, fmt.Errorf("scan missing sender entity: %w", err)
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
-}
-
-// AttachSenderEntity 关联补齐的发言人实体，并刷新原消息中的 Telegram 文件引用。
-func (r *MessageRepository) AttachSenderEntity(ctx context.Context, messageID int64, entityID int64, rawJSON string) error {
-	_, err := r.pool.Exec(ctx, `
-		update messages set sender_entity_id = $2, raw_json = $3::jsonb where id = $1
-	`, messageID, entityID, rawJSON)
-	if err != nil {
-		return fmt.Errorf("attach sender entity to message %d: %w", messageID, err)
-	}
-	return nil
 }
 
 // ListMediaAfter 按本地消息 ID 扫描账号已有媒体，供升级后的后台补齐使用。
@@ -95,7 +89,7 @@ func (r *MessageRepository) ListMediaAfter(ctx context.Context, accountID int64,
 		       m.message_time, m.raw_json::text, m.created_at
 		from messages m
 		join chats c on c.id = m.chat_id
-		where c.collector_account_id = $1 and m.id > $2 and m.media_kind in ('photo', 'document')
+		where c.collector_account_id = $1 and m.id > $2 and m.message_type = 'media'
 		order by m.id asc limit $3
 	`, accountID, afterID, limit)
 	if err != nil {
@@ -111,6 +105,15 @@ func (r *MessageRepository) ListMediaAfter(ctx context.Context, accountID int64,
 		messages = append(messages, message)
 	}
 	return messages, rows.Err()
+}
+
+// UpdateMediaKind 修正升级前消息的媒体分类，不改动消息正文和 Telegram 原始数据。
+func (r *MessageRepository) UpdateMediaKind(ctx context.Context, messageID int64, mediaKind string) error {
+	_, err := r.pool.Exec(ctx, `update messages set media_kind = $2 where id = $1`, messageID, mediaKind)
+	if err != nil {
+		return fmt.Errorf("update message %d media kind: %w", messageID, err)
+	}
+	return nil
 }
 
 func (r *MessageRepository) Upsert(ctx context.Context, message model.Message) error {

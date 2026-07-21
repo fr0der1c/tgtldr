@@ -242,7 +242,7 @@ func (r *Router) buildChatMessageResponse(
 	if err != nil {
 		return chatMessageResponse{}, err
 	}
-	items, err := r.chatMessageItems(req, chat.ID, messages)
+	items, err := r.chatMessageItems(req, chat.ID, chat.Title, messages)
 	if err != nil {
 		return chatMessageResponse{}, err
 	}
@@ -306,6 +306,7 @@ func parseOptionalBool(value string, name string) (bool, error) {
 func (r *Router) chatMessageItems(
 	req *http.Request,
 	chatID int64,
+	chatTitle string,
 	messages []model.Message,
 ) ([]chatMessageItem, error) {
 	replyIDs := make([]int, 0)
@@ -328,15 +329,16 @@ func (r *Router) chatMessageItems(
 	}
 	items := make([]chatMessageItem, 0, len(messages))
 	for _, message := range messages {
+		senderName := visibleSenderName(message.SenderName, chatTitle)
 		item := chatMessageItem{
 			ID: message.ID, TelegramMessageID: message.TelegramMessageID,
-			SenderName: message.SenderName, SenderUsername: message.SenderUsername,
+			SenderName: senderName, SenderUsername: message.SenderUsername,
 			SenderIsBot: message.SenderIsBot, TextContent: message.TextContent,
 			Caption: message.Caption, MessageType: message.MessageType,
 			MediaKind: message.MediaKind, MessageTime: message.MessageTime,
 		}
 		if message.ReplyToMessageID > 0 {
-			item.Reply = buildReplyPreview(message.ReplyToMessageID, replies)
+			item.Reply = buildReplyPreview(message.ReplyToMessageID, replies, chatTitle)
 		}
 		if avatar, ok := avatars[message.ID]; ok {
 			item.SenderAvatarURL = assetContentURL(avatar.ID)
@@ -370,6 +372,7 @@ func assetContentURL(id int64) string {
 func buildReplyPreview(
 	telegramMessageID int,
 	replies map[int]model.Message,
+	chatTitle string,
 ) *chatMessageReplyPreview {
 	preview := &chatMessageReplyPreview{TelegramMessageID: telegramMessageID}
 	reply, ok := replies[telegramMessageID]
@@ -377,12 +380,21 @@ func buildReplyPreview(
 		return preview
 	}
 	preview.Found = true
-	preview.SenderName = reply.SenderName
+	preview.SenderName = visibleSenderName(reply.SenderName, chatTitle)
 	preview.TextContent = reply.TextContent
 	preview.Caption = reply.Caption
 	preview.MessageType = reply.MessageType
 	preview.MediaKind = reply.MediaKind
 	return preview
+}
+
+// visibleSenderName 在历史后台修复完成前避免继续向网页暴露 Unknown。
+func visibleSenderName(senderName string, chatTitle string) string {
+	name := strings.TrimSpace(senderName)
+	if name == "" || strings.EqualFold(name, "unknown") {
+		return chatTitle
+	}
+	return senderName
 }
 
 func parseChatMessageLimit(value string) (int, error) {

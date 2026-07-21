@@ -166,16 +166,26 @@ func (s *Service) reconcileStoredEntityGroup(ctx context.Context, accountID int6
 		if !ok {
 			continue
 		}
+		senderID, senderName, senderUsername, senderIsBot := resolveSenderFromPeerEntities(msg, entities, candidate.ChatTitle)
+		senderEntityID := int64(0)
 		entity, ok := senderEntityFromHistory(accountID, msg, entities)
-		if !ok {
-			continue
-		}
-		entityID, err := s.upsertEntityAssets(ctx, entity)
-		if err != nil {
-			return err
+		if ok {
+			senderEntityID, err = s.upsertEntityAssets(ctx, entity)
+			if err != nil {
+				return err
+			}
 		}
 		payload, _ := json.Marshal(msg)
-		if err := s.store.Messages.AttachSenderEntity(ctx, candidate.MessageID, entityID, string(payload)); err != nil {
+		item := model.Message{
+			ChatID: candidate.ChatID, SenderEntityID: senderEntityID,
+			TelegramMessageID: msg.ID, TelegramSenderID: senderID,
+			SenderName: senderName, SenderUsername: senderUsername, SenderIsBot: senderIsBot,
+			TextContent: msg.Message, Caption: extractCaption(msg),
+			MessageType: classifyMessage(msg), MediaKind: mediaKind(msg),
+			ReplyToMessageID: replyToID(msg), MessageTime: time.Unix(int64(msg.Date), 0).UTC(),
+			RawJSON: string(payload),
+		}
+		if err := s.store.Messages.Upsert(ctx, item); err != nil {
 			return err
 		}
 		if asset, ok := messageMediaAsset(accountID, msg); ok {
@@ -224,6 +234,11 @@ func (s *Service) reconcileStoredMedia(ctx context.Context, accountID int64) err
 			}
 			if !ok {
 				continue
+			}
+			if asset.Kind != message.MediaKind {
+				if err := s.store.Messages.UpdateMediaKind(ctx, message.ID, asset.Kind); err != nil {
+					return err
+				}
 			}
 			if err := s.store.Assets.UpsertMessage(ctx, message.ChatID, message.TelegramMessageID, asset); err != nil {
 				return err

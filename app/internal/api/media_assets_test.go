@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"path/filepath"
 	"testing"
 
@@ -23,8 +25,24 @@ func TestSafeMediaPath(t *testing.T) {
 func TestContentDisposition(t *testing.T) {
 	Convey("可预览媒体使用 inline，普通文件强制下载", t, func() {
 		So(contentDisposition("photo", "photo.jpg"), ShouldStartWith, "inline;")
+		So(contentDisposition("sticker", "sticker.tgs"), ShouldStartWith, "inline;")
 		So(contentDisposition("document", "report.pdf"), ShouldStartWith, "attachment;")
 		So(contentDisposition("document", "bad\nname.pdf"), ShouldNotContainSubstring, "\n")
+	})
+}
+
+func TestReadTGSJSON(t *testing.T) {
+	Convey("TGS 文件会解压为 Lottie JSON", t, func() {
+		var compressed bytes.Buffer
+		writer := gzip.NewWriter(&compressed)
+		_, err := writer.Write([]byte(`{"v":"5.7.4"}`))
+		So(err, ShouldBeNil)
+		So(writer.Close(), ShouldBeNil)
+
+		content, err := readTGSJSON(&compressed)
+
+		So(err, ShouldBeNil)
+		So(string(content), ShouldEqual, `{"v":"5.7.4"}`)
 	})
 }
 

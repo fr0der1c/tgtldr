@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { ChatMessage, ChatMessageMedia, ChatMessageReply } from "@/lib/types";
 import { StatusPill } from "@/components/ui";
@@ -19,7 +19,7 @@ export function ChatMessageItem({
   timezone,
 }: ChatMessageItemProps) {
   const sender = message.senderName.trim() || "未知发言人";
-  const text = visibleMessageText(message, language);
+  const text = visibleMessageText(message);
   const mediaLabel = visibleMediaLabel(message.mediaKind, message.messageType, language);
 	const [media, setMedia] = useState(message.media);
 
@@ -52,9 +52,7 @@ export function ChatMessageItem({
             <span>{mediaLabel}</span>
           </div>
         ) : null}
-        <p className={`chat-message-text ${text.placeholder ? "placeholder" : ""}`}>
-          {text.value}
-        </p>
+        {text ? <p className="chat-message-text">{text}</p> : null}
       </div>
     </article>
   );
@@ -92,13 +90,20 @@ function MediaAttachment({
   }
 
   const waiting = media.status === "pending" || media.status === "downloading";
+  const sticker = media.kind === "sticker";
   const label = waiting
-    ? (language === "en" ? "Downloading media…" : "正在下载媒体…")
+    ? sticker
+      ? (language === "en" ? "Downloading sticker…" : "正在下载贴纸…")
+      : (language === "en" ? "Downloading media…" : "正在下载媒体…")
     : media.status === "manual"
-      ? (language === "en" ? "Attachment is waiting for manual download" : "附件等待手动下载")
-    : media.status === "skipped_oversize"
-      ? (language === "en" ? "File exceeds the 100 MB automatic download limit" : "文件超过 100 MB 自动下载上限")
-      : (language === "en" ? "Media download failed" : "媒体下载失败");
+      ? sticker
+        ? (language === "en" ? "Sticker is waiting for manual download" : "贴纸等待手动下载")
+        : (language === "en" ? "Attachment is waiting for manual download" : "附件等待手动下载")
+      : media.status === "skipped_oversize"
+        ? (language === "en" ? "File exceeds the 100 MB automatic download limit" : "文件超过 100 MB 自动下载上限")
+        : sticker
+          ? (language === "en" ? "Sticker download failed" : "贴纸下载失败")
+          : (language === "en" ? "Media download failed" : "媒体下载失败");
   return (
     <div className="chat-message-media-state">
       <div><MediaIcon /><span>{label}</span></div>
@@ -107,10 +112,12 @@ function MediaAttachment({
           {submitting
             ? (language === "en" ? "Queuing…" : "正在提交…")
             : media.status === "manual"
-              ? (language === "en" ? "Download attachment" : "下载附件")
-            : media.canDownload
-              ? (language === "en" ? "Download anyway" : "仍要下载")
-              : (language === "en" ? "Retry" : "重试")}
+              ? sticker
+                ? (language === "en" ? "Download sticker" : "下载贴纸")
+                : (language === "en" ? "Download attachment" : "下载附件")
+              : media.canDownload
+                ? (language === "en" ? "Download anyway" : "仍要下载")
+                : (language === "en" ? "Retry" : "重试")}
         </button>
       ) : null}
       {error ? <small>{error}</small> : null}
@@ -120,6 +127,15 @@ function MediaAttachment({
 
 // 根据媒体类型选择浏览器原生预览控件或附件卡片。
 function DownloadedMedia({ media, language }: { media: ChatMessageMedia; language: "zh-CN" | "en" }) {
+  if (media.kind === "sticker") {
+    if (media.mimeType === "application/x-tgsticker") {
+      return <AnimatedSticker contentUrl={media.contentUrl!} language={language} />;
+    }
+    if (media.mimeType === "video/webm") {
+      return <video autoPlay className="chat-message-sticker" loop muted playsInline src={media.contentUrl} />;
+    }
+    return <img alt={media.fileName} className="chat-message-sticker" loading="lazy" src={media.contentUrl} />;
+  }
   if (media.kind === "photo") {
     return <a href={media.contentUrl} rel="noreferrer" target="_blank"><img alt={media.fileName} className="chat-message-photo" loading="lazy" src={media.contentUrl} /></a>;
   }
@@ -135,6 +151,55 @@ function DownloadedMedia({ media, language }: { media: ChatMessageMedia; languag
       <span><strong>{media.fileName}</strong><small>{formatFileSize(media.size, language)}</small></span>
     </a>
   );
+}
+
+// 从受保护资源接口加载解压后的 TGS JSON，并在组件卸载时释放动画实例。
+function AnimatedSticker({ contentUrl, language }: { contentUrl: string; language: "zh-CN" | "en" }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let animation: { destroy: () => void } | undefined;
+
+    async function load() {
+      try {
+        const [response, module] = await Promise.all([
+          fetch(contentUrl, { credentials: "same-origin", signal: controller.signal }),
+          import("lottie-web"),
+        ]);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const container = containerRef.current;
+        if (!container) {
+          return;
+        }
+        animation = module.default.loadAnimation({
+          container,
+          renderer: "svg",
+          loop: true,
+          autoplay: true,
+          animationData: await response.json(),
+        });
+      } catch (reason) {
+        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+          setFailed(true);
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      controller.abort();
+      animation?.destroy();
+    };
+  }, [contentUrl]);
+
+  if (failed) {
+    return <div className="chat-message-sticker-error">{language === "en" ? "Sticker could not be displayed" : "贴纸无法显示"}</div>;
+  }
+  return <div className="chat-message-sticker" ref={containerRef} />;
 }
 
 // 使用当前界面语言格式化文件大小。
@@ -159,32 +224,25 @@ function ReplyPreview({
       </div>
     );
   }
-  const text = visibleMessageText(reply, language);
+  const text = visibleMessageText(reply);
   return (
     <div className="chat-message-reply">
       <strong>{reply.senderName || "未知发言人"}</strong>
-      <span>{text.value}</span>
+      {text ? <span>{text}</span> : null}
     </div>
   );
 }
 
 function visibleMessageText(
   message: Pick<ChatMessage, "textContent" | "caption" | "mediaKind" | "messageType">,
-  language: "zh-CN" | "en",
 ) {
   const text = message.textContent.trim() || message.caption.trim();
-  if (text) {
-    return { value: text, placeholder: false };
-  }
-  const media = visibleMediaLabel(message.mediaKind, message.messageType, language);
-  if (language === "en") {
-    return { value: media ? `${media} without a caption` : "Non-text message without a caption", placeholder: true };
-  }
-  return { value: media ? `${media}，无文字说明` : "非文本消息，无文字说明", placeholder: true };
+  return text;
 }
 
 function visibleMediaLabel(mediaKind: string, messageType: string, language: "zh-CN" | "en") {
   if (mediaKind === "photo") return language === "en" ? "Photo" : "图片消息";
+  if (mediaKind === "sticker") return language === "en" ? "Sticker" : "贴纸";
   if (mediaKind === "document") return language === "en" ? "File" : "文件消息";
   if (mediaKind) return language === "en" ? "Media" : "媒体消息";
   if (messageType && messageType !== "text") return language === "en" ? "Non-text message" : "非文本消息";

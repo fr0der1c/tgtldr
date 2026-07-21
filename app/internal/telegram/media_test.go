@@ -43,15 +43,27 @@ func TestMessageMediaAsset(t *testing.T) {
 		So(asset.FileSize, ShouldEqual, int64(2048))
 	})
 
-	Convey("贴纸和动画文档不会进入下载队列", t, func() {
-		message := &tg.Message{Media: &tg.MessageMediaDocument{Document: &tg.Document{
-			ID: 12, MimeType: "application/x-tgsticker",
-			Attributes: []tg.DocumentAttributeClass{&tg.DocumentAttributeSticker{}},
-		}}}
+	Convey("三种 Telegram 贴纸都会进入下载队列并保留格式", t, func() {
+		cases := []struct {
+			mimeType  string
+			extension string
+		}{
+			{mimeType: "image/webp", extension: ".webp"},
+			{mimeType: "application/x-tgsticker", extension: ".tgs"},
+			{mimeType: "video/webm", extension: ".webm"},
+		}
+		for index, item := range cases {
+			message := &tg.Message{Media: &tg.MessageMediaDocument{Document: &tg.Document{
+				ID: int64(12 + index), MimeType: item.mimeType,
+				Attributes: []tg.DocumentAttributeClass{&tg.DocumentAttributeSticker{}},
+			}}}
 
-		_, ok := messageMediaAsset(9, message)
+			asset, ok := messageMediaAsset(9, message)
 
-		So(ok, ShouldBeFalse)
+			So(ok, ShouldBeTrue)
+			So(asset.Kind, ShouldEqual, "sticker")
+			So(asset.FileName, ShouldEndWith, item.extension)
+		}
 	})
 }
 
@@ -75,12 +87,13 @@ func TestStoredMediaAsset(t *testing.T) {
 		So(string(asset.FileReference), ShouldEqual, "ref")
 	})
 
-	Convey("升级前保存的贴纸 JSON 仍会被排除", t, func() {
+	Convey("升级前保存的贴纸 JSON 会自动补建下载记录", t, func() {
 		raw := `{"Media":{"Document":{"ID":100,"MimeType":"image/webp","Attributes":[{"Stickerset":{"ID":1}},{"FileName":"sticker.webp"}]}}}`
 
-		_, ok, err := storedMediaAsset(3, raw)
+		asset, ok, err := storedMediaAsset(3, raw)
 
 		So(err, ShouldBeNil)
-		So(ok, ShouldBeFalse)
+		So(ok, ShouldBeTrue)
+		So(asset.Kind, ShouldEqual, "sticker")
 	})
 }

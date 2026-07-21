@@ -56,9 +56,10 @@ func extractChat(peer tg.PeerClass) (id int64, kind string, ok bool) {
 	}
 }
 
-func resolveSender(msg *tg.Message, entities tg.Entities) (int64, string, string, bool) {
+// resolveSender 从实时更新实体解析公开发送身份，并用当前群组信息兜底。
+func resolveSender(msg *tg.Message, entities tg.Entities, chatTitle string) (int64, string, string, bool) {
 	ent := messagepeer.EntitiesFromUpdate(entities)
-	switch from := msg.FromID.(type) {
+	switch from := messageSenderPeer(msg).(type) {
 	case *tg.PeerUser:
 		user, ok := ent.User(from.UserID)
 		if !ok {
@@ -77,16 +78,54 @@ func resolveSender(msg *tg.Message, entities tg.Entities) (int64, string, string
 		if ok {
 			return channel.ID, channel.Title, channel.Username, false
 		}
+		if strings.TrimSpace(chatTitle) != "" && samePeer(msg.PeerID, from) {
+			return from.ChannelID, chatTitle, "", false
+		}
 		return from.ChannelID, "Channel " + int64String(from.ChannelID), "", false
 	case *tg.PeerChat:
 		chat, ok := ent.Chat(from.ChatID)
 		if ok {
 			return chat.ID, chat.Title, "", false
 		}
+		if strings.TrimSpace(chatTitle) != "" && samePeer(msg.PeerID, from) {
+			return from.ChatID, chatTitle, "", false
+		}
 		return from.ChatID, "Chat " + int64String(from.ChatID), "", false
 	default:
-		return 0, "Unknown", "", false
+		return 0, fallback(chatTitle, "Unknown"), "", false
 	}
+}
+
+// messageSenderPeer 在 Telegram 省略 from_id 时，将会话本身视为公开发送身份。
+func messageSenderPeer(msg *tg.Message) tg.PeerClass {
+	if msg.FromID != nil {
+		return msg.FromID
+	}
+	return msg.PeerID
+}
+
+// samePeer 比较 Telegram peer 的类型和 ID，避免不同实体空间的数字 ID 混淆。
+func samePeer(left tg.PeerClass, right tg.PeerClass) bool {
+	switch leftPeer := left.(type) {
+	case *tg.PeerChannel:
+		rightPeer, ok := right.(*tg.PeerChannel)
+		return ok && leftPeer.ChannelID == rightPeer.ChannelID
+	case *tg.PeerChat:
+		rightPeer, ok := right.(*tg.PeerChat)
+		return ok && leftPeer.ChatID == rightPeer.ChatID
+	case *tg.PeerUser:
+		rightPeer, ok := right.(*tg.PeerUser)
+		return ok && leftPeer.UserID == rightPeer.UserID
+	default:
+		return false
+	}
+}
+
+func fallback(value string, fallbackValue string) string {
+	if strings.TrimSpace(value) != "" {
+		return value
+	}
+	return fallbackValue
 }
 
 func extractCaption(msg *tg.Message) string {
@@ -107,10 +146,13 @@ func classifyMessage(msg *tg.Message) string {
 }
 
 func mediaKind(msg *tg.Message) string {
-	switch msg.Media.(type) {
+	switch media := msg.Media.(type) {
 	case *tg.MessageMediaPhoto:
 		return "photo"
 	case *tg.MessageMediaDocument:
+		if document, ok := media.Document.AsNotEmpty(); ok && isStickerDocument(document) {
+			return "sticker"
+		}
 		return "document"
 	default:
 		if msg.Media == nil {

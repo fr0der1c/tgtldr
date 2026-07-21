@@ -13,6 +13,8 @@ import {
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
 import { ChatActivityStrip } from "@/components/chat-activity-strip";
+import { ChatHistorySearchForm } from "@/components/chat-history-search-form";
+import { GlobalChatMessageSearch } from "@/components/global-chat-message-search";
 import { Chat, TelegramAccountChat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
@@ -39,6 +41,9 @@ export function ChatsPanel() {
   const [chatType, setChatType] = useState<ChatTypeFilter>("all");
   const [messageSaveFilter, setMessageSaveFilter] = useState<SwitchFilter>("all");
   const [summaryFilter, setSummaryFilter] = useState<SwitchFilter>("all");
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageQuery, setMessageQuery] = useState("");
+  const [messageSearchPage, setMessageSearchPage] = useState(1);
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
   const showErrorRef = useRef(toast.showError);
@@ -152,88 +157,129 @@ export function ChatsPanel() {
       </MetricRail>
 
       <Surface
+        actions={(
+          <button
+            aria-label={messageSearchOpen ? "收起聊天记录搜索" : "展开聊天记录搜索"}
+            aria-pressed={messageSearchOpen}
+            className={`chat-history-icon-button${messageSearchOpen ? " active" : ""}`}
+            onClick={() => {
+              if (messageSearchOpen) {
+                setMessageQuery("");
+                setMessageSearchPage(1);
+              }
+              setMessageSearchOpen((open) => !open);
+            }}
+            title={messageSearchOpen ? "收起搜索" : "搜索聊天记录"}
+            type="button"
+          >
+            <SearchIcon />
+          </button>
+        )}
+        className="chat-list-surface"
         title="群组列表"
         description="先查看每个群当前是否启用，再通过操作按钮调整摘要规则、补充群聊背景或回补历史消息。"
       >
-        <div className="toolbar-grid">
-          <Field label="搜索群组">
-            <Input
-              placeholder="按群名搜索"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </Field>
-          <Field label="群类型">
-            <AppSelect
-              onChange={(value) => setChatType(value as ChatTypeFilter)}
-              options={[
-                { value: "all", label: "全部" },
-                { value: "group", label: "群组" },
-                { value: "supergroup", label: "超级群组" }
-              ]}
-              value={chatType}
-            />
-          </Field>
-          <Field label="消息保存">
-            <AppSelect
-              onChange={(value) => setMessageSaveFilter(value as SwitchFilter)}
-              options={[
-                { value: "all", label: "全部" },
-                { value: "yes", label: "已启用" },
-                { value: "no", label: "未启用" }
-              ]}
-              value={messageSaveFilter}
-            />
-          </Field>
-          <Field label="AI 总结">
-            <AppSelect
-              onChange={(value) => setSummaryFilter(value as SwitchFilter)}
-              options={[
-                { value: "all", label: "全部" },
-                { value: "yes", label: "已启用" },
-                { value: "no", label: "未启用" }
-              ]}
-              value={summaryFilter}
-            />
-          </Field>
-        </div>
+        {messageSearchOpen ? (
+          <ChatHistorySearchForm
+            ariaLabel="搜索所有群组聊天记录"
+            onQueryChange={(nextQuery) => {
+              setMessageQuery(nextQuery);
+              setMessageSearchPage(1);
+            }}
+            placeholder="搜索所有群组内的消息、发言人或 @username"
+            query={messageQuery}
+          />
+        ) : null}
 
-        {filtered.length === 0 ? (
-          <EmptyState
-            title="没有匹配的群组"
-            description="调整筛选条件后再试一次。"
+        {messageQuery ? (
+          <GlobalChatMessageSearch
+            onPageChange={setMessageSearchPage}
+            page={messageSearchPage}
+            query={messageQuery}
           />
         ) : (
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>群组名称</th>
-                  <th>群类型</th>
-                  <th>消息保存</th>
-                  <th>AI 总结</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((chat) => (
-                  <ChatTableRow
-                    key={chat.id}
-                    chat={chat}
-                    editing={editingId === chat.id}
-                    onBackfill={(fromDate, toDate) =>
-                      startTransition(() => void startHistoryBackfill(chat, fromDate, toDate))
-                    }
-                    onPatch={(patch) => patchChat(chat.id, patch)}
-                    onEdit={() =>
-                      setEditingId((current) => (current === chat.id ? null : chat.id))
-                    }
-                    onSave={() => startTransition(() => void saveChat(chat))}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="toolbar-grid">
+              <Field label="搜索群组">
+                <Input
+                  placeholder="按群名搜索"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </Field>
+              <Field label="群类型">
+                <AppSelect
+                  onChange={(value) => setChatType(value as ChatTypeFilter)}
+                  options={[
+                    { value: "all", label: "全部" },
+                    { value: "group", label: "群组" },
+                    { value: "supergroup", label: "超级群组" }
+                  ]}
+                  value={chatType}
+                />
+              </Field>
+              <Field label="消息保存">
+                <AppSelect
+                  onChange={(value) => setMessageSaveFilter(value as SwitchFilter)}
+                  options={[
+                    { value: "all", label: "全部" },
+                    { value: "yes", label: "已启用" },
+                    { value: "no", label: "未启用" }
+                  ]}
+                  value={messageSaveFilter}
+                />
+              </Field>
+              <Field label="AI 总结">
+                <AppSelect
+                  onChange={(value) => setSummaryFilter(value as SwitchFilter)}
+                  options={[
+                    { value: "all", label: "全部" },
+                    { value: "yes", label: "已启用" },
+                    { value: "no", label: "未启用" }
+                  ]}
+                  value={summaryFilter}
+                />
+              </Field>
+            </div>
+
+            {filtered.length === 0 ? (
+              <EmptyState
+                title="没有匹配的群组"
+                description="调整筛选条件后再试一次。"
+              />
+            ) : (
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>群组名称</th>
+                      <th>群类型</th>
+                      <th>消息保存</th>
+                      <th>AI 总结</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((chat) => (
+                      <ChatTableRow
+                        key={chat.id}
+                        chat={chat}
+                        editing={editingId === chat.id}
+                        onBackfill={(fromDate, toDate) =>
+                          startTransition(() => void startHistoryBackfill(chat, fromDate, toDate))
+                        }
+                        onPatch={(patch) => patchChat(chat.id, patch)}
+                        onEdit={() =>
+                          setEditingId((current) => (current === chat.id ? null : chat.id))
+                        }
+                        onSave={() => startTransition(() => void saveChat(chat))}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </Surface>
 
@@ -618,6 +664,10 @@ function GroupIcon() {
       <path d="M14.2 13.2a4 4 0 0 1 6.3 3.3v1" />
     </svg>
   );
+}
+
+function SearchIcon() {
+  return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" strokeWidth="1.8" /><path d="m16 16 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" /></svg>;
 }
 
 function availableCollectorAccounts(chat: Chat) {

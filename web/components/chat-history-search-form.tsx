@@ -5,9 +5,13 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 export function ChatHistorySearchForm({
   query,
   onQueryChange,
+  ariaLabel = "搜索此群聊天记录",
+  placeholder = "搜索消息、发言人或 @username",
 }: {
   query: string;
   onQueryChange: (query: string) => void;
+  ariaLabel?: string;
+  placeholder?: string;
 }) {
   const [draft, setDraft] = useState(query);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,9 +28,9 @@ export function ChatHistorySearchForm({
     <form className="chat-history-search" onSubmit={submit} role="search">
       <SearchIcon />
       <input
-        aria-label="搜索此群聊天记录"
+        aria-label={ariaLabel}
         onChange={(event) => setDraft(event.target.value)}
-        placeholder="搜索消息、发言人或 @username"
+        placeholder={placeholder}
         ref={inputRef}
         type="search"
         value={draft}

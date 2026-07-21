@@ -29,6 +29,14 @@ func TestBuildMessageSearchWhere(t *testing.T) {
 			int64(7), "%机场%", []string{"@alice"}, []string{"%验证码%"},
 		})
 	})
+
+	Convey("全局搜索不应该限定群组", t, func() {
+		where, args := buildMessageSearchWhere(0, []string{"机场"}, MessageDisplayFilter{})
+
+		So(where, ShouldNotContainSubstring, "m.chat_id")
+		So(where, ShouldContainSubstring, "ilike $1")
+		So(args, ShouldResemble, []any{"%机场%"})
+	})
 }
 
 func TestMessageSearchMatch(t *testing.T) {

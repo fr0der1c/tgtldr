@@ -345,7 +345,7 @@ func (s *Service) onNewChannelMessage(ctx context.Context, accountID int64, enti
 
 func (s *Service) storeIncomingMessage(ctx context.Context, accountID int64, entities tg.Entities, messageClass tg.MessageClass) error {
 	msg, ok := messageClass.(*tg.Message)
-	if !ok || msg.Out {
+	if !ok {
 		return nil
 	}
 
@@ -366,7 +366,7 @@ func (s *Service) storeIncomingMessage(ctx context.Context, accountID int64, ent
 	}
 
 	payload, _ := json.Marshal(msg)
-	senderID, senderName, senderUsername, senderIsBot := resolveSender(msg, entities)
+	senderID, senderName, senderUsername, senderIsBot := resolveSender(msg, entities, chat.Title)
 	senderEntityID := int64(0)
 	if entity, ok := senderEntityFromUpdate(accountID, msg, entities); ok {
 		senderEntityID, err = s.upsertEntityAssets(ctx, entity)

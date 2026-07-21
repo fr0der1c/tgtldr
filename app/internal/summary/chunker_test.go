@@ -39,7 +39,7 @@ func TestSplitMessages(t *testing.T) {
 }
 
 func TestBuildTranscriptReferenceFallback(t *testing.T) {
-	Convey("引用无文本媒体消息时应该输出明确占位", t, func() {
+	Convey("引用无文本媒体消息时不应向 transcript 注入占位文本", t, func() {
 		base := time.Date(2026, 4, 16, 9, 0, 0, 0, time.Local)
 		reference := model.Message{
 			TelegramMessageID: 100,
@@ -66,9 +66,9 @@ func TestBuildTranscriptReferenceFallback(t *testing.T) {
 			model.LanguageZhCN,
 		)
 
-		So(transcript, ShouldContainSubstring, "[Referenced Messages]")
-		So(transcript, ShouldContainSubstring, "[图片消息，无文字说明]")
-		So(transcript, ShouldContainSubstring, `reply_excerpt="[图片消息，无文字说明]"`)
+		So(transcript, ShouldNotContainSubstring, "[Referenced Messages]")
+		So(transcript, ShouldContainSubstring, "reply_to=[msg:100]")
+		So(transcript, ShouldNotContainSubstring, "reply_excerpt=")
 	})
 
 	Convey("找不到原始引用消息时应该明确说明", t, func() {

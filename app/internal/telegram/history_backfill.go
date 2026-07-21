@@ -309,7 +309,7 @@ func historyElemToMessage(chat model.Chat, elem messagesquery.Elem) (model.Messa
 	}
 
 	payload, _ := json.Marshal(msg)
-	senderID, senderName, senderUsername, senderIsBot := resolveSenderFromPeerEntities(msg, elem.Entities)
+	senderID, senderName, senderUsername, senderIsBot := resolveSenderFromPeerEntities(msg, elem.Entities, chat.Title)
 	return model.Message{
 		ChatID:            chat.ID,
 		TelegramMessageID: msg.ID,
@@ -327,8 +327,9 @@ func historyElemToMessage(chat model.Chat, elem messagesquery.Elem) (model.Messa
 	}, true
 }
 
-func resolveSenderFromPeerEntities(msg *tg.Message, entities peer.Entities) (int64, string, string, bool) {
-	switch from := msg.FromID.(type) {
+// resolveSenderFromPeerEntities 从历史结果解析公开发送身份，并用当前群组信息兜底。
+func resolveSenderFromPeerEntities(msg *tg.Message, entities peer.Entities, chatTitle string) (int64, string, string, bool) {
+	switch from := messageSenderPeer(msg).(type) {
 	case *tg.PeerUser:
 		user, ok := entities.User(from.UserID)
 		if !ok {
@@ -347,15 +348,21 @@ func resolveSenderFromPeerEntities(msg *tg.Message, entities peer.Entities) (int
 		if ok {
 			return channel.ID, channel.Title, channel.Username, false
 		}
+		if strings.TrimSpace(chatTitle) != "" && samePeer(msg.PeerID, from) {
+			return from.ChannelID, chatTitle, "", false
+		}
 		return from.ChannelID, "Channel " + int64String(from.ChannelID), "", false
 	case *tg.PeerChat:
 		groupChat, ok := entities.Chat(from.ChatID)
 		if ok {
 			return groupChat.ID, groupChat.Title, "", false
 		}
+		if strings.TrimSpace(chatTitle) != "" && samePeer(msg.PeerID, from) {
+			return from.ChatID, chatTitle, "", false
+		}
 		return from.ChatID, "Chat " + int64String(from.ChatID), "", false
 	default:
-		return 0, "Unknown", "", false
+		return 0, fallback(chatTitle, "Unknown"), "", false
 	}
 }
 

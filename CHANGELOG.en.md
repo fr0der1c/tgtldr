@@ -2,6 +2,22 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-07-21
+
+### Added
+
+- Added global chat-history search to the chat list for finding messages, senders, and usernames across all chats. Selecting a result opens that chat on the matching day and positions the message in context.
+- Chat history now downloads and displays static WebP, video WebM, and animated TGS stickers. Existing sticker resources are automatically discovered when account listeners start after an upgrade.
+
+### Changed
+
+- Photos, files, and stickers without text no longer inject “without text” placeholders into summary transcripts or chat message bodies.
+
+### Fixed
+
+- Fixed real-time monitoring ignoring group messages sent by the connected Telegram account itself.
+- Fixed messages sent by anonymous administrators or as a chat/channel appearing as `Unknown`. Existing history is repaired in background batches after an upgrade, with the chat title used as a display fallback until repair completes.
+
 ## 2026-07-17
 
 ### Fixed

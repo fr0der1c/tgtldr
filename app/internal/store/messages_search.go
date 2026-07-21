@@ -25,6 +25,7 @@ type MessageSearchParams struct {
 
 type MessageSearchItem struct {
 	Message       model.Message
+	ChatTitle     string
 	LocalDate     string
 	MatchSnippet  string
 	MatchedFields []string
@@ -37,6 +38,7 @@ type MessageSearchResult struct {
 	PageSize int
 }
 
+// Search 按关键词搜索单个群组或全部群组的聊天记录。
 func (r *MessageRepository) Search(
 	ctx context.Context,
 	params MessageSearchParams,
@@ -44,9 +46,10 @@ func (r *MessageRepository) Search(
 	params = normalizeMessageSearchParams(params)
 	terms := strings.Fields(params.Query)
 	where, args := buildMessageSearchWhere(params.ChatID, terms, params.Filter)
+	from := ` from messages m join chats c on c.id = m.chat_id`
 
 	var total int
-	countQuery := `select count(*) from messages m` + where
+	countQuery := `select count(*)` + from + where
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return MessageSearchResult{}, fmt.Errorf("count searched messages: %w", err)
 	}
@@ -57,15 +60,15 @@ func (r *MessageRepository) Search(
 	limitIndex := timezoneIndex + 1
 	offsetIndex := limitIndex + 1
 	query := fmt.Sprintf(`
-		select id, chat_id, telegram_message_id, telegram_sender_id, sender_name,
-		       sender_username, sender_is_bot,
-		       text_content, caption, message_type, media_kind, reply_to_message_id,
-		       message_time, raw_json::text, created_at,
-		       (message_time at time zone $%d)::date::text
-		from messages m%s
-		order by message_time desc, telegram_message_id desc
+		select m.id, m.chat_id, m.telegram_message_id, m.telegram_sender_id, m.sender_name,
+		       m.sender_username, m.sender_is_bot,
+		       m.text_content, m.caption, m.message_type, m.media_kind, m.reply_to_message_id,
+		       m.message_time, m.raw_json::text, m.created_at, c.title,
+		       (m.message_time at time zone $%d)::date::text
+		%s%s
+		order by m.message_time desc, m.telegram_message_id desc, m.id desc
 		limit $%d offset $%d
-	`, timezoneIndex, where, limitIndex, offsetIndex)
+	`, timezoneIndex, from, where, limitIndex, offsetIndex)
 
 	rows, err := r.pool.Query(ctx, query, queryArgs...)
 	if err != nil {
@@ -76,7 +79,7 @@ func (r *MessageRepository) Search(
 	items := make([]MessageSearchItem, 0, params.PageSize)
 	for rows.Next() {
 		var item MessageSearchItem
-		message, err := scanSearchMessage(rows, &item.LocalDate)
+		message, err := scanSearchMessage(rows, &item.ChatTitle, &item.LocalDate)
 		if err != nil {
 			return MessageSearchResult{}, err
 		}
@@ -111,8 +114,12 @@ func buildMessageSearchWhere(
 	terms []string,
 	filter MessageDisplayFilter,
 ) (string, []any) {
-	args := []any{chatID}
-	clauses := []string{"m.chat_id = $1"}
+	args := make([]any, 0, len(terms)+1)
+	clauses := make([]string, 0, len(terms)+1)
+	if chatID > 0 {
+		args = append(args, chatID)
+		clauses = append(clauses, "m.chat_id = $1")
+	}
 	searchDocument := "(m.text_content || ' ' || m.caption || ' ' || m.sender_name || ' ' || m.sender_username)"
 	for _, term := range terms {
 		args = append(args, "%"+term+"%")
@@ -122,14 +129,15 @@ func buildMessageSearchWhere(
 	return " where " + strings.Join(clauses, " and ") + filterSQL, args
 }
 
-func scanSearchMessage(scanner messageScanner, localDate *string) (model.Message, error) {
+// scanSearchMessage 读取消息搜索结果及其群组标题和本地日期。
+func scanSearchMessage(scanner messageScanner, chatTitle *string, localDate *string) (model.Message, error) {
 	var message model.Message
 	err := scanner.Scan(
 		&message.ID, &message.ChatID, &message.TelegramMessageID,
 		&message.TelegramSenderID, &message.SenderName, &message.SenderUsername,
 		&message.SenderIsBot, &message.TextContent, &message.Caption,
 		&message.MessageType, &message.MediaKind, &message.ReplyToMessageID,
-		&message.MessageTime, &message.RawJSON, &message.CreatedAt, localDate,
+		&message.MessageTime, &message.RawJSON, &message.CreatedAt, chatTitle, localDate,
 	)
 	if err != nil {
 		return model.Message{}, fmt.Errorf("scan searched message: %w", err)

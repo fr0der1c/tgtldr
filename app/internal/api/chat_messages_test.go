@@ -120,9 +120,18 @@ func TestLocalDateRange(t *testing.T) {
 
 func TestBuildReplyPreview(t *testing.T) {
 	Convey("数据库中不存在的回复目标应该返回缺失标记", t, func() {
-		preview := buildReplyPreview(99, map[int]model.Message{})
+		preview := buildReplyPreview(99, map[int]model.Message{}, "测试群")
 
 		So(preview.Found, ShouldBeFalse)
 		So(preview.TelegramMessageID, ShouldEqual, 99)
+	})
+}
+
+// TestVisibleSenderName 验证历史 Unknown 在后台修复前使用群组名称展示。
+func TestVisibleSenderName(t *testing.T) {
+	Convey("空名称和 Unknown 使用群组标题兜底", t, func() {
+		So(visibleSenderName("Unknown", "测试群"), ShouldEqual, "测试群")
+		So(visibleSenderName("", "测试群"), ShouldEqual, "测试群")
+		So(visibleSenderName("Alice", "测试群"), ShouldEqual, "Alice")
 	})
 }

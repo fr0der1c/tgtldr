@@ -104,6 +104,18 @@
   object-fit: contain;
 }
 
+.chat-message-sticker {
+  display: block;
+  width: min(220px, 58vw);
+  height: min(220px, 58vw);
+  object-fit: contain;
+}
+
+.chat-message-sticker-error {
+  color: var(--danger);
+  font-size: 0.86rem;
+}
+
 .chat-message-audio {
   width: min(100%, 520px);
 }
@@ -209,11 +221,6 @@
   color: var(--text);
   line-height: 1.68;
   white-space: pre-wrap;
-}
-
-.chat-message-text.placeholder {
-  color: var(--muted);
-  font-style: italic;
 }
 
 .chat-message-reply {

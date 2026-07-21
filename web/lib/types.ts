@@ -121,7 +121,7 @@ export type ChatMessage = {
 
 export type ChatMessageMedia = {
   id: number;
-  kind: "photo" | "video" | "audio" | "voice" | "document";
+  kind: "photo" | "video" | "audio" | "voice" | "document" | "sticker";
   mimeType: string;
   fileName: string;
   size: number;
@@ -165,6 +165,17 @@ export type ChatMessageSearchResponse = {
   total: number;
   page: number;
   pageSize: number;
+  timezone?: string;
+};
+
+export type GlobalChatMessageSearchItem = ChatMessageSearchItem & {
+  chatId: number;
+  chatTitle: string;
+};
+
+export type GlobalChatMessageSearchResponse = Omit<ChatMessageSearchResponse, "items"> & {
+  items: GlobalChatMessageSearchItem[];
+  timezone: string;
 };
 
 export type Chat = {
