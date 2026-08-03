@@ -29,3 +29,16 @@ func TestLoadOrCreateMasterKeyFile(t *testing.T) {
 		So(second, ShouldEqual, first)
 	})
 }
+
+func TestLoadReadsReadAPIToken(t *testing.T) {
+	t.Setenv("TGTLDR_MASTER_KEY", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
+	t.Setenv("TGTLDR_READ_API_TOKEN", "read-token")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.ReadAPIToken != "read-token" {
+		t.Fatalf("read API token = %q", cfg.ReadAPIToken)
+	}
+}

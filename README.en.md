@@ -121,6 +121,38 @@ npm install
 TGTLDR_INTERNAL_API_BASE_URL=http://127.0.0.1:8080 npm run dev
 ```
 
+## Read-only Group Member Message API
+
+Set a random 256-bit token (for example, 64 hexadecimal characters) in `.env`, then restart the backend:
+
+```env
+TGTLDR_READ_API_TOKEN=replace-with-a-random-token
+```
+
+Authenticate requests with the Bearer token:
+
+```bash
+export API_URL=https://tgtldr.example.com
+export READ_TOKEN=replace-with-a-random-token
+
+# List chats
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats"
+
+# Resolve a username or display name to a stable Telegram user ID
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/participants?query=sssssssssshai"
+
+# Read the whole chat; from is inclusive and to is exclusive
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?from=2026-07-01T00:00:00Z&to=2026-08-01T00:00:00Z&limit=100"
+
+# Add senderId to read messages from one member only
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?senderId=8619940043&from=2026-07-01T00:00:00Z&to=2026-08-01T00:00:00Z&limit=100"
+
+# When hasMore is true, pass nextCursor unchanged to the next request
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?senderId=8619940043&limit=100&cursor=replace-with-nextCursor"
+```
+
+`senderId` is optional: omit it for the whole chat or provide it for one member. The default message limit is 100. The maximum is 500 for messages and 100 for participant search. These endpoints only read stored data, never trigger Telegram history backfills, and never expose raw message JSON.
+
 ## Security Notes
 
 - `TGTLDR_MASTER_KEY` encrypts stored Telegram sessions, OpenAI API Keys, and Bot Tokens.

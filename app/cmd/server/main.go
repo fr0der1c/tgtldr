@@ -60,6 +60,7 @@ func run() error {
 		schedulerService,
 		botService,
 		cfg.WebOrigin,
+		cfg.ReadAPIToken,
 		cfg.RequestTimout,
 	)
 

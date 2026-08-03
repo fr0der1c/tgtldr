@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-08-03
+
+### Added
+
+- Added Bearer-token-protected `/api/v1` read-only endpoints to list chats, resolve usernames to stable Telegram user IDs, and page through stored messages for a whole chat or one user.
+
 ## 2026-06-14
 
 ### Added

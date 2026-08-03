@@ -2,6 +2,12 @@
 
 [English version](CHANGELOG.en.md)
 
+## 2026-08-03
+
+### 新增
+
+- 新增使用独立 Bearer Token 认证的 `/api/v1` 只读接口，可列出群组、按用户名查找稳定的 Telegram 用户 ID，并分页读取整个群或指定用户的已入库消息。
+
 ## 2026-06-14
 
 ### 新增

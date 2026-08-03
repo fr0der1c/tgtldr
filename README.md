@@ -121,6 +121,38 @@ npm install
 TGTLDR_INTERNAL_API_BASE_URL=http://127.0.0.1:8080 npm run dev
 ```
 
+## 群成员消息只读 API
+
+在 `.env` 中配置随机的 256 位 Token（例如 64 个十六进制字符）后，重启后端：
+
+```env
+TGTLDR_READ_API_TOKEN=替换为随机Token
+```
+
+调用时通过 Bearer Token 认证：
+
+```bash
+export API_URL=https://tgtldr.example.com
+export READ_TOKEN=替换为随机Token
+
+# 列出群组
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats"
+
+# 用用户名或昵称查找稳定的 Telegram 用户 ID
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/participants?query=sssssssssshai"
+
+# 读取整个群的聊天记录；from 包含、to 不包含
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?from=2026-07-01T00:00:00Z&to=2026-08-01T00:00:00Z&limit=100"
+
+# 增加 senderId 后，只读取该用户的消息
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?senderId=8619940043&from=2026-07-01T00:00:00Z&to=2026-08-01T00:00:00Z&limit=100"
+
+# 返回 hasMore=true 时，把 nextCursor 原样带入下一次请求
+curl -H "Authorization: Bearer ${READ_TOKEN}" "${API_URL}/api/v1/chats/1/messages?senderId=8619940043&limit=100&cursor=替换为nextCursor"
+```
+
+`senderId` 可选：不传时读取整个群，传入时只读取指定成员。`limit` 默认 100，消息接口最大 500，成员搜索最大 100。接口只读取已入库数据，不触发 Telegram 历史回补，也不返回原始消息 JSON。
+
 ## 安全提示
 
 - `TGTLDR_MASTER_KEY` 用于加密保存 Telegram session、OpenAI API Key 和 Bot Token。

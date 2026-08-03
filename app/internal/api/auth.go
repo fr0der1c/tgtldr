@@ -18,6 +18,18 @@ type contextKey string
 const sessionIDContextKey contextKey = "localSessionID"
 
 func (r *Router) authorizeRequest(w http.ResponseWriter, req *http.Request) (*http.Request, bool) {
+	if isReadAPIPath(req.URL.Path) {
+		if r.readAPIToken == "" {
+			httpx.ErrorWithCode(w, http.StatusServiceUnavailable, "read API is not configured", "read_api_not_configured", 0)
+			return nil, false
+		}
+		if !readAPIRequestAuthorized(req, r.readAPIToken) {
+			httpx.ErrorWithCode(w, http.StatusUnauthorized, "invalid API token", "invalid_api_token", 0)
+			return nil, false
+		}
+		return req, true
+	}
+
 	sessionID := readSessionCookie(req)
 	allowAnonymous := isPublicPath(req.URL.Path)
 	if sessionID == "" && allowAnonymous {
@@ -47,6 +59,10 @@ func (r *Router) authorizeRequest(w http.ResponseWriter, req *http.Request) (*ht
 
 	ctx := context.WithValue(req.Context(), sessionIDContextKey, session.SessionID)
 	return req.WithContext(ctx), true
+}
+
+func isReadAPIPath(path string) bool {
+	return path == "/api/v1" || strings.HasPrefix(path, "/api/v1/")
 }
 
 func isPublicPath(path string) bool {

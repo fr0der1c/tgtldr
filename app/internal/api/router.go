@@ -19,13 +19,14 @@ import (
 )
 
 type Router struct {
-	store     *store.Store
-	bot       *bot.Service
-	telegram  *telegramsvc.Service
-	scheduler *scheduler.Service
-	auth      *localauth.Service
-	origin    string
-	timeout   time.Duration
+	store        *store.Store
+	bot          *bot.Service
+	telegram     *telegramsvc.Service
+	scheduler    *scheduler.Service
+	auth         *localauth.Service
+	origin       string
+	readAPIToken string
+	timeout      time.Duration
 }
 
 const chatMessageActivityDays = 30
@@ -36,16 +37,18 @@ func New(
 	scheduler *scheduler.Service,
 	botService *bot.Service,
 	origin string,
+	readAPIToken string,
 	timeout time.Duration,
 ) *Router {
 	return &Router{
-		store:     store,
-		bot:       botService,
-		telegram:  telegram,
-		scheduler: scheduler,
-		auth:      localauth.NewService(store),
-		origin:    origin,
-		timeout:   timeout,
+		store:        store,
+		bot:          botService,
+		telegram:     telegram,
+		scheduler:    scheduler,
+		auth:         localauth.NewService(store),
+		origin:       origin,
+		readAPIToken: readAPIToken,
+		timeout:      timeout,
 	}
 }
 
@@ -74,6 +77,8 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
+	mux.HandleFunc("/api/v1/chats", r.handleReadAPIChats)
+	mux.HandleFunc("/api/v1/chats/", r.handleReadAPIChatResource)
 
 	return r.withMiddleware(mux)
 }
@@ -85,7 +90,7 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
 		if req.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

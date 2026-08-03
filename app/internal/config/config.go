@@ -15,6 +15,7 @@ type Config struct {
 	HTTPAddr      string
 	DatabaseURL   string
 	MasterKey     []byte
+	ReadAPIToken  string
 	WebOrigin     string
 	RequestTimout time.Duration
 	OpenAITimeout time.Duration
@@ -26,6 +27,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:      env("TGTLDR_HTTP_ADDR", ":8080"),
 		DatabaseURL:   env("TGTLDR_DATABASE_URL", "postgres://postgres:postgres@localhost:5432/tgtldr?sslmode=disable"),
+		ReadAPIToken:  strings.TrimSpace(os.Getenv("TGTLDR_READ_API_TOKEN")),
 		WebOrigin:     env("TGTLDR_WEB_ORIGIN", "http://localhost:3000"),
 		RequestTimout: envDuration("TGTLDR_REQUEST_TIMEOUT", 30*time.Second),
 		OpenAITimeout: envDuration("TGTLDR_OPENAI_TIMEOUT", 3*time.Minute),
