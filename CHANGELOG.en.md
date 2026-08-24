@@ -2,6 +2,18 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-08-23
+
+### Added
+
+- Added Catch Up to the Summaries page. It can create a source-linked period review for the last 7, 14, or 30 days, or for a custom range of up to 90 days, using chats with AI summaries enabled.
+- Catch Up supports background generation, history and detail drawers, default Telegram delivery when the Bot is configured, and independent retries for failed delivery.
+
+### Changed
+
+- Daily summaries and Catch Up now prefer the complete input based on the model context window and actual token counts. Chunking occurs only when required by capacity or an upstream context-limit response, with multi-level merge fallback when needed.
+- Summary engine settings now support automatic context-window detection and a manual override for custom models and OpenAI-compatible providers.
+
 ## 2026-07-21
 
 ### Added

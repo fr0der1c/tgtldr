@@ -3,6 +3,8 @@ import {
   AuthStatus,
   Bootstrap,
   BotTargetChatResolveResult,
+  CatchUp,
+  CatchUpListResponse,
   Chat,
   ChatMessageListResponse,
   ChatMessageSearchResponse,
@@ -267,6 +269,8 @@ export const api = {
     request<SummaryContextPreview>(
       `/api/summaries/context-preview?id=${summaryId}`,
     ),
+  getSummary: (summaryId: number) =>
+    request<Summary>(`/api/summaries/${summaryId}`),
   retrySummaryDelivery: (summaryId: number) =>
     request(`/api/summaries/${summaryId}/retry-delivery`, {
       method: "POST",
@@ -275,5 +279,25 @@ export const api = {
     request("/api/summaries/run", {
       method: "POST",
       body: JSON.stringify({ chatId, date }),
+    }),
+  createCatchUp: (payload: {
+    fromDate: string;
+    toDate: string;
+    chatIds: number[];
+    sendToTelegram: boolean;
+  }) =>
+    request<CatchUp>("/api/catch-ups", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  listCatchUps: (page = 1, pageSize = 20) =>
+    request<CatchUpListResponse>(
+      `/api/catch-ups${buildQuery({ page, pageSize })}`,
+    ),
+  getCatchUp: (catchUpId: number) =>
+    request<CatchUp>(`/api/catch-ups/${catchUpId}`),
+  retryCatchUpDelivery: (catchUpId: number) =>
+    request(`/api/catch-ups/${catchUpId}/retry-delivery`, {
+      method: "POST",
     }),
 };

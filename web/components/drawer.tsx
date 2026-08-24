@@ -12,6 +12,7 @@ export function Drawer({
   actions,
   active = true,
   layer = "default",
+  panelClassName,
   title
 }: PropsWithChildren<{
   open: boolean;
@@ -19,6 +20,7 @@ export function Drawer({
   actions?: ReactNode;
   active?: boolean;
   layer?: "default" | "top";
+  panelClassName?: string;
   title?: ReactNode;
 }>) {
   const [rendered, setRendered] = useState(open);
@@ -87,7 +89,7 @@ export function Drawer({
       role="dialog"
     >
       <aside
-        className="drawer-panel"
+        className={`drawer-panel${panelClassName ? ` ${panelClassName}` : ""}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className={`drawer-head${title ? " drawer-head-with-title" : ""}`}>

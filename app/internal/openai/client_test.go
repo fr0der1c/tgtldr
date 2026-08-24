@@ -189,3 +189,28 @@ func TestClientChatStream(t *testing.T) {
 		So(err.Error(), ShouldContainSubstring, "openai stream error: rate limited")
 	})
 }
+
+func TestIsContextLimitError(t *testing.T) {
+	Convey("结构化上下文超限错误应触发分块兜底", t, func() {
+		err := decodeAPIError(http.StatusBadRequest, []byte(`{"error":{"code":"context_length_exceeded","message":"maximum context length exceeded"}}`))
+		So(IsContextLimitError(err), ShouldBeTrue)
+	})
+
+	Convey("请求体过大应触发分块兜底", t, func() {
+		So(IsContextLimitError(decodeAPIError(http.StatusRequestEntityTooLarge, []byte("too large"))), ShouldBeTrue)
+	})
+
+	Convey("限频错误不能通过分块解决", t, func() {
+		err := decodeAPIError(http.StatusTooManyRequests, []byte(`{"error":{"code":"rate_limit_exceeded","message":"rate limited"}}`))
+		So(IsContextLimitError(err), ShouldBeFalse)
+	})
+
+	Convey("只对临时错误安排重试", t, func() {
+		quotaErr := decodeAPIError(http.StatusForbidden, []byte(`{"error":{"code":"insufficient_quota","message":"quota exceeded"}}`))
+		rateErr := decodeAPIError(http.StatusTooManyRequests, []byte(`{"error":{"code":"rate_limit_exceeded","message":"rate limited"}}`))
+
+		So(IsRetryableError(quotaErr), ShouldBeFalse)
+		So(IsRetryableError(rateErr), ShouldBeTrue)
+		So(IsRetryableError(&APIError{Message: "rate limited"}), ShouldBeTrue)
+	})
+}

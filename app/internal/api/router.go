@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fr0der1c/tgtldr/app/internal/bot"
+	"github.com/fr0der1c/tgtldr/app/internal/catchup"
 	"github.com/fr0der1c/tgtldr/app/internal/httpx"
 	"github.com/fr0der1c/tgtldr/app/internal/localauth"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
@@ -24,6 +25,7 @@ type Router struct {
 	bot       *bot.Service
 	telegram  *telegramsvc.Service
 	scheduler *scheduler.Service
+	catchups  *catchup.Service
 	auth      *localauth.Service
 	origin    string
 	timeout   time.Duration
@@ -36,6 +38,7 @@ func New(
 	store *store.Store,
 	telegram *telegramsvc.Service,
 	scheduler *scheduler.Service,
+	catchups *catchup.Service,
 	botService *bot.Service,
 	origin string,
 	timeout time.Duration,
@@ -46,6 +49,7 @@ func New(
 		bot:       botService,
 		telegram:  telegram,
 		scheduler: scheduler,
+		catchups:  catchups,
 		auth:      localauth.NewService(store),
 		origin:    origin,
 		timeout:   timeout,
@@ -87,6 +91,8 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
+	mux.HandleFunc("/api/catch-ups", r.handleCatchUps)
+	mux.HandleFunc("/api/catch-ups/", r.handleCatchUpByID)
 
 	return r.withMiddleware(mux)
 }
@@ -313,6 +319,17 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 	}
 	if payload.OpenAIOutputMode == model.OutputModeManual && payload.OpenAIMaxOutputToken <= 0 {
 		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "自定义输出长度时必须填写 Max Output Tokens。", "Max Output Tokens is required when output length is custom."))
+		return
+	}
+	if payload.OpenAIContextWindowMode == "" {
+		payload.OpenAIContextWindowMode = model.ContextWindowModeAuto
+	}
+	if payload.OpenAIContextWindowMode != model.ContextWindowModeAuto && payload.OpenAIContextWindowMode != model.ContextWindowModeManual {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "上下文长度模式必须是 auto 或 manual。", "Context window mode must be auto or manual."))
+		return
+	}
+	if payload.OpenAIContextWindowMode == model.ContextWindowModeManual && payload.OpenAIContextWindowTokens < 4096 {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "自定义上下文长度不能小于 4096 tokens。", "Custom context window must be at least 4096 tokens."))
 		return
 	}
 	if payload.OpenAIRequestMode == "" {
@@ -842,6 +859,24 @@ func (r *Router) handleRunSummary(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleSummaryByID(w http.ResponseWriter, req *http.Request) {
 	trimmed := strings.TrimPrefix(req.URL.Path, "/api/summaries/")
 	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
+	if len(parts) == 1 && req.Method == http.MethodGet {
+		summaryID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil || summaryID <= 0 {
+			httpx.Error(w, http.StatusBadRequest, "invalid summary id")
+			return
+		}
+		item, err := r.store.Summaries.GetByID(req.Context(), summaryID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.Error(w, http.StatusNotFound, "summary not found")
+			return
+		}
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		httpx.JSON(w, http.StatusOK, item)
+		return
+	}
 	if len(parts) != 2 || parts[1] != "retry-delivery" {
 		httpx.Error(w, http.StatusNotFound, "not found")
 		return

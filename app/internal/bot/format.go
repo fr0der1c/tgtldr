@@ -121,6 +121,77 @@ func formatTelegramMessage(markdown string, language model.Language) string {
 	return truncated
 }
 
+// formatTelegramMessages 将长 Markdown 拆成多条完整消息，避免 Catch Up 正文被截断。
+func formatTelegramMessages(markdown string) []string {
+	sections := strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n\n")
+	rawParts := make([]string, 0)
+	current := ""
+	flush := func() {
+		if strings.TrimSpace(current) == "" {
+			return
+		}
+		rawParts = append(rawParts, current)
+		current = ""
+	}
+
+	for _, section := range sections {
+		section = strings.TrimSpace(section)
+		if section == "" {
+			continue
+		}
+		candidate := section
+		if current != "" {
+			candidate = current + "\n\n" + section
+		}
+		if telegramVisibleLength(formatTelegramHTML(candidate)) <= telegramMessageVisibleLimit {
+			current = candidate
+			continue
+		}
+		flush()
+		pieces := splitTelegramMarkdownSection(section)
+		if len(pieces) == 0 {
+			continue
+		}
+		rawParts = append(rawParts, pieces[:len(pieces)-1]...)
+		current = pieces[len(pieces)-1]
+	}
+	flush()
+
+	formatted := make([]string, 0, len(rawParts))
+	for _, part := range rawParts {
+		formatted = append(formatted, formatTelegramHTML(part))
+	}
+	return formatted
+}
+
+// splitTelegramMarkdownSection 在字符边界切分单个超长段落，并保证每段格式化后不超限。
+func splitTelegramMarkdownSection(section string) []string {
+	runes := []rune(strings.TrimSpace(section))
+	parts := make([]string, 0)
+	for len(runes) > 0 {
+		low, high := 1, len(runes)
+		for low < high {
+			middle := (low + high + 1) / 2
+			if telegramVisibleLength(formatTelegramHTML(string(runes[:middle]))) <= telegramMessageVisibleLimit {
+				low = middle
+				continue
+			}
+			high = middle - 1
+		}
+		cut := maxInt(1, low)
+		parts = append(parts, strings.TrimSpace(string(runes[:cut])))
+		runes = runes[cut:]
+	}
+	return parts
+}
+
+func maxInt(left, right int) int {
+	if left > right {
+		return left
+	}
+	return right
+}
+
 func telegramVisibleLength(input string) int {
 	withoutTags := htmlTagPattern.ReplaceAllString(input, "")
 	plain := html.UnescapeString(withoutTags)

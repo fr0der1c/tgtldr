@@ -1,40 +1,55 @@
 package summary
 
 import (
-	"strings"
-
+	"github.com/fr0der1c/tgtldr/app/internal/llmcontext"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 )
 
 const (
 	defaultStageOutputReserve = 1200
-	defaultChunkSafetyMargin  = 1800
-	defaultChunkContextRatio  = 0.5
-	minChunkTokenBudget       = 2400
+	minimumChunkTokenBudget   = 512
 )
 
 type summaryBudget struct {
 	ChunkTokenBudget int
+	ContextWindow    int
+	Counter          llmcontext.Counter
 	Parallelism      int
 	StageRequestMax  int
 	FinalRequestMax  int
+	StageReserve     int
+	FinalReserve     int
 }
 
 func resolveSummaryBudget(settings model.AppSettings, modelName string, stagePrompt string) summaryBudget {
-	stageRequestMax, finalRequestMax, outputReserve := resolveOutputBudget(settings)
-	chunkBudget := resolveChunkTokenBudget(modelName, stagePrompt, outputReserve)
+	stageRequestMax, finalRequestMax, stageReserve, finalReserve := resolveOutputBudget(settings)
+	configuredContext := 0
+	if settings.OpenAIContextWindowMode == model.ContextWindowModeManual {
+		configuredContext = settings.OpenAIContextWindowTokens
+	}
+	contextWindow := llmcontext.ResolveContextWindow(modelName, configuredContext)
+	counter := llmcontext.NewCounter(modelName)
+	stagePlan := llmcontext.PlanRequest(counter, contextWindow, stagePrompt, "", stageReserve)
+	chunkBudget := stagePlan.InputBudget
+	if chunkBudget < minimumChunkTokenBudget {
+		chunkBudget = minimumChunkTokenBudget
+	}
 
 	return summaryBudget{
 		ChunkTokenBudget: chunkBudget,
+		ContextWindow:    contextWindow,
+		Counter:          counter,
 		Parallelism:      resolveSummaryParallelism(settings.SummaryParallelism),
 		StageRequestMax:  stageRequestMax,
 		FinalRequestMax:  finalRequestMax,
+		StageReserve:     stageReserve,
+		FinalReserve:     finalReserve,
 	}
 }
 
-func resolveOutputBudget(settings model.AppSettings) (stageRequestMax int, finalRequestMax int, outputReserve int) {
+func resolveOutputBudget(settings model.AppSettings) (stageRequestMax int, finalRequestMax int, stageReserve int, finalReserve int) {
 	if settings.OpenAIOutputMode != model.OutputModeManual || settings.OpenAIMaxOutputToken <= 0 {
-		return 0, 0, defaultStageOutputReserve
+		return 0, 0, defaultStageOutputReserve, llmcontext.DefaultOutputReserve
 	}
 
 	finalRequestMax = settings.OpenAIMaxOutputToken
@@ -42,32 +57,7 @@ func resolveOutputBudget(settings model.AppSettings) (stageRequestMax int, final
 	if stageRequestMax <= 0 {
 		stageRequestMax = defaultStageOutputReserve
 	}
-	return stageRequestMax, finalRequestMax, stageRequestMax
-}
-
-func resolveChunkTokenBudget(modelName string, stagePrompt string, outputReserve int) int {
-	contextWindow := approximateContextWindow(modelName)
-	promptTokens := estimateTokens(stagePrompt)
-	budget := int(float64(contextWindow)*defaultChunkContextRatio) - promptTokens - outputReserve - defaultChunkSafetyMargin
-	if budget < minChunkTokenBudget {
-		return minChunkTokenBudget
-	}
-	return budget
-}
-
-func approximateContextWindow(modelName string) int {
-	modelName = strings.ToLower(strings.TrimSpace(modelName))
-
-	switch {
-	case strings.Contains(modelName, "gpt-5"):
-		return 128000
-	case strings.Contains(modelName, "gpt-4.1"):
-		return 128000
-	case strings.Contains(modelName, "gpt-4o"):
-		return 128000
-	default:
-		return 32000
-	}
+	return stageRequestMax, finalRequestMax, stageRequestMax, finalRequestMax
 }
 
 func resolveSummaryParallelism(value int) int {

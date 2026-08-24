@@ -5,6 +5,7 @@
 @import "./chat-history-header.css";
 @import "./chat-search.css";
 @import "./chat-focus.css";
+@import "./catch-up.css";
 
 :root {
   color-scheme: light;
@@ -703,7 +704,7 @@ select {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 1000;
+  z-index: 1400;
   display: grid;
   gap: 12px;
   width: min(360px, calc(100vw - 32px));
@@ -1054,6 +1055,93 @@ select {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.metric-rail.metric-rail-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-rail-compact .metric-card {
+  position: relative;
+  min-height: 104px;
+  align-content: start;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 20px;
+}
+
+.metric-rail-compact .metric-card-head span:not(.status-pill) {
+  font-size: 0.86rem;
+}
+
+.metric-rail-compact .metric-card strong {
+  font-size: clamp(1.8rem, 2.4vw, 2.25rem);
+  line-height: 0.95;
+}
+
+.metric-rail-compact .metric-card p {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 800px) {
+  .metric-rail.metric-rail-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .metric-rail.metric-rail-compact {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .metric-rail-compact .metric-card {
+    min-height: 100px;
+    gap: 7px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(255, 252, 247, 0.88);
+    box-shadow: var(--shadow);
+    text-align: left;
+  }
+
+  .metric-rail-compact .metric-card + .metric-card {
+    border: 1px solid var(--line);
+  }
+
+  .metric-rail-compact .metric-card-head {
+    display: flex;
+  }
+
+  .metric-rail-compact .metric-card-head span:not(.status-pill) {
+    font-size: 0.78rem;
+  }
+
+  .metric-rail-compact .metric-card-head .status-pill {
+    display: inline-flex;
+  }
+
+  .metric-rail-compact .metric-card strong {
+    font-size: 1.8rem;
+  }
 }
 
 .dashboard-workspace {

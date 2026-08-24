@@ -11,6 +11,8 @@ export type AppSettings = {
   openAITemperature: number;
   openAIOutputMode: "auto" | "manual";
   openAIMaxOutputTokens: number;
+  openAIContextWindowMode: "auto" | "manual";
+  openAIContextWindowTokens: number;
   openAIRequestMode: "stream" | "non_stream";
   summaryParallelism: number;
   summaryRetryLimit: number;
@@ -279,4 +281,50 @@ export type SummaryContextPreview = {
   chunks: SummaryContextChunk[] | null;
   finalInputNotice: string;
   previewNotice: string;
+};
+
+export type CatchUpChat = {
+  chatId: number;
+  chatTitle: string;
+  sourceSummaryCount: number;
+};
+
+export type CatchUpSource = {
+  summaryId: number;
+  chatId: number;
+  chatTitle: string;
+  summaryDate: string;
+};
+
+export type CatchUp = {
+  id: number;
+  fromDate: string;
+  toDate: string;
+  status: Summary["status"];
+  content: string;
+  model: string;
+  chatCount: number;
+  sourceSummaryCount: number;
+  chunkCount: number;
+  executionMode: "" | "single" | "chunked" | "fallback_chunked";
+  estimatedInputTokens: number;
+  contextWindowTokens: number;
+  fallbackReason: string;
+  deliveryRequested: boolean;
+  deliveredAt?: string;
+  deliveryError: string;
+  errorMessage: string;
+  generatedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  chats?: CatchUpChat[];
+  sources?: CatchUpSource[];
+};
+
+export type CatchUpListResponse = {
+  items: CatchUp[];
+  total: number;
+  page: number;
+  pageSize: number;
 };

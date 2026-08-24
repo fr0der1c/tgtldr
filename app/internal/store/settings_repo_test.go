@@ -36,4 +36,10 @@ func TestNormalizeAppSettingsLanguage(t *testing.T) {
 
 		So(settings.OpenAIRequestMode, ShouldEqual, model.OpenAIRequestModeNonStream)
 	})
+
+	Convey("上下文长度模式默认自动识别并保留手动配置", t, func() {
+		So(normalizeAppSettings(model.AppSettings{}).OpenAIContextWindowMode, ShouldEqual, model.ContextWindowModeAuto)
+		settings := normalizeAppSettings(model.AppSettings{OpenAIContextWindowMode: model.ContextWindowModeManual})
+		So(settings.OpenAIContextWindowMode, ShouldEqual, model.ContextWindowModeManual)
+	})
 }

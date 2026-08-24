@@ -20,11 +20,14 @@ const (
 
 type OutputMode string
 type OpenAIRequestMode string
+type ContextWindowMode string
 type Language string
 
 const (
 	OutputModeAuto                        OutputMode        = "auto"
 	OutputModeManual                      OutputMode        = "manual"
+	ContextWindowModeAuto                 ContextWindowMode = "auto"
+	ContextWindowModeManual               ContextWindowMode = "manual"
 	OpenAIRequestModeStream               OpenAIRequestMode = "stream"
 	OpenAIRequestModeNonStream            OpenAIRequestMode = "non_stream"
 	LanguageZhCN                          Language          = "zh-CN"
@@ -52,6 +55,8 @@ type AppSettings struct {
 	OpenAITemperature              float64           `json:"openAITemperature"`
 	OpenAIOutputMode               OutputMode        `json:"openAIOutputMode"`
 	OpenAIMaxOutputToken           int               `json:"openAIMaxOutputTokens"`
+	OpenAIContextWindowMode        ContextWindowMode `json:"openAIContextWindowMode"`
+	OpenAIContextWindowTokens      int               `json:"openAIContextWindowTokens"`
 	OpenAIRequestMode              OpenAIRequestMode `json:"openAIRequestMode"`
 	SummaryParallelism             int               `json:"summaryParallelism"`
 	SummaryRetryLimit              int               `json:"summaryRetryLimit"`
@@ -271,6 +276,53 @@ type SummaryContextChunk struct {
 	Index        int    `json:"index"`
 	MessageCount int    `json:"messageCount"`
 	Content      string `json:"content"`
+}
+
+type CatchUp struct {
+	ID                   int64           `json:"id"`
+	FromDate             string          `json:"fromDate"`
+	ToDate               string          `json:"toDate"`
+	Status               SummaryStatus   `json:"status"`
+	Content              string          `json:"content"`
+	Model                string          `json:"model"`
+	ChatCount            int             `json:"chatCount"`
+	SourceSummaryCount   int             `json:"sourceSummaryCount"`
+	ChunkCount           int             `json:"chunkCount"`
+	ExecutionMode        string          `json:"executionMode"`
+	EstimatedInputTokens int             `json:"estimatedInputTokens"`
+	ContextWindowTokens  int             `json:"contextWindowTokens"`
+	FallbackReason       string          `json:"fallbackReason"`
+	DeliveryRequested    bool            `json:"deliveryRequested"`
+	DeliveredAt          *time.Time      `json:"deliveredAt,omitempty"`
+	DeliveryError        string          `json:"deliveryError"`
+	ErrorMessage         string          `json:"errorMessage"`
+	GeneratedAt          *time.Time      `json:"generatedAt,omitempty"`
+	CompletedAt          *time.Time      `json:"completedAt,omitempty"`
+	CreatedAt            time.Time       `json:"createdAt"`
+	UpdatedAt            time.Time       `json:"updatedAt"`
+	Chats                []CatchUpChat   `json:"chats,omitempty"`
+	Sources              []CatchUpSource `json:"sources,omitempty"`
+}
+
+type CatchUpChat struct {
+	ChatID             int64  `json:"chatId"`
+	ChatTitle          string `json:"chatTitle"`
+	SourceSummaryCount int    `json:"sourceSummaryCount"`
+}
+
+type CatchUpSource struct {
+	SummaryID   int64  `json:"summaryId"`
+	ChatID      int64  `json:"chatId"`
+	ChatTitle   string `json:"chatTitle"`
+	SummaryDate string `json:"summaryDate"`
+	Content     string `json:"-"`
+}
+
+type CatchUpListResponse struct {
+	Items    []CatchUp `json:"items"`
+	Total    int       `json:"total"`
+	Page     int       `json:"page"`
+	PageSize int       `json:"pageSize"`
 }
 
 type HistoryBackfillStatus string

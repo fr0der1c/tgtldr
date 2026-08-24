@@ -6,6 +6,7 @@ require (
 	github.com/gotd/td v0.134.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/smartystreets/goconvey v1.8.1
+	github.com/tiktoken-go/tokenizer v0.7.0
 	golang.org/x/crypto v0.44.0
 	golang.org/x/net v0.47.0
 	golang.org/x/sync v0.18.0

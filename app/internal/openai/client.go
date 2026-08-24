@@ -64,6 +64,8 @@ type chatCompletionStreamResponse struct {
 	Model string `json:"model"`
 	Error *struct {
 		Message string `json:"message"`
+		Code    string `json:"code"`
+		Type    string `json:"type"`
 	} `json:"error,omitempty"`
 	Choices []struct {
 		Delta chatMessage `json:"delta"`
@@ -126,7 +128,7 @@ func (c *Client) chatNonStream(ctx context.Context, req ChatRequest) (ChatRespon
 		return ChatResponse{}, fmt.Errorf("read chat completion: %w", err)
 	}
 	if resp.StatusCode >= 300 {
-		return ChatResponse{}, fmt.Errorf("openai status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return ChatResponse{}, decodeAPIError(resp.StatusCode, respBody)
 	}
 
 	var decoded chatCompletionResponse
@@ -178,7 +180,7 @@ func (c *Client) chatStream(ctx context.Context, req ChatRequest) (ChatResponse,
 		if err != nil {
 			return ChatResponse{}, fmt.Errorf("read chat completion: %w", err)
 		}
-		return ChatResponse{}, fmt.Errorf("openai status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return ChatResponse{}, decodeAPIError(resp.StatusCode, respBody)
 	}
 
 	return c.readChatStream(resp.Body)
@@ -234,7 +236,12 @@ func readChatStreamLine(line string, content *strings.Builder, model *string) (b
 		if message == "" {
 			message = data
 		}
-		return false, fmt.Errorf("openai stream error: %s", message)
+		return false, &APIError{
+			Code:     decoded.Error.Code,
+			Type:     decoded.Error.Type,
+			Message:  message,
+			Response: compactErrorResponse(data),
+		}
 	}
 	if decoded.Model != "" {
 		*model = decoded.Model

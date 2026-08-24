@@ -22,6 +22,7 @@ type Store struct {
 	Entities      *TelegramEntityRepository
 	Assets        *MediaAssetRepository
 	Summaries     *SummaryRepository
+	CatchUps      *CatchUpRepository
 }
 
 func Open(ctx context.Context, cfg config.Config) (*Store, error) {
@@ -52,6 +53,7 @@ func Open(ctx context.Context, cfg config.Config) (*Store, error) {
 		Entities:      &TelegramEntityRepository{pool: pool},
 		Assets:        &MediaAssetRepository{pool: pool},
 		Summaries:     &SummaryRepository{pool: pool},
+		CatchUps:      &CatchUpRepository{pool: pool},
 	}
 	return st, nil
 }

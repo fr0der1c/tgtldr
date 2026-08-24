@@ -29,8 +29,12 @@ export function DashboardPage({
   );
 }
 
-export function MetricRail({ children }: PropsWithChildren) {
-  return <div className="metric-rail">{children}</div>;
+/** MetricRail 可按页面层级选择标准或紧凑统计布局。 */
+export function MetricRail({
+  children,
+  compact = false,
+}: PropsWithChildren<{ compact?: boolean }>) {
+  return <div className={`metric-rail${compact ? " metric-rail-compact" : ""}`}>{children}</div>;
 }
 
 export function MetricCard({
@@ -61,7 +65,7 @@ export function MetricCard({
 
   if (onClick) {
     return (
-      <button className="metric-card metric-card-action" onClick={onClick} type="button">
+      <button className="metric-card metric-card-action" onClick={onClick} title={detail} type="button">
         {content}
       </button>
     );

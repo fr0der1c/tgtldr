@@ -11,6 +11,7 @@ import (
 
 	"github.com/fr0der1c/tgtldr/app/internal/api"
 	"github.com/fr0der1c/tgtldr/app/internal/bot"
+	"github.com/fr0der1c/tgtldr/app/internal/catchup"
 	"github.com/fr0der1c/tgtldr/app/internal/clock"
 	"github.com/fr0der1c/tgtldr/app/internal/config"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
@@ -51,6 +52,10 @@ func run() error {
 	summaryService := summary.NewService(st, sysClock, cfg.OpenAITimeout)
 	telegramService := telegramsvc.NewService(ctx, st, sysClock, cfg.MediaDir)
 	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService)
+	catchUpService := catchup.NewService(ctx, st, sysClock, botService, cfg.OpenAITimeout)
+	if err := catchUpService.RecoverInterrupted(ctx); err != nil {
+		return fmt.Errorf("recover interrupted Catch Up tasks: %w", err)
+	}
 	telegramService.SetHistoryBackfillCompletionHook(func(chat model.Chat, fromDate, toDate string) {
 		_ = schedulerService.RepairEmptySummariesInRange(context.Background(), chat, fromDate, toDate)
 	})
@@ -58,6 +63,7 @@ func run() error {
 		st,
 		telegramService,
 		schedulerService,
+		catchUpService,
 		botService,
 		cfg.WebOrigin,
 		cfg.RequestTimout,

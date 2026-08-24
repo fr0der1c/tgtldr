@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/fr0der1c/tgtldr/app/internal/clock"
+	"github.com/fr0der1c/tgtldr/app/internal/llmcontext"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/fr0der1c/tgtldr/app/internal/openai"
 	"github.com/fr0der1c/tgtldr/app/internal/store"
-	"golang.org/x/sync/errgroup"
 )
 
 type Service struct {
@@ -57,13 +57,22 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 	}
 	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
 	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
-	budget := resolveSummaryBudget(settings, resolveSummaryModel(chat, settings), stagePrompt)
-	chunks := SplitMessages(filteredMessages, budget.ChunkTokenBudget)
+	modelName := resolveSummaryModel(chat, settings)
+	budget := resolveSummaryBudget(settings, modelName, stagePrompt)
+	fullTranscript := BuildTranscript(filteredMessages, messageLookup, location, settings.Language)
+	directPlan := llmcontext.PlanRequest(budget.Counter, budget.ContextWindow, finalPrompt, fullTranscript, budget.FinalReserve)
+	chunks := SplitMessagesWithCounter(filteredMessages, budget.ChunkTokenBudget, budget.Counter)
+	directMode := len(filteredMessages) > 0 && directPlan.Fits
+	if directMode {
+		chunks = []Chunk{{Index: 0, Messages: filteredMessages}}
+		stagePrompt = finalPrompt
+		finalPrompt = ""
+	}
 	preview := model.SummaryContextPreview{
 		SummaryID:        summary.ID,
 		ChatID:           summary.ChatID,
 		SummaryDate:      summary.SummaryDate,
-		Model:            resolveSummaryModel(chat, settings),
+		Model:            modelName,
 		SystemPrompt:     stagePrompt,
 		FinalPrompt:      finalPrompt,
 		MessageCount:     len(filteredMessages),
@@ -80,7 +89,7 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 			Content:      BuildTranscript(chunk.Messages, messageLookup, location, settings.Language),
 		})
 	}
-	if len(chunks) <= 1 {
+	if directMode || len(chunks) == 0 {
 		preview.FinalPrompt = ""
 		preview.FinalInputNotice = ""
 	}
@@ -125,92 +134,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		return summary, nil
 	}
 
-	client := openai.New(openai.Config{
-		BaseURL: settings.OpenAIBaseURL,
-		APIKey:  settings.OpenAIAPIKey,
-		Model:   resolveSummaryModel(chat, settings),
-		Timeout: s.openAITimeout,
-		Stream:  settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream,
-	})
-
-	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
-	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
-	budget := resolveSummaryBudget(settings, resolveSummaryModel(chat, settings), stagePrompt)
-	chunks := SplitMessages(filteredMessages, budget.ChunkTokenBudget)
-	summary.ChunkCount = len(chunks)
-
-	partials := make([]string, len(chunks))
-	group, groupCtx := errgroup.WithContext(ctx)
-	group.SetLimit(budget.Parallelism)
-
-	for index, chunk := range chunks {
-		index := index
-		chunk := chunk
-		group.Go(func() error {
-			transcript := BuildTranscript(chunk.Messages, messageLookup, location, settings.Language)
-			requestSnapshot := buildOpenAIRequestSnapshot(openAIRequestContextInput{
-				Stage:        "chunk",
-				ChunkIndex:   &index,
-				BaseURL:      settings.OpenAIBaseURL,
-				Model:        summary.Model,
-				Temperature:  settings.OpenAITemperature,
-				MaxOutput:    budget.StageRequestMax,
-				SystemPrompt: stagePrompt,
-				UserPrompt:   transcript,
-			})
-			resp, err := client.Chat(groupCtx, openai.ChatRequest{
-				SystemPrompt: stagePrompt,
-				UserPrompt:   transcript,
-				Temperature:  settings.OpenAITemperature,
-				MaxOutput:    budget.StageRequestMax,
-			})
-			if err != nil {
-				return wrapOpenAIRequestError(err, requestSnapshot)
-			}
-			partials[index] = strings.TrimSpace(resp.Content)
-			return nil
-		})
-	}
-	if err := group.Wait(); err != nil {
-		summary.Status = model.SummaryStatusFailed
-		summary.ErrorMessage = err.Error()
-		summary.ErrorContext = openAIErrorContext(err)
-		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(err)
-		summary.ErrorUserPrompt = openAIErrorUserPrompt(err)
-		summary.RetryableError = openAIErrorRetryable(err)
-		return summary, nil
-	}
-
-	finalInput := strings.Join(partials, "\n\n---\n\n")
-	finalRequestSnapshot := buildOpenAIRequestSnapshot(openAIRequestContextInput{
-		Stage:        "final",
-		BaseURL:      settings.OpenAIBaseURL,
-		Model:        summary.Model,
-		Temperature:  settings.OpenAITemperature,
-		MaxOutput:    budget.FinalRequestMax,
-		SystemPrompt: finalPrompt,
-		UserPrompt:   finalInput,
-	})
-	finalResp, err := client.Chat(ctx, openai.ChatRequest{
-		SystemPrompt: finalPrompt,
-		UserPrompt:   finalInput,
-		Temperature:  settings.OpenAITemperature,
-		MaxOutput:    budget.FinalRequestMax,
-	})
-	if err != nil {
-		wrappedErr := wrapOpenAIRequestError(err, finalRequestSnapshot)
-		summary.Status = model.SummaryStatusFailed
-		summary.ErrorMessage = wrappedErr.Error()
-		summary.ErrorContext = openAIErrorContext(wrappedErr)
-		summary.ErrorSystemPrompt = openAIErrorSystemPrompt(wrappedErr)
-		summary.ErrorUserPrompt = openAIErrorUserPrompt(wrappedErr)
-		summary.RetryableError = openAIErrorRetryable(wrappedErr)
-		return summary, nil
-	}
-
-	summary.Content = strings.TrimSpace(finalResp.Content)
-	summary.Model = finalResp.Model
-	return summary, nil
+	return s.generateDailySummary(ctx, settings, chat, location, filteredMessages, messageLookup, summary)
 }
 
 func resolveSummaryModel(chat model.Chat, settings model.AppSettings) string {
@@ -328,7 +252,7 @@ func openAIErrorUserPrompt(err error) string {
 
 func openAIErrorRetryable(err error) bool {
 	var requestErr *openAIRequestError
-	return errors.As(err, &requestErr)
+	return errors.As(err, &requestErr) && openai.IsRetryableError(requestErr.err)
 }
 
 func loadLocation(timezone string) (*time.Location, error) {

@@ -26,6 +26,9 @@ func normalizeAppSettings(settings model.AppSettings) model.AppSettings {
 	if settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream {
 		settings.OpenAIRequestMode = model.OpenAIRequestModeStream
 	}
+	if settings.OpenAIContextWindowMode != model.ContextWindowModeManual {
+		settings.OpenAIContextWindowMode = model.ContextWindowModeAuto
+	}
 	settings.Language = model.NormalizeLanguage(settings.Language)
 	return settings
 }
@@ -39,7 +42,8 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 	err := r.pool.QueryRow(ctx, `
 		select id, telegram_api_id, telegram_api_hash, openai_base_url, openai_api_key,
 		       openai_model, openai_temperature, openai_output_mode, openai_max_output_tokens,
-		       openai_request_mode, summary_parallelism, summary_retry_limit, summary_retry_backoff_base_minutes,
+		       openai_context_window_mode, openai_context_window_tokens, openai_request_mode,
+		       summary_parallelism, summary_retry_limit, summary_retry_backoff_base_minutes,
 		       summary_retry_backoff_multiplier, default_timezone, language, auto_download_attachments, bot_enabled,
 		       bot_token, bot_target_chat_id, created_at, updated_at
 		from app_settings
@@ -55,6 +59,8 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		&row.OpenAITemperature,
 		&row.OpenAIOutputMode,
 		&row.OpenAIMaxOutputToken,
+		&row.OpenAIContextWindowMode,
+		&row.OpenAIContextWindowTokens,
 		&row.OpenAIRequestMode,
 		&row.SummaryParallelism,
 		&row.SummaryRetryLimit,
@@ -112,17 +118,19 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		    openai_temperature = $6,
 		    openai_output_mode = $7,
 		    openai_max_output_tokens = $8,
-		    openai_request_mode = $9,
-		    summary_parallelism = $10,
-		    summary_retry_limit = $11,
-		    summary_retry_backoff_base_minutes = $12,
-		    summary_retry_backoff_multiplier = $13,
-		    default_timezone = $14,
-		    language = $15,
-		    auto_download_attachments = $16,
-		    bot_enabled = $17,
-		    bot_token = $18,
-		    bot_target_chat_id = $19,
+		    openai_context_window_mode = $9,
+		    openai_context_window_tokens = $10,
+		    openai_request_mode = $11,
+		    summary_parallelism = $12,
+		    summary_retry_limit = $13,
+		    summary_retry_backoff_base_minutes = $14,
+		    summary_retry_backoff_multiplier = $15,
+		    default_timezone = $16,
+		    language = $17,
+		    auto_download_attachments = $18,
+		    bot_enabled = $19,
+		    bot_token = $20,
+		    bot_target_chat_id = $21,
 		    updated_at = now()
 		where id = (select id from app_settings order by id limit 1)
 		returning id, created_at, updated_at
@@ -135,6 +143,8 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		settings.OpenAITemperature,
 		settings.OpenAIOutputMode,
 		settings.OpenAIMaxOutputToken,
+		settings.OpenAIContextWindowMode,
+		settings.OpenAIContextWindowTokens,
 		settings.OpenAIRequestMode,
 		settings.SummaryParallelism,
 		settings.SummaryRetryLimit,
@@ -159,6 +169,8 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	saved.OpenAITemperature = settings.OpenAITemperature
 	saved.OpenAIOutputMode = settings.OpenAIOutputMode
 	saved.OpenAIMaxOutputToken = settings.OpenAIMaxOutputToken
+	saved.OpenAIContextWindowMode = settings.OpenAIContextWindowMode
+	saved.OpenAIContextWindowTokens = settings.OpenAIContextWindowTokens
 	saved.OpenAIRequestMode = settings.OpenAIRequestMode
 	saved.SummaryParallelism = settings.SummaryParallelism
 	saved.SummaryRetryLimit = settings.SummaryRetryLimit

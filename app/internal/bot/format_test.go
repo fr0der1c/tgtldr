@@ -72,6 +72,18 @@ func TestFormatTelegramHTML(t *testing.T) {
 		So(output, ShouldContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageEN)))
 		So(output, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageZhCN)))
 	})
+
+	Convey("Catch Up 长正文会拆成多条且不丢弃尾部内容", t, func() {
+		body := "## 第一部分\n\n- " + repeatText("完整内容。", 1200) + "\n\n## 最后一部分\n\n- 尾部标记"
+		messages := formatTelegramMessages(body)
+
+		So(len(messages), ShouldBeGreaterThan, 1)
+		for _, message := range messages {
+			So(telegramVisibleLength(message), ShouldBeLessThanOrEqualTo, telegramMessageVisibleLimit)
+			So(message, ShouldNotContainSubstring, htmlEscape(telegramTruncationNotice(model.LanguageZhCN)))
+		}
+		So(messages[len(messages)-1], ShouldContainSubstring, "尾部标记")
+	})
 }
 
 func stringsJoin(lines ...string) string {

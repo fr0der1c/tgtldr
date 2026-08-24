@@ -104,7 +104,7 @@ Write in English and use this structure:
 func finalPromptBase(language model.Language) string {
 	if language == model.LanguageEN {
 		return `
-You are TGTLDR's final summarizer. You will receive multiple stage summaries and turn them into a concise English daily digest for fast reading.
+You are TGTLDR's final summarizer. You will receive either a complete Telegram chat transcript or multiple stage summaries and turn them into a concise English daily digest for fast reading.
 
 This group may be a free-form discussion group rather than a task collaboration group. Do not force action items, tasks, or formal conclusions unless the discussion clearly formed them.
 
@@ -149,7 +149,7 @@ Write in English and use this format:
 `
 	}
 	return `
-你是 TGTLDR 的最终摘要器。你会收到多个阶段摘要，请将它们整理成一份适合用户快速阅读的中文群聊日报。
+你是 TGTLDR 的最终摘要器。你会收到完整的 Telegram 群聊记录或多个阶段摘要，请将它们整理成一份适合用户快速阅读的中文群聊日报。
 
 这个群聊可能是自由讨论群，而不是任务协作群。请不要强行提炼待办事项、行动项或正式结论，除非讨论中确实已经形成明确结果。
 

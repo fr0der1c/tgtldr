@@ -558,6 +558,18 @@ function validateSettings(settings: typeof emptySettings) {
     return "自定义输出长度时，请填写有效的 Max Output Tokens。";
   }
   if (
+    settings.openAIContextWindowMode !== "auto" &&
+    settings.openAIContextWindowMode !== "manual"
+  ) {
+    return "请选择有效的上下文长度模式。";
+  }
+  if (
+    settings.openAIContextWindowMode === "manual" &&
+    settings.openAIContextWindowTokens < 4096
+  ) {
+    return "自定义上下文长度不能小于 4096 tokens。";
+  }
+  if (
     settings.openAIRequestMode !== "stream" &&
     settings.openAIRequestMode !== "non_stream"
   ) {

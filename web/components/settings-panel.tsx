@@ -103,6 +103,8 @@ export function SettingsPanel() {
         ...settingsData,
         language: normalizeLanguage(settingsData.language),
         openAIOutputMode: settingsData.openAIOutputMode || "auto",
+        openAIContextWindowMode:
+          settingsData.openAIContextWindowMode || "auto",
         openAIRequestMode: settingsData.openAIRequestMode || "stream",
         summaryParallelism: settingsData.summaryParallelism || 2,
         summaryRetryLimit: settingsData.summaryRetryLimit ?? 2,
@@ -589,6 +591,42 @@ export function SettingsPanel() {
                       setSettings({
                         ...settings,
                         openAIMaxOutputTokens: Number(
+                          event.target.value || "0",
+                        ),
+                      })
+                    }
+                  />
+                </Field>
+              ) : null}
+              <Field
+                label="上下文长度"
+                hint="自动模式会识别已知模型；自定义模型或转发服务可手动填写实际上下文窗口。"
+              >
+                <AppSelect
+                  onChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      openAIContextWindowMode: value as "auto" | "manual",
+                    })
+                  }
+                  options={[
+                    { value: "auto", label: "自动识别" },
+                    { value: "manual", label: "自定义" },
+                  ]}
+                  value={settings.openAIContextWindowMode}
+                />
+              </Field>
+              {settings.openAIContextWindowMode === "manual" ? (
+                <Field label="Context Window Tokens">
+                  <Input
+                    min="4096"
+                    step="1"
+                    type="number"
+                    value={settings.openAIContextWindowTokens}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        openAIContextWindowTokens: Number(
                           event.target.value || "0",
                         ),
                       })

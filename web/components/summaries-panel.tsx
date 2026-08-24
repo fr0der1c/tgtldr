@@ -20,6 +20,7 @@ import {
 	localDateInputValue,
 } from "@/components/summaries-panel-sections";
 import { SummaryDrawerPair } from "@/components/summary-drawer-pair";
+import { CatchUpExperience } from "@/components/catch-up-experience";
 import { useToast } from "@/components/toast";
 
 const summaryPageSize = 20;
@@ -36,7 +37,9 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const [chats, setChats] = useState<Chat[]>([]);
 	const [botReady, setBotReady] = useState(false);
 	const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
+	const [defaultTimezone, setDefaultTimezone] = useState("Asia/Shanghai");
 	const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
+	const [externalSummary, setExternalSummary] = useState<Summary | null>(null);
 	const [detailOpen, setDetailOpen] = useState(false);
 	const [selectedChatId, setSelectedChatId] = useState("");
 	const [manualDate, setManualDate] = useState(localDateInputValue());
@@ -84,7 +87,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	}, [deferredQuery, chatFilter, filter, deliveryFilter, dateFrom, dateTo]);
 
 	useEffect(() => {
-		if (summaries.length === 0) {
+		if (summaries.length === 0 && !externalSummary) {
 			setSelectedSummaryId(null);
 			setDetailOpen(false);
 			return;
@@ -92,11 +95,15 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 		if (!selectedSummaryId) {
 			return;
 		}
-		if (!summaries.some((item) => item.id === selectedSummaryId)) {
+		if (
+			!summaries.some((item) => item.id === selectedSummaryId) &&
+			externalSummary?.id !== selectedSummaryId
+		) {
 			setSelectedSummaryId(null);
+			setExternalSummary(null);
 			setDetailOpen(false);
 		}
-	}, [selectedSummaryId, summaries]);
+	}, [externalSummary, selectedSummaryId, summaries]);
 
 	const searchTerms = useMemo(() => {
 		return deferredQuery
@@ -125,6 +132,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					Boolean(settingsData.botTargetChatId?.trim()),
 			);
 			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 2);
+			setDefaultTimezone(settingsData.defaultTimezone || "Asia/Shanghai");
 			setSelectedChatId((current) => {
 				if (current && manualChats.some((chat) => String(chat.id) === current)) {
 					return current;
@@ -206,8 +214,9 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	}, [allChats]);
 
 	const selectedSummary = useMemo(
-		() => summaries.find((item) => item.id === selectedSummaryId) ?? null,
-		[selectedSummaryId, summaries],
+		() => summaries.find((item) => item.id === selectedSummaryId) ??
+			(externalSummary?.id === selectedSummaryId ? externalSummary : null),
+		[externalSummary, selectedSummaryId, summaries],
 	);
 	const selectedChat = useMemo(
 		() => (selectedSummary ? allChats.find((item) => item.id === selectedSummary.chatId) ?? null : null),
@@ -224,7 +233,17 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			description="在这里搜索历史摘要、筛选状态，并在需要时手动补跑。"
 			title="摘要"
 		>
-			<MetricRail>
+			<CatchUpExperience
+				botReady={botReady}
+				chats={chats}
+				onOpenSummary={(summary) => {
+					setExternalSummary(summary);
+					setSelectedSummaryId(summary.id);
+					setDetailOpen(true);
+				}}
+				timezone={defaultTimezone}
+			/>
+			<MetricRail compact>
 				<MetricCard
 					badge="累计"
 					detail="已经写入数据库的摘要任务与结果。"
@@ -283,6 +302,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					onQueryChange={setQuery}
 					onSelectedChatChange={setSelectedChatId}
 					onSelectSummary={(summaryId) => {
+						setExternalSummary(null);
 						setSelectedSummaryId(summaryId);
 						setDetailOpen(true);
 					}}

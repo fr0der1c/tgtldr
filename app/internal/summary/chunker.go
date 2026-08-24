@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fr0der1c/tgtldr/app/internal/llmcontext"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 )
 
@@ -79,6 +80,16 @@ func formatTranscriptTime(messageTime time.Time, location *time.Location) string
 }
 
 func SplitMessages(messages []model.Message, maxTokens int) []Chunk {
+	return splitMessages(messages, maxTokens, estimateTokens)
+}
+
+// SplitMessagesWithCounter 使用当前模型的 tokenizer 按消息边界切分输入。
+func SplitMessagesWithCounter(messages []model.Message, maxTokens int, counter llmcontext.Counter) []Chunk {
+	return splitMessages(messages, maxTokens, counter.Count)
+}
+
+// splitMessages 按消息边界和讨论间隔切分输入，并保持原消息顺序。
+func splitMessages(messages []model.Message, maxTokens int, countTokens func(string) int) []Chunk {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -105,7 +116,7 @@ func SplitMessages(messages []model.Message, maxTokens int) []Chunk {
 	}
 
 	for idx, message := range messages {
-		messageTokens := estimateTokens(message.SummaryText())
+		messageTokens := countTokens(message.SummaryText())
 		if messageTokens == 0 {
 			messageTokens = 10
 		}

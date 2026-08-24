@@ -1,6 +1,7 @@
 "use client";
 
 import { PropsWithChildren, ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export function Modal({
   open,
@@ -41,7 +42,7 @@ export function Modal({
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       aria-modal="true"
       className="modal-backdrop"
@@ -69,6 +70,7 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {actions ? <div className="modal-actions">{actions}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
