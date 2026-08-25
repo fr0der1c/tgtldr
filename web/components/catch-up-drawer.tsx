@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
-import { SummaryMarkdown } from "@/components/summary-markdown";
+import { SummaryMarkdown, type MarkdownSourceReference } from "@/components/summary-markdown";
 import { StatusPill } from "@/components/ui";
 import { statusText, statusTone } from "@/components/summaries-panel-sections";
 import { useToast } from "@/components/toast";
@@ -204,7 +204,32 @@ function CatchUpDetail({
   onOpenSource: (source: CatchUpSource) => void;
   onRetryDelivery: () => void;
 }) {
-  const sourcesByChat = useMemo(() => groupSources(item.sources ?? []), [item.sources]);
+  const referencedSources = useMemo(
+    () => addSourceReferences(item.sources ?? []),
+    [item.sources],
+  );
+  const sourcesByChat = useMemo(() => groupSources(referencedSources), [referencedSources]);
+  const sourceByReference = useMemo(
+    () => new Map(referencedSources.map((source) => [source.reference, source])),
+    [referencedSources],
+  );
+  const markdownSourceReferences = useMemo<ReadonlyMap<string, MarkdownSourceReference>>(
+    () => new Map(referencedSources.map((source) => [
+      source.reference,
+      {
+        label: String(source.number),
+        title: `${source.chatTitle} · ${source.summaryDate}`,
+        ariaLabel: language === "en"
+          ? `Open source ${source.number}: ${source.chatTitle} · ${source.summaryDate}`
+          : `打开来源 ${source.number}：${source.chatTitle} · ${source.summaryDate}`,
+      },
+    ])),
+    [language, referencedSources],
+  );
+  const openSourceReference = useCallback((reference: string) => {
+    const source = sourceByReference.get(reference);
+    if (source) onOpenSource(source);
+  }, [onOpenSource, sourceByReference]);
   const delivery = catchUpDeliveryState(item);
 
   return (
@@ -239,7 +264,11 @@ function CatchUpDetail({
         </div>
       ) : (
         <div className="summary-detail-content">
-          <SummaryMarkdown content={item.content} />
+          <SummaryMarkdown
+            content={item.content}
+            onSourceReferenceClick={openSourceReference}
+            sourceReferences={markdownSourceReferences}
+          />
         </div>
       )}
 
@@ -255,7 +284,7 @@ function CatchUpDetail({
               <div className="catch-up-source-links">
                 {sources.map((source) => (
                   <button key={source.summaryId} onClick={() => onOpenSource(source)} type="button">
-                    {source.reference} · {source.summaryDate}
+                    {source.number} · {source.summaryDate}
                   </button>
                 ))}
               </div>
@@ -267,14 +296,23 @@ function CatchUpDetail({
   );
 }
 
-type ReferencedSource = CatchUpSource & { reference: string };
+type ReferencedSource = CatchUpSource & { reference: string; number: number };
+
+/** addSourceReferences 按模型输入顺序补充内部标识和界面数字编号。 */
+function addSourceReferences(sources: CatchUpSource[]) {
+  return sources.map((source, index) => ({
+    ...source,
+    number: index + 1,
+    reference: `S${String(index + 1).padStart(3, "0")}`,
+  }));
+}
 
 /** groupSources 保留全局来源编号，同时按群组组织可展开列表。 */
-function groupSources(sources: CatchUpSource[]) {
+function groupSources(sources: ReferencedSource[]) {
   const grouped = new Map<string, ReferencedSource[]>();
-  for (const [index, source] of sources.entries()) {
+  for (const source of sources) {
     const current = grouped.get(source.chatTitle) ?? [];
-    current.push({ ...source, reference: `S${String(index + 1).padStart(3, "0")}` });
+    current.push(source);
     grouped.set(source.chatTitle, current);
   }
   return Array.from(grouped.entries());
