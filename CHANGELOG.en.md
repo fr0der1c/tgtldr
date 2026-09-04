@@ -13,6 +13,8 @@
 
 - Per-chat Telegram settings now determine participation in delivery, while system settings choose between separate chat messages and one combined Daily Digest. Mode changes apply starting with messages from the day they are saved.
 - Daily Digest and Catch Up now share the same context budgeting, adaptive chunking, and multi-level merge implementation for multi-source summaries.
+- The Summaries page now shows an enable action when Daily Digest is inactive and uses a confirmation dialog to explain participation, the effective date, and whether Telegram Bot will also be enabled.
+- The README now contains the complete Chinese and English documentation in one file instead of maintaining a separate English README.
 
 ## 2026-08-23
 

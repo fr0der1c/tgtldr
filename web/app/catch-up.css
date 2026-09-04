@@ -67,12 +67,49 @@
 .daily-digest-cta-status {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding-top: 5px;
 }
 
 .daily-digest-cta-status small {
   color: var(--muted);
+}
+
+.daily-digest-history-link {
+  padding: 0;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.daily-digest-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.daily-digest-enable-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.daily-digest-enable-copy p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.daily-digest-enable-note {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid rgba(185, 137, 59, 0.24);
+  border-radius: 14px;
+  background: var(--accent-soft);
+}
+
+.daily-digest-enable-note span {
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .catch-up-wizard,

@@ -3,6 +3,7 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import {
+	AppSettings,
 	Chat,
 	BotSummaryDeliveryMode,
 	Summary,
@@ -38,6 +39,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const [allChats, setAllChats] = useState<Chat[]>([]);
 	const [chats, setChats] = useState<Chat[]>([]);
 	const [botReady, setBotReady] = useState(false);
+	const [botConfigured, setBotConfigured] = useState<boolean | null>(null);
 	const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
 	const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
 	const [defaultTimezone, setDefaultTimezone] = useState("Asia/Shanghai");
@@ -129,14 +131,9 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			const manualChats = chatData.filter((chat) => chat.summaryEnabled);
 			setAllChats(chatData);
 			setChats(manualChats);
-			setBotReady(
-				settingsData.botEnabled &&
-					Boolean(settingsData.botToken?.trim()) &&
-					Boolean(settingsData.botTargetChatId?.trim()),
-			);
+			applyBotDeliverySettings(settingsData);
 			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 2);
 			setDefaultTimezone(settingsData.defaultTimezone || "Asia/Shanghai");
-			setBotSummaryDeliveryMode(settingsData.botSummaryDeliveryMode || "per_chat");
 			setSelectedChatId((current) => {
 				if (current && manualChats.some((chat) => String(chat.id) === current)) {
 					return current;
@@ -146,6 +143,14 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 		} catch (err) {
 			toast.showError(asMessage(err));
 		}
+	}
+
+	/** 同步每日总览入口依赖的 Bot 配置和推送形式。 */
+	function applyBotDeliverySettings(settings: AppSettings) {
+		const configured = Boolean(settings.botToken?.trim()) && Boolean(settings.botTargetChatId?.trim());
+		setBotConfigured(configured);
+		setBotReady(settings.botEnabled && configured);
+		setBotSummaryDeliveryMode(settings.botSummaryDeliveryMode || "per_chat");
 	}
 
 	async function loadStats() {
@@ -239,8 +244,10 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 		>
 			<div className="summary-rollup-grid">
 				<DailyDigestExperience
+					botConfigured={botConfigured}
 					botReady={botReady}
 					deliveryMode={botSummaryDeliveryMode}
+					onEnabled={applyBotDeliverySettings}
 					onOpenSummary={(summary) => {
 						setExternalSummary(summary);
 						setSelectedSummaryId(summary.id);
