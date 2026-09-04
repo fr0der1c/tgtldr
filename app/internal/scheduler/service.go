@@ -10,6 +10,7 @@ import (
 
 	"github.com/fr0der1c/tgtldr/app/internal/bot"
 	"github.com/fr0der1c/tgtldr/app/internal/clock"
+	"github.com/fr0der1c/tgtldr/app/internal/dailydigest"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/fr0der1c/tgtldr/app/internal/store"
 	"github.com/fr0der1c/tgtldr/app/internal/summary"
@@ -18,12 +19,13 @@ import (
 )
 
 type Service struct {
-	store      *store.Store
-	clock      clock.Clock
-	summaries  *summary.Service
-	botService *bot.Service
-	mu         sync.Mutex
-	inflight   map[string]struct{}
+	store        *store.Store
+	clock        clock.Clock
+	summaries    *summary.Service
+	botService   *bot.Service
+	dailyDigests *dailydigest.Service
+	mu           sync.Mutex
+	inflight     map[string]struct{}
 }
 
 type scheduledAction int
@@ -35,13 +37,20 @@ const (
 	scheduledActionDeliver
 )
 
-func NewService(st *store.Store, c clock.Clock, summaries *summary.Service, botService *bot.Service) *Service {
+func NewService(
+	st *store.Store,
+	c clock.Clock,
+	summaries *summary.Service,
+	botService *bot.Service,
+	dailyDigests *dailydigest.Service,
+) *Service {
 	return &Service{
-		store:      st,
-		clock:      c,
-		summaries:  summaries,
-		botService: botService,
-		inflight:   make(map[string]struct{}),
+		store:        st,
+		clock:        c,
+		summaries:    summaries,
+		botService:   botService,
+		dailyDigests: dailyDigests,
+		inflight:     make(map[string]struct{}),
 	}
 }
 
@@ -97,7 +106,12 @@ func (s *Service) RunNowAsync(ctx context.Context, chat model.Chat, date string)
 		return false, nil
 	}
 
-	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date); err != nil {
+	deliveryMode, err := s.deliveryModeForDate(ctx, date)
+	if err != nil {
+		s.finishTask(key)
+		return false, err
+	}
+	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date, deliveryMode); err != nil {
 		s.finishTask(key)
 		return false, err
 	}
@@ -132,6 +146,13 @@ func (s *Service) RetryDelivery(ctx context.Context, summaryID int64) error {
 	if chat.DeliveryMode != model.DeliveryModeBot {
 		return fmt.Errorf("当前群组设置为不发送")
 	}
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return err
+	}
+	if item.DailyDigestID > 0 || item.BotSummaryDeliveryMode == model.BotSummaryDeliveryModeDailyDigest {
+		return fmt.Errorf("每日总览模式下不能单独发送群组摘要")
+	}
 
 	key := summaryTaskKey(chat.ID, item.SummaryDate)
 	if !s.beginTask(key) {
@@ -139,7 +160,7 @@ func (s *Service) RetryDelivery(ctx context.Context, summaryID int64) error {
 	}
 	defer s.finishTask(key)
 
-	if err := s.deliverSummary(ctx, chat, item); err != nil {
+	if err := s.deliverSummary(ctx, settings, chat, item); err != nil {
 		_ = s.store.Summaries.MarkDeliveryFailed(ctx, item.ChatID, item.SummaryDate, err.Error())
 		return err
 	}
@@ -181,7 +202,11 @@ func (s *Service) RepairEmptySummariesInRange(ctx context.Context, chat model.Ch
 }
 
 func (s *Service) runNow(ctx context.Context, chat model.Chat, date string) error {
-	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date); err != nil {
+	deliveryMode, err := s.deliveryModeForDate(ctx, date)
+	if err != nil {
+		return err
+	}
+	if err := s.store.Summaries.UpsertPending(ctx, chat.ID, date, deliveryMode); err != nil {
 		return err
 	}
 	if err := s.store.Summaries.SetRunning(ctx, chat.ID, date); err != nil {
@@ -204,8 +229,21 @@ func (s *Service) executeSummary(ctx context.Context, chat model.Chat, date stri
 		}
 		return nil
 	}
-	s.tryDeliverSummary(ctx, chat, result)
+	storedResult, err := s.store.Summaries.GetByChatAndDate(ctx, result.ChatID, result.SummaryDate)
+	if err != nil {
+		return err
+	}
+	s.tryDeliverSummary(ctx, chat, storedResult)
 	return nil
+}
+
+// deliveryModeForDate 解析新建摘要应固化的日期级 Bot 包装方式。
+func (s *Service) deliveryModeForDate(ctx context.Context, date string) (model.BotSummaryDeliveryMode, error) {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return "", err
+	}
+	return model.ResolveBotSummaryDeliveryMode(settings, date), nil
 }
 
 func (s *Service) runOnce(ctx context.Context) error {
@@ -219,21 +257,26 @@ func (s *Service) runOnce(ctx context.Context) error {
 		return err
 	}
 
+	now := s.clock.Now()
+	timezone := settings.DefaultTimezone
+	date := targetDate(now, timezone)
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, chat := range chats {
 		chat := chat
-		timezone := settings.DefaultTimezone
-		if !isDue(s.clock.Now(), chat, timezone) {
+		if !isDue(now, chat, timezone) {
 			continue
 		}
 		group.Go(func() error {
-			date := targetDate(s.clock.Now(), timezone)
+			deliveryMode := model.ResolveBotSummaryDeliveryMode(settings, date)
+			if err := s.store.Summaries.SetBotSummaryDeliveryMode(groupCtx, chat.ID, date, deliveryMode); err != nil {
+				return err
+			}
 			item, found, err := s.lookupSummary(groupCtx, chat.ID, date)
 			if err != nil {
 				return err
 			}
 
-			switch decideScheduledAction(chat, item, found, timezone, settings, s.clock.Now()) {
+			switch decideScheduledAction(chat, item, found, timezone, settings, now) {
 			case scheduledActionSkip:
 				return nil
 			case scheduledActionRetry:
@@ -246,7 +289,10 @@ func (s *Service) runOnce(ctx context.Context) error {
 			}
 		})
 	}
-	return group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
+	return s.dailyDigests.RunIfReady(ctx, settings, chats, date)
 }
 
 func (s *Service) scheduleNextRetry(ctx context.Context, result model.Summary) error {
@@ -278,19 +324,23 @@ func (s *Service) tryDeliverSummary(ctx context.Context, chat model.Chat, result
 	if chat.DeliveryMode != model.DeliveryModeBot {
 		return
 	}
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		_ = s.store.Summaries.MarkDeliveryFailed(ctx, result.ChatID, result.SummaryDate, err.Error())
+		return
+	}
+	if result.BotSummaryDeliveryMode == model.BotSummaryDeliveryModeDailyDigest {
+		return
+	}
 
-	if err := s.deliverSummary(ctx, chat, result); err != nil {
+	if err := s.deliverSummary(ctx, settings, chat, result); err != nil {
 		_ = s.store.Summaries.MarkDeliveryFailed(ctx, result.ChatID, result.SummaryDate, err.Error())
 		return
 	}
 	_ = s.store.Summaries.MarkDelivered(ctx, result.ChatID, result.SummaryDate, s.clock.Now())
 }
 
-func (s *Service) deliverSummary(ctx context.Context, chat model.Chat, result model.Summary) error {
-	settings, err := s.store.Settings.Get(ctx)
-	if err != nil {
-		return err
-	}
+func (s *Service) deliverSummary(ctx context.Context, settings model.AppSettings, chat model.Chat, result model.Summary) error {
 	if !settings.BotEnabled {
 		return fmt.Errorf("bot delivery is disabled")
 	}
@@ -341,6 +391,13 @@ func decideScheduledAction(
 	}
 	if item.Status != model.SummaryStatusSucceeded {
 		return scheduledActionGenerate
+	}
+	if chat.DeliveryMode == model.DeliveryModeBot &&
+		item.BotSummaryDeliveryMode == model.BotSummaryDeliveryModeDailyDigest {
+		if !summaryReadyForDelivery(item, timezone) {
+			return scheduledActionGenerate
+		}
+		return scheduledActionSkip
 	}
 	if chat.DeliveryMode != model.DeliveryModeBot {
 		return scheduledActionSkip

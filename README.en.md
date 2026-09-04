@@ -14,6 +14,8 @@ This project exists because many Telegram groups are large, noisy communities th
 - Configure daily summary time, prompts, filters, and summary model per group
 - Generate group summaries through an OpenAI-compatible API
 - Read summaries in the web app, with optional Telegram Bot delivery
+- Combine participating chats into one Daily Digest while preserving source summaries, omitted chats, and chats without messages
+- Manually create a Catch Up for selected chats and a date range
 - Manually trigger summaries, view historical summaries, and retry failed Bot deliveries
 - Complete first-time Telegram, OpenAI, and group setup through the web wizard
 

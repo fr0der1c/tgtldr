@@ -11,6 +11,7 @@ import (
 
 	"github.com/fr0der1c/tgtldr/app/internal/bot"
 	"github.com/fr0der1c/tgtldr/app/internal/catchup"
+	"github.com/fr0der1c/tgtldr/app/internal/dailydigest"
 	"github.com/fr0der1c/tgtldr/app/internal/httpx"
 	"github.com/fr0der1c/tgtldr/app/internal/localauth"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
@@ -21,15 +22,16 @@ import (
 )
 
 type Router struct {
-	store     *store.Store
-	bot       *bot.Service
-	telegram  *telegramsvc.Service
-	scheduler *scheduler.Service
-	catchups  *catchup.Service
-	auth      *localauth.Service
-	origin    string
-	timeout   time.Duration
-	mediaDir  string
+	store        *store.Store
+	bot          *bot.Service
+	telegram     *telegramsvc.Service
+	scheduler    *scheduler.Service
+	catchups     *catchup.Service
+	dailyDigests *dailydigest.Service
+	auth         *localauth.Service
+	origin       string
+	timeout      time.Duration
+	mediaDir     string
 }
 
 const chatMessageActivityDays = 30
@@ -39,21 +41,23 @@ func New(
 	telegram *telegramsvc.Service,
 	scheduler *scheduler.Service,
 	catchups *catchup.Service,
+	dailyDigests *dailydigest.Service,
 	botService *bot.Service,
 	origin string,
 	timeout time.Duration,
 	mediaDir string,
 ) *Router {
 	return &Router{
-		store:     store,
-		bot:       botService,
-		telegram:  telegram,
-		scheduler: scheduler,
-		catchups:  catchups,
-		auth:      localauth.NewService(store),
-		origin:    origin,
-		timeout:   timeout,
-		mediaDir:  mediaDir,
+		store:        store,
+		bot:          botService,
+		telegram:     telegram,
+		scheduler:    scheduler,
+		catchups:     catchups,
+		dailyDigests: dailyDigests,
+		auth:         localauth.NewService(store),
+		origin:       origin,
+		timeout:      timeout,
+		mediaDir:     mediaDir,
 	}
 }
 
@@ -93,6 +97,8 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
 	mux.HandleFunc("/api/catch-ups", r.handleCatchUps)
 	mux.HandleFunc("/api/catch-ups/", r.handleCatchUpByID)
+	mux.HandleFunc("/api/daily-digests", r.handleDailyDigests)
+	mux.HandleFunc("/api/daily-digests/", r.handleDailyDigestByID)
 
 	return r.withMiddleware(mux)
 }
@@ -144,6 +150,27 @@ func preservedSecret(incoming string, current string) string {
 		return current
 	}
 	return incoming
+}
+
+// applyBotSummaryDeliveryModeTransition 让前一天沿用原包装方式，并从当天消息开始生效。
+func applyBotSummaryDeliveryModeTransition(next model.AppSettings, current model.AppSettings, now time.Time) model.AppSettings {
+	next.BotSummaryDeliveryMode = model.NormalizeBotSummaryDeliveryMode(next.BotSummaryDeliveryMode)
+	currentMode := model.NormalizeBotSummaryDeliveryMode(current.BotSummaryDeliveryMode)
+	if next.BotSummaryDeliveryMode == currentMode {
+		next.PreviousBotSummaryDeliveryMode = current.PreviousBotSummaryDeliveryMode
+		next.BotSummaryDeliveryModeEffectiveDate = current.BotSummaryDeliveryModeEffectiveDate
+		return next
+	}
+
+	location, err := time.LoadLocation(next.DefaultTimezone)
+	if err != nil {
+		location = time.Local
+	}
+	effectiveDate := now.In(location).Format("2006-01-02")
+	yesterday := now.In(location).AddDate(0, 0, -1).Format("2006-01-02")
+	next.PreviousBotSummaryDeliveryMode = model.ResolveBotSummaryDeliveryMode(current, yesterday)
+	next.BotSummaryDeliveryModeEffectiveDate = effectiveDate
+	return next
 }
 
 func redactSecret(secret string) string {
@@ -303,6 +330,18 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 	if strings.TrimSpace(payload.DefaultTimezone) == "" {
 		payload.DefaultTimezone = "Asia/Shanghai"
 	}
+	if _, err := time.LoadLocation(payload.DefaultTimezone); err != nil {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请选择有效的系统时区。", "Choose a valid system timezone."))
+		return
+	}
+	if payload.BotSummaryDeliveryMode == "" {
+		payload.BotSummaryDeliveryMode = current.BotSummaryDeliveryMode
+	}
+	if payload.BotSummaryDeliveryMode != model.BotSummaryDeliveryModePerChat &&
+		payload.BotSummaryDeliveryMode != model.BotSummaryDeliveryModeDailyDigest {
+		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "摘要推送形式必须是 per_chat 或 daily_digest。", "Summary delivery mode must be per_chat or daily_digest."))
+		return
+	}
 	if payload.Language == "" {
 		payload.Language = model.LanguageZhCN
 	}
@@ -362,6 +401,7 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "启用 Bot 推送时必须填写 Bot Token。", "Bot Token is required when Bot delivery is enabled."))
 		return
 	}
+	payload = applyBotSummaryDeliveryModeTransition(payload, current, time.Now())
 
 	saved, err := r.store.Settings.Save(req.Context(), payload)
 	if err != nil {

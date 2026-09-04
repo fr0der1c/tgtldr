@@ -114,6 +114,8 @@ export function SettingsPanel() {
           settingsData.summaryRetryBackoffMultiplier || 3,
         autoDownloadAttachments:
           settingsData.autoDownloadAttachments ?? true,
+        botSummaryDeliveryMode:
+          settingsData.botSummaryDeliveryMode || "per_chat",
         botToken: "",
         openAIApiKey: "",
         telegramApiHash: "",
@@ -902,7 +904,7 @@ export function SettingsPanel() {
             description="如果你只在网页端看摘要，这一块可以保持关闭。"
           >
             <div className="form-stack">
-              <Field label="投递方式">
+              <Field label="Bot 推送">
                 <AppSelect
                   onChange={(value) =>
                     setSettings({ ...settings, botEnabled: value === "yes" })
@@ -912,6 +914,27 @@ export function SettingsPanel() {
                     { value: "yes", label: "通过 Telegram Bot 推送" },
                   ]}
                   value={settings.botEnabled ? "yes" : "no"}
+                />
+              </Field>
+              <Field
+                label="摘要推送形式"
+                hint={settings.botSummaryDeliveryMode === "daily_digest"
+                  ? "参与 Bot 推送的群组会在全部完成后合并成一篇每日总览，不再单独发送。修改从保存当天的消息开始生效。"
+                  : "参与 Bot 推送的群组会在各自摘要完成后分别发送。修改从保存当天的消息开始生效。"}
+              >
+                <AppSelect
+                  disabled={!settings.botEnabled}
+                  onChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      botSummaryDeliveryMode: value as AppSettings["botSummaryDeliveryMode"],
+                    })
+                  }
+                  options={[
+                    { value: "per_chat", label: "按群分别发送" },
+                    { value: "daily_digest", label: "每日总览（合并发送）" },
+                  ]}
+                  value={settings.botSummaryDeliveryMode}
                 />
               </Field>
               <Field

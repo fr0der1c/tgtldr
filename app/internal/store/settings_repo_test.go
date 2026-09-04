@@ -42,4 +42,12 @@ func TestNormalizeAppSettingsLanguage(t *testing.T) {
 		settings := normalizeAppSettings(model.AppSettings{OpenAIContextWindowMode: model.ContextWindowModeManual})
 		So(settings.OpenAIContextWindowMode, ShouldEqual, model.ContextWindowModeManual)
 	})
+
+	Convey("Bot 摘要包装方式默认逐群推送", t, func() {
+		settings := normalizeAppSettings(model.AppSettings{})
+
+		So(settings.BotSummaryDeliveryMode, ShouldEqual, model.BotSummaryDeliveryModePerChat)
+		So(settings.PreviousBotSummaryDeliveryMode, ShouldEqual, model.BotSummaryDeliveryModePerChat)
+		So(settings.BotSummaryDeliveryModeEffectiveDate, ShouldEqual, "1970-01-01")
+	})
 }

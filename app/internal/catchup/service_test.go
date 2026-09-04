@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fr0der1c/tgtldr/app/internal/llmcontext"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -32,30 +31,16 @@ func TestValidateDateRange(t *testing.T) {
 	})
 }
 
-func TestBuildSourceUnits(t *testing.T) {
+func TestBuildRollupSources(t *testing.T) {
 	Convey("来源编号应按输入顺序稳定写入", t, func() {
-		units := buildSourceUnits([]model.CatchUpSource{
+		units := buildRollupSources([]model.CatchUpSource{
 			{ChatTitle: "群 A", SummaryDate: "2026-08-20", Content: "摘要 A"},
 			{ChatTitle: "群 B", SummaryDate: "2026-08-21", Content: "摘要 B"},
 		}, model.LanguageZhCN)
 
 		So(units, ShouldHaveLength, 2)
-		So(units[0], ShouldContainSubstring, "[S001]")
-		So(units[1], ShouldContainSubstring, "[S002]")
-	})
-
-	Convey("超大来源拆分后每个批次仍保留来源编号", t, func() {
-		counter := llmcontext.NewCounter("custom-model")
-		units := buildSourceUnits([]model.CatchUpSource{
-			{ChatTitle: "群 A", SummaryDate: "2026-08-20", Content: strings.Repeat("内容", 900)},
-		}, model.LanguageZhCN)
-		batches := packSourceUnits(units, 500, counter)
-
-		So(len(batches), ShouldBeGreaterThan, 1)
-		for _, batch := range batches {
-			So(batch, ShouldContainSubstring, "[S001]")
-			So(counter.Count(batch), ShouldBeLessThanOrEqualTo, 500)
-		}
+		So(units[0].Header, ShouldContainSubstring, "[S001]")
+		So(units[1].Header, ShouldContainSubstring, "[S002]")
 	})
 }
 

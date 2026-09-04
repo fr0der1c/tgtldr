@@ -5,6 +5,8 @@ import {
   BotTargetChatResolveResult,
   CatchUp,
   CatchUpListResponse,
+  DailyDigest,
+  DailyDigestListResponse,
   Chat,
   ChatMessageListResponse,
   ChatMessageSearchResponse,
@@ -298,6 +300,20 @@ export const api = {
     request<CatchUp>(`/api/catch-ups/${catchUpId}`),
   retryCatchUpDelivery: (catchUpId: number) =>
     request(`/api/catch-ups/${catchUpId}/retry-delivery`, {
+      method: "POST",
+    }),
+  listDailyDigests: (page = 1, pageSize = 20) =>
+    request<DailyDigestListResponse>(
+      `/api/daily-digests${buildQuery({ page, pageSize })}`,
+    ),
+  getDailyDigest: (dailyDigestId: number) =>
+    request<DailyDigest>(`/api/daily-digests/${dailyDigestId}`),
+  rerunDailyDigest: (dailyDigestId: number) =>
+    request(`/api/daily-digests/${dailyDigestId}/rerun`, {
+      method: "POST",
+    }),
+  retryDailyDigestDelivery: (dailyDigestId: number) =>
+    request(`/api/daily-digests/${dailyDigestId}/retry-delivery`, {
       method: "POST",
     }),
 };

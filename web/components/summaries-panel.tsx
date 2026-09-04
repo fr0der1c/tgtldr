@@ -4,6 +4,7 @@ import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState
 import { api } from "@/lib/api";
 import {
 	Chat,
+	BotSummaryDeliveryMode,
 	Summary,
 	SummarySearchFilters,
 	SummaryStats,
@@ -21,6 +22,7 @@ import {
 } from "@/components/summaries-panel-sections";
 import { SummaryDrawerPair } from "@/components/summary-drawer-pair";
 import { CatchUpExperience } from "@/components/catch-up-experience";
+import { DailyDigestExperience } from "@/components/daily-digest-experience";
 import { useToast } from "@/components/toast";
 
 const summaryPageSize = 20;
@@ -36,6 +38,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const [allChats, setAllChats] = useState<Chat[]>([]);
 	const [chats, setChats] = useState<Chat[]>([]);
 	const [botReady, setBotReady] = useState(false);
+	const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
 	const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
 	const [defaultTimezone, setDefaultTimezone] = useState("Asia/Shanghai");
 	const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
@@ -133,6 +136,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			);
 			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 2);
 			setDefaultTimezone(settingsData.defaultTimezone || "Asia/Shanghai");
+			setBotSummaryDeliveryMode(settingsData.botSummaryDeliveryMode || "per_chat");
 			setSelectedChatId((current) => {
 				if (current && manualChats.some((chat) => String(chat.id) === current)) {
 					return current;
@@ -233,16 +237,27 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			description="在这里搜索历史摘要、筛选状态，并在需要时手动补跑。"
 			title="摘要"
 		>
-			<CatchUpExperience
-				botReady={botReady}
-				chats={chats}
-				onOpenSummary={(summary) => {
-					setExternalSummary(summary);
-					setSelectedSummaryId(summary.id);
-					setDetailOpen(true);
-				}}
-				timezone={defaultTimezone}
-			/>
+			<div className="summary-rollup-grid">
+				<DailyDigestExperience
+					botReady={botReady}
+					deliveryMode={botSummaryDeliveryMode}
+					onOpenSummary={(summary) => {
+						setExternalSummary(summary);
+						setSelectedSummaryId(summary.id);
+						setDetailOpen(true);
+					}}
+				/>
+				<CatchUpExperience
+					botReady={botReady}
+					chats={chats}
+					onOpenSummary={(summary) => {
+						setExternalSummary(summary);
+						setSelectedSummaryId(summary.id);
+						setDetailOpen(true);
+					}}
+					timezone={defaultTimezone}
+				/>
+			</div>
 			<MetricRail compact>
 				<MetricCard
 					badge="累计"

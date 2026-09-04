@@ -87,11 +87,11 @@ func buildDeliveryClause(delivery string) string {
 	case "", "all":
 		return ""
 	case "sent":
-		return "s.delivered_at is not null"
+		return "(s.delivered_at is not null or dd.delivered_at is not null)"
 	case "pending":
-		return "c.delivery_mode = 'bot' and s.delivered_at is null and s.delivery_error = ''"
+		return "c.delivery_mode = 'bot' and s.delivered_at is null and dd.delivered_at is null and s.delivery_error = '' and coalesce(dd.delivery_error, '') = '' and coalesce(dd.delivery_skipped_reason, '') = '' and coalesce(dd.status, '') <> 'failed'"
 	case "failed":
-		return "c.delivery_mode = 'bot' and s.delivered_at is null and s.delivery_error <> ''"
+		return "c.delivery_mode = 'bot' and s.delivered_at is null and dd.delivered_at is null and (s.delivery_error <> '' or coalesce(dd.delivery_error, '') <> '' or dd.status = 'failed')"
 	case "disabled":
 		return "c.delivery_mode <> 'bot'"
 	default:

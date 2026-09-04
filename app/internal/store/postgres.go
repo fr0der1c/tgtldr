@@ -23,6 +23,7 @@ type Store struct {
 	Assets        *MediaAssetRepository
 	Summaries     *SummaryRepository
 	CatchUps      *CatchUpRepository
+	DailyDigests  *DailyDigestRepository
 }
 
 func Open(ctx context.Context, cfg config.Config) (*Store, error) {
@@ -54,6 +55,7 @@ func Open(ctx context.Context, cfg config.Config) (*Store, error) {
 		Assets:        &MediaAssetRepository{pool: pool},
 		Summaries:     &SummaryRepository{pool: pool},
 		CatchUps:      &CatchUpRepository{pool: pool},
+		DailyDigests:  &DailyDigestRepository{pool: pool},
 	}
 	return st, nil
 }

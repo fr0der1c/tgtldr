@@ -2,6 +2,18 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-04
+
+### Added
+
+- Added Daily Digest delivery. After every chat participating in Bot delivery finishes its daily summary, TGTLDR combines them into one cross-chat digest and sends it to Telegram.
+- Added Daily Digest history and details to the Summaries page, including source summaries, omitted or inactive chats, manual regeneration, and delivery retries.
+
+### Changed
+
+- Per-chat Telegram settings now determine participation in delivery, while system settings choose between separate chat messages and one combined Daily Digest. Mode changes apply starting with messages from the day they are saved.
+- Daily Digest and Catch Up now share the same context budgeting, adaptive chunking, and multi-level merge implementation for multi-source summaries.
+
 ## 2026-08-23
 
 ### Added

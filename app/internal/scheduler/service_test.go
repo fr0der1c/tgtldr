@@ -142,16 +142,37 @@ func TestDecideScheduledAction(t *testing.T) {
 			summary:  model.Summary{Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: readyAt},
 			expected: scheduledActionSkip,
 		},
+		{
+			name:  "每日总览模式下完整单群摘要不单独发送",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: readyAt,
+				BotSummaryDeliveryMode: model.BotSummaryDeliveryModeDailyDigest,
+			},
+			expected: scheduledActionSkip,
+		},
+		{
+			name:  "每日总览模式下预览摘要仍会正式重跑",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: previewAt,
+				BotSummaryDeliveryMode: model.BotSummaryDeliveryModeDailyDigest,
+			},
+			expected: scheduledActionGenerate,
+		},
 	}
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
+			settings := model.AppSettings{SummaryRetryLimit: 2}
 			actual := decideScheduledAction(
 				testCase.chat,
 				testCase.summary,
 				testCase.found,
 				"Asia/Shanghai",
-				model.AppSettings{SummaryRetryLimit: 2},
+				settings,
 				time.Date(2026, time.April, 18, 9, 0, 0, 0, shanghai),
 			)
 			if actual != testCase.expected {

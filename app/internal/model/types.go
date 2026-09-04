@@ -22,20 +22,23 @@ type OutputMode string
 type OpenAIRequestMode string
 type ContextWindowMode string
 type Language string
+type BotSummaryDeliveryMode string
 
 const (
-	OutputModeAuto                        OutputMode        = "auto"
-	OutputModeManual                      OutputMode        = "manual"
-	ContextWindowModeAuto                 ContextWindowMode = "auto"
-	ContextWindowModeManual               ContextWindowMode = "manual"
-	OpenAIRequestModeStream               OpenAIRequestMode = "stream"
-	OpenAIRequestModeNonStream            OpenAIRequestMode = "non_stream"
-	LanguageZhCN                          Language          = "zh-CN"
-	LanguageEN                            Language          = "en"
-	DefaultOpenAIBaseURL                                    = "https://api.openai.com/v1"
-	DefaultSummaryRetryLimit                                = 2
-	DefaultSummaryRetryBackoffBaseMinutes                   = 1
-	DefaultSummaryRetryBackoffMultiplier                    = 3
+	OutputModeAuto                        OutputMode             = "auto"
+	OutputModeManual                      OutputMode             = "manual"
+	ContextWindowModeAuto                 ContextWindowMode      = "auto"
+	ContextWindowModeManual               ContextWindowMode      = "manual"
+	OpenAIRequestModeStream               OpenAIRequestMode      = "stream"
+	OpenAIRequestModeNonStream            OpenAIRequestMode      = "non_stream"
+	LanguageZhCN                          Language               = "zh-CN"
+	LanguageEN                            Language               = "en"
+	BotSummaryDeliveryModePerChat         BotSummaryDeliveryMode = "per_chat"
+	BotSummaryDeliveryModeDailyDigest     BotSummaryDeliveryMode = "daily_digest"
+	DefaultOpenAIBaseURL                                         = "https://api.openai.com/v1"
+	DefaultSummaryRetryLimit                                     = 2
+	DefaultSummaryRetryBackoffBaseMinutes                        = 1
+	DefaultSummaryRetryBackoffMultiplier                         = 3
 )
 
 func NormalizeLanguage(language Language) Language {
@@ -45,31 +48,53 @@ func NormalizeLanguage(language Language) Language {
 	return LanguageZhCN
 }
 
+// NormalizeBotSummaryDeliveryMode 将空值和未知值收敛为逐群推送默认值。
+func NormalizeBotSummaryDeliveryMode(deliveryMode BotSummaryDeliveryMode) BotSummaryDeliveryMode {
+	if deliveryMode == BotSummaryDeliveryModeDailyDigest {
+		return BotSummaryDeliveryModeDailyDigest
+	}
+	return BotSummaryDeliveryModePerChat
+}
+
+// ResolveBotSummaryDeliveryMode 返回指定摘要日期应使用的 Bot 包装方式。
+func ResolveBotSummaryDeliveryMode(settings AppSettings, summaryDate string) BotSummaryDeliveryMode {
+	deliveryMode := NormalizeBotSummaryDeliveryMode(settings.BotSummaryDeliveryMode)
+	effectiveDate, effectiveErr := time.Parse("2006-01-02", settings.BotSummaryDeliveryModeEffectiveDate)
+	date, dateErr := time.Parse("2006-01-02", summaryDate)
+	if effectiveErr != nil || dateErr != nil || !date.Before(effectiveDate) {
+		return deliveryMode
+	}
+	return NormalizeBotSummaryDeliveryMode(settings.PreviousBotSummaryDeliveryMode)
+}
+
 type AppSettings struct {
-	ID                             int64             `json:"id"`
-	TelegramAPIID                  int               `json:"telegramApiId"`
-	TelegramAPIHash                string            `json:"telegramApiHash,omitempty"`
-	OpenAIBaseURL                  string            `json:"openAIBaseUrl"`
-	OpenAIAPIKey                   string            `json:"openAIApiKey,omitempty"`
-	OpenAIModel                    string            `json:"openAIModel"`
-	OpenAITemperature              float64           `json:"openAITemperature"`
-	OpenAIOutputMode               OutputMode        `json:"openAIOutputMode"`
-	OpenAIMaxOutputToken           int               `json:"openAIMaxOutputTokens"`
-	OpenAIContextWindowMode        ContextWindowMode `json:"openAIContextWindowMode"`
-	OpenAIContextWindowTokens      int               `json:"openAIContextWindowTokens"`
-	OpenAIRequestMode              OpenAIRequestMode `json:"openAIRequestMode"`
-	SummaryParallelism             int               `json:"summaryParallelism"`
-	SummaryRetryLimit              int               `json:"summaryRetryLimit"`
-	SummaryRetryBackoffBaseMinutes int               `json:"summaryRetryBackoffBaseMinutes"`
-	SummaryRetryBackoffMultiplier  float64           `json:"summaryRetryBackoffMultiplier"`
-	DefaultTimezone                string            `json:"defaultTimezone"`
-	Language                       Language          `json:"language"`
-	AutoDownloadAttachments        bool              `json:"autoDownloadAttachments"`
-	BotEnabled                     bool              `json:"botEnabled"`
-	BotToken                       string            `json:"botToken,omitempty"`
-	BotTargetChatID                string            `json:"botTargetChatId"`
-	CreatedAt                      time.Time         `json:"createdAt"`
-	UpdatedAt                      time.Time         `json:"updatedAt"`
+	ID                                  int64                  `json:"id"`
+	TelegramAPIID                       int                    `json:"telegramApiId"`
+	TelegramAPIHash                     string                 `json:"telegramApiHash,omitempty"`
+	OpenAIBaseURL                       string                 `json:"openAIBaseUrl"`
+	OpenAIAPIKey                        string                 `json:"openAIApiKey,omitempty"`
+	OpenAIModel                         string                 `json:"openAIModel"`
+	OpenAITemperature                   float64                `json:"openAITemperature"`
+	OpenAIOutputMode                    OutputMode             `json:"openAIOutputMode"`
+	OpenAIMaxOutputToken                int                    `json:"openAIMaxOutputTokens"`
+	OpenAIContextWindowMode             ContextWindowMode      `json:"openAIContextWindowMode"`
+	OpenAIContextWindowTokens           int                    `json:"openAIContextWindowTokens"`
+	OpenAIRequestMode                   OpenAIRequestMode      `json:"openAIRequestMode"`
+	SummaryParallelism                  int                    `json:"summaryParallelism"`
+	SummaryRetryLimit                   int                    `json:"summaryRetryLimit"`
+	SummaryRetryBackoffBaseMinutes      int                    `json:"summaryRetryBackoffBaseMinutes"`
+	SummaryRetryBackoffMultiplier       float64                `json:"summaryRetryBackoffMultiplier"`
+	DefaultTimezone                     string                 `json:"defaultTimezone"`
+	Language                            Language               `json:"language"`
+	AutoDownloadAttachments             bool                   `json:"autoDownloadAttachments"`
+	BotSummaryDeliveryMode              BotSummaryDeliveryMode `json:"botSummaryDeliveryMode"`
+	PreviousBotSummaryDeliveryMode      BotSummaryDeliveryMode `json:"-"`
+	BotSummaryDeliveryModeEffectiveDate string                 `json:"-"`
+	BotEnabled                          bool                   `json:"botEnabled"`
+	BotToken                            string                 `json:"botToken,omitempty"`
+	BotTargetChatID                     string                 `json:"botTargetChatId"`
+	CreatedAt                           time.Time              `json:"createdAt"`
+	UpdatedAt                           time.Time              `json:"updatedAt"`
 }
 
 func (s AppSettings) Sanitized() AppSettings {
@@ -220,28 +245,37 @@ func (m Message) SummaryText() string {
 }
 
 type Summary struct {
-	ID                 int64         `json:"id"`
-	ChatID             int64         `json:"chatId"`
-	SummaryDate        string        `json:"summaryDate"`
-	Status             SummaryStatus `json:"status"`
-	Content            string        `json:"content"`
-	Model              string        `json:"model"`
-	SourceMessageCount int           `json:"sourceMessageCount"`
-	ChunkCount         int           `json:"chunkCount"`
-	GeneratedAt        time.Time     `json:"generatedAt"`
-	DeliveredAt        *time.Time    `json:"deliveredAt,omitempty"`
-	DeliveryError      string        `json:"deliveryError"`
-	ErrorMessage       string        `json:"errorMessage"`
-	ErrorContext       string        `json:"errorContext"`
-	ErrorSystemPrompt  string        `json:"errorSystemPrompt"`
-	ErrorUserPrompt    string        `json:"errorUserPrompt"`
-	RetryCount         int           `json:"retryCount"`
-	NextRetryAt        *time.Time    `json:"nextRetryAt,omitempty"`
-	RetryableError     bool          `json:"-"`
-	MatchSnippet       string        `json:"matchSnippet,omitempty"`
-	MatchedFields      []string      `json:"matchedFields,omitempty"`
-	CreatedAt          time.Time     `json:"createdAt"`
-	UpdatedAt          time.Time     `json:"updatedAt"`
+	ID                               int64                  `json:"id"`
+	ChatID                           int64                  `json:"chatId"`
+	SummaryDate                      string                 `json:"summaryDate"`
+	Status                           SummaryStatus          `json:"status"`
+	Content                          string                 `json:"content"`
+	Model                            string                 `json:"model"`
+	SourceMessageCount               int                    `json:"sourceMessageCount"`
+	ChunkCount                       int                    `json:"chunkCount"`
+	GeneratedAt                      time.Time              `json:"generatedAt"`
+	DeliveredAt                      *time.Time             `json:"deliveredAt,omitempty"`
+	DeliveryError                    string                 `json:"deliveryError"`
+	ErrorMessage                     string                 `json:"errorMessage"`
+	ErrorContext                     string                 `json:"errorContext"`
+	ErrorSystemPrompt                string                 `json:"errorSystemPrompt"`
+	ErrorUserPrompt                  string                 `json:"errorUserPrompt"`
+	RetryCount                       int                    `json:"retryCount"`
+	NextRetryAt                      *time.Time             `json:"nextRetryAt,omitempty"`
+	BotSummaryDeliveryMode           BotSummaryDeliveryMode `json:"botSummaryDeliveryMode"`
+	DailyDigestID                    int64                  `json:"dailyDigestId,omitempty"`
+	DailyDigestIncluded              bool                   `json:"dailyDigestIncluded,omitempty"`
+	DailyDigestOmissionReason        string                 `json:"dailyDigestOmissionReason,omitempty"`
+	DailyDigestStatus                SummaryStatus          `json:"dailyDigestStatus,omitempty"`
+	DailyDigestDeliveredAt           *time.Time             `json:"dailyDigestDeliveredAt,omitempty"`
+	DailyDigestDeliveryError         string                 `json:"dailyDigestDeliveryError,omitempty"`
+	DailyDigestDeliverySkippedReason string                 `json:"dailyDigestDeliverySkippedReason,omitempty"`
+	DailyDigestDeliverySuppressed    bool                   `json:"dailyDigestDeliverySuppressed,omitempty"`
+	RetryableError                   bool                   `json:"-"`
+	MatchSnippet                     string                 `json:"matchSnippet,omitempty"`
+	MatchedFields                    []string               `json:"matchedFields,omitempty"`
+	CreatedAt                        time.Time              `json:"createdAt"`
+	UpdatedAt                        time.Time              `json:"updatedAt"`
 }
 
 type SummaryListResponse struct {
@@ -323,6 +357,54 @@ type CatchUpListResponse struct {
 	Total    int       `json:"total"`
 	Page     int       `json:"page"`
 	PageSize int       `json:"pageSize"`
+}
+
+type DailyDigest struct {
+	ID                    int64               `json:"id"`
+	SummaryDate           string              `json:"summaryDate"`
+	Status                SummaryStatus       `json:"status"`
+	Content               string              `json:"content"`
+	Model                 string              `json:"model"`
+	ParticipantCount      int                 `json:"participantCount"`
+	SourceSummaryCount    int                 `json:"sourceSummaryCount"`
+	EmptyChatCount        int                 `json:"emptyChatCount"`
+	OmittedChatCount      int                 `json:"omittedChatCount"`
+	ChunkCount            int                 `json:"chunkCount"`
+	ExecutionMode         string              `json:"executionMode"`
+	EstimatedInputTokens  int                 `json:"estimatedInputTokens"`
+	ContextWindowTokens   int                 `json:"contextWindowTokens"`
+	FallbackReason        string              `json:"fallbackReason"`
+	DeliverySkippedReason string              `json:"deliverySkippedReason"`
+	DeliverySuppressed    bool                `json:"deliverySuppressed"`
+	DeliveredAt           *time.Time          `json:"deliveredAt,omitempty"`
+	DeliveryError         string              `json:"deliveryError"`
+	ErrorMessage          string              `json:"errorMessage"`
+	RetryCount            int                 `json:"retryCount"`
+	NextRetryAt           *time.Time          `json:"nextRetryAt,omitempty"`
+	GeneratedAt           *time.Time          `json:"generatedAt,omitempty"`
+	CompletedAt           *time.Time          `json:"completedAt,omitempty"`
+	CreatedAt             time.Time           `json:"createdAt"`
+	UpdatedAt             time.Time           `json:"updatedAt"`
+	Sources               []DailyDigestSource `json:"sources,omitempty"`
+}
+
+type DailyDigestSource struct {
+	SummaryID          int64         `json:"summaryId"`
+	ChatID             int64         `json:"chatId"`
+	ChatTitle          string        `json:"chatTitle"`
+	SummaryStatus      SummaryStatus `json:"summaryStatus"`
+	SourceMessageCount int           `json:"sourceMessageCount"`
+	Included           bool          `json:"included"`
+	OmissionReason     string        `json:"omissionReason"`
+	Content            string        `json:"-"`
+	Model              string        `json:"-"`
+}
+
+type DailyDigestListResponse struct {
+	Items    []DailyDigest `json:"items"`
+	Total    int           `json:"total"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
 }
 
 type HistoryBackfillStatus string

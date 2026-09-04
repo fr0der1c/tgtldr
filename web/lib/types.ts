@@ -1,5 +1,6 @@
 export type AuthStep = "idle" | "code" | "password" | "done";
 export type Language = "zh-CN" | "en";
+export type BotSummaryDeliveryMode = "per_chat" | "daily_digest";
 
 export type AppSettings = {
   id: number;
@@ -21,6 +22,7 @@ export type AppSettings = {
   defaultTimezone: string;
   language: Language;
   autoDownloadAttachments: boolean;
+  botSummaryDeliveryMode: BotSummaryDeliveryMode;
   botEnabled: boolean;
   botToken?: string;
   botTargetChatId: string;
@@ -234,6 +236,15 @@ export type Summary = {
   errorUserPrompt: string;
   retryCount: number;
   nextRetryAt?: string;
+  botSummaryDeliveryMode: BotSummaryDeliveryMode;
+  dailyDigestId?: number;
+  dailyDigestIncluded?: boolean;
+  dailyDigestOmissionReason?: string;
+  dailyDigestStatus?: Summary["status"];
+  dailyDigestDeliveredAt?: string;
+  dailyDigestDeliveryError?: string;
+  dailyDigestDeliverySkippedReason?: string;
+  dailyDigestDeliverySuppressed?: boolean;
   matchSnippet?: string;
   matchedFields?: string[];
 };
@@ -324,6 +335,52 @@ export type CatchUp = {
 
 export type CatchUpListResponse = {
   items: CatchUp[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type DailyDigestSource = {
+  summaryId: number;
+  chatId: number;
+  chatTitle: string;
+  summaryStatus: Summary["status"];
+  sourceMessageCount: number;
+  included: boolean;
+  omissionReason: "" | "no_messages" | "generation_failed" | "empty_content";
+};
+
+export type DailyDigest = {
+  id: number;
+  summaryDate: string;
+  status: Summary["status"];
+  content: string;
+  model: string;
+  participantCount: number;
+  sourceSummaryCount: number;
+  emptyChatCount: number;
+  omittedChatCount: number;
+  chunkCount: number;
+  executionMode: "" | "single" | "chunked" | "fallback_chunked" | "passthrough" | "no_content";
+  estimatedInputTokens: number;
+  contextWindowTokens: number;
+  fallbackReason: string;
+  deliverySkippedReason: string;
+  deliverySuppressed: boolean;
+  deliveredAt?: string;
+  deliveryError: string;
+  errorMessage: string;
+  retryCount: number;
+  nextRetryAt?: string;
+  generatedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  sources?: DailyDigestSource[];
+};
+
+export type DailyDigestListResponse = {
+  items: DailyDigest[];
   total: number;
   page: number;
   pageSize: number;

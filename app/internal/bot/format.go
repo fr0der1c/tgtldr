@@ -121,7 +121,7 @@ func formatTelegramMessage(markdown string, language model.Language) string {
 	return truncated
 }
 
-// formatTelegramMessages 将长 Markdown 拆成多条完整消息，避免 Catch Up 正文被截断。
+// formatTelegramMessages 将长 Markdown 拆成多条完整消息，避免摘要正文被截断。
 func formatTelegramMessages(markdown string) []string {
 	sections := strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n\n")
 	rawParts := make([]string, 0)

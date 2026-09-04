@@ -30,6 +30,11 @@ func normalizeAppSettings(settings model.AppSettings) model.AppSettings {
 		settings.OpenAIContextWindowMode = model.ContextWindowModeAuto
 	}
 	settings.Language = model.NormalizeLanguage(settings.Language)
+	settings.BotSummaryDeliveryMode = model.NormalizeBotSummaryDeliveryMode(settings.BotSummaryDeliveryMode)
+	settings.PreviousBotSummaryDeliveryMode = model.NormalizeBotSummaryDeliveryMode(settings.PreviousBotSummaryDeliveryMode)
+	if settings.BotSummaryDeliveryModeEffectiveDate == "" {
+		settings.BotSummaryDeliveryModeEffectiveDate = "1970-01-01"
+	}
 	return settings
 }
 
@@ -44,7 +49,9 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		       openai_model, openai_temperature, openai_output_mode, openai_max_output_tokens,
 		       openai_context_window_mode, openai_context_window_tokens, openai_request_mode,
 		       summary_parallelism, summary_retry_limit, summary_retry_backoff_base_minutes,
-		       summary_retry_backoff_multiplier, default_timezone, language, auto_download_attachments, bot_enabled,
+		       summary_retry_backoff_multiplier, default_timezone, language, auto_download_attachments,
+		       bot_summary_delivery_mode, previous_bot_summary_delivery_mode,
+		       bot_summary_delivery_mode_effective_date::text, bot_enabled,
 		       bot_token, bot_target_chat_id, created_at, updated_at
 		from app_settings
 		order by id
@@ -69,6 +76,9 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 		&row.DefaultTimezone,
 		&row.Language,
 		&row.AutoDownloadAttachments,
+		&row.BotSummaryDeliveryMode,
+		&row.PreviousBotSummaryDeliveryMode,
+		&row.BotSummaryDeliveryModeEffectiveDate,
 		&row.BotEnabled,
 		&encBotToken,
 		&row.BotTargetChatID,
@@ -128,9 +138,12 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		    default_timezone = $16,
 		    language = $17,
 		    auto_download_attachments = $18,
-		    bot_enabled = $19,
-		    bot_token = $20,
-		    bot_target_chat_id = $21,
+		    bot_summary_delivery_mode = $19,
+		    previous_bot_summary_delivery_mode = $20,
+		    bot_summary_delivery_mode_effective_date = $21::date,
+		    bot_enabled = $22,
+		    bot_token = $23,
+		    bot_target_chat_id = $24,
 		    updated_at = now()
 		where id = (select id from app_settings order by id limit 1)
 		returning id, created_at, updated_at
@@ -153,6 +166,9 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 		settings.DefaultTimezone,
 		settings.Language,
 		settings.AutoDownloadAttachments,
+		settings.BotSummaryDeliveryMode,
+		settings.PreviousBotSummaryDeliveryMode,
+		settings.BotSummaryDeliveryModeEffectiveDate,
 		settings.BotEnabled,
 		encBotToken,
 		settings.BotTargetChatID,
@@ -179,6 +195,9 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	saved.DefaultTimezone = settings.DefaultTimezone
 	saved.Language = settings.Language
 	saved.AutoDownloadAttachments = settings.AutoDownloadAttachments
+	saved.BotSummaryDeliveryMode = settings.BotSummaryDeliveryMode
+	saved.PreviousBotSummaryDeliveryMode = settings.PreviousBotSummaryDeliveryMode
+	saved.BotSummaryDeliveryModeEffectiveDate = settings.BotSummaryDeliveryModeEffectiveDate
 	saved.BotEnabled = settings.BotEnabled
 	saved.BotToken = settings.BotToken
 	saved.BotTargetChatID = settings.BotTargetChatID

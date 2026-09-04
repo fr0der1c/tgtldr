@@ -15,7 +15,7 @@ import { AppSelect } from "@/components/app-select";
 import { ChatActivityStrip } from "@/components/chat-activity-strip";
 import { ChatHistorySearchForm } from "@/components/chat-history-search-form";
 import { GlobalChatMessageSearch } from "@/components/global-chat-message-search";
-import { Chat, TelegramAccountChat } from "@/lib/types";
+import { BotSummaryDeliveryMode, Chat, TelegramAccountChat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
@@ -44,6 +44,7 @@ export function ChatsPanel() {
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageQuery, setMessageQuery] = useState("");
   const [messageSearchPage, setMessageSearchPage] = useState(1);
+  const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
   const showErrorRef = useRef(toast.showError);
@@ -54,9 +55,11 @@ export function ChatsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const chats = (await api.listChats()).map(normalizeChat);
+      const [chatData, settings] = await Promise.all([api.listChats(), api.settings()]);
+      const chats = chatData.map(normalizeChat);
       setItems(chats);
       setSavedItems(chats);
+      setBotSummaryDeliveryMode(settings.botSummaryDeliveryMode || "per_chat");
       setEditingId((current) =>
         current && chats.some((chat) => chat.id === current) ? current : null
       );
@@ -264,6 +267,7 @@ export function ChatsPanel() {
                       <ChatTableRow
                         key={chat.id}
                         chat={chat}
+                        botSummaryDeliveryMode={botSummaryDeliveryMode}
                         editing={editingId === chat.id}
                         onBackfill={(fromDate, toDate) =>
                           startTransition(() => void startHistoryBackfill(chat, fromDate, toDate))
@@ -318,6 +322,7 @@ function splitLines(value: string) {
 }
 
 function ChatTableRow({
+  botSummaryDeliveryMode,
   chat,
   editing,
   onBackfill,
@@ -325,6 +330,7 @@ function ChatTableRow({
   onEdit,
   onSave
 }: {
+  botSummaryDeliveryMode: BotSummaryDeliveryMode;
   chat: Chat;
   editing: boolean;
   onBackfill: (fromDate: string, toDate: string) => void;
@@ -462,7 +468,12 @@ function ChatTableRow({
                   {chat.summaryEnabled ? (
                     <>
                       <div className="form-grid">
-                        <Field label="AI 总结交付方式">
+                        <Field
+                          label="Telegram 推送"
+                          hint={botSummaryDeliveryMode === "daily_digest"
+                            ? "参与后，该群只会纳入每日总览，不会单独发送。"
+                            : "参与后，该群摘要会通过 Bot 单独发送。"}
+                        >
                           <AppSelect
                             onChange={(value) =>
                               onPatch({
@@ -470,8 +481,8 @@ function ChatTableRow({
                               })
                             }
                             options={[
-                              { value: "dashboard", label: "仅在网页端查看" },
-                              { value: "bot", label: "通过 Bot 推送" }
+                              { value: "dashboard", label: "不参与，仅网页查看" },
+                              { value: "bot", label: "参与推送" }
                             ]}
                             value={chat.deliveryMode}
                           />

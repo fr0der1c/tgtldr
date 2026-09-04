@@ -14,6 +14,7 @@ import (
 	"github.com/fr0der1c/tgtldr/app/internal/catchup"
 	"github.com/fr0der1c/tgtldr/app/internal/clock"
 	"github.com/fr0der1c/tgtldr/app/internal/config"
+	"github.com/fr0der1c/tgtldr/app/internal/dailydigest"
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/fr0der1c/tgtldr/app/internal/scheduler"
 	"github.com/fr0der1c/tgtldr/app/internal/store"
@@ -51,7 +52,11 @@ func run() error {
 	botService := bot.New()
 	summaryService := summary.NewService(st, sysClock, cfg.OpenAITimeout)
 	telegramService := telegramsvc.NewService(ctx, st, sysClock, cfg.MediaDir)
-	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService)
+	dailyDigestService := dailydigest.NewService(ctx, st, sysClock, botService, cfg.OpenAITimeout)
+	if err := dailyDigestService.RecoverInterrupted(ctx); err != nil {
+		return fmt.Errorf("recover interrupted daily digest tasks: %w", err)
+	}
+	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService, dailyDigestService)
 	catchUpService := catchup.NewService(ctx, st, sysClock, botService, cfg.OpenAITimeout)
 	if err := catchUpService.RecoverInterrupted(ctx); err != nil {
 		return fmt.Errorf("recover interrupted Catch Up tasks: %w", err)
@@ -64,6 +69,7 @@ func run() error {
 		telegramService,
 		schedulerService,
 		catchUpService,
+		dailyDigestService,
 		botService,
 		cfg.WebOrigin,
 		cfg.RequestTimout,

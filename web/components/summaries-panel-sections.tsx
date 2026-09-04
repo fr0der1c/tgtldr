@@ -224,7 +224,11 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 				<>
 					<div className="entity-list">
 						{summaries.map((item) => {
-							const delivery = deliveryState(item, allChats.find((chat) => chat.id === item.chatId) ?? null, botReady)
+							const delivery = deliveryState(
+								item,
+								allChats.find((chat) => chat.id === item.chatId) ?? null,
+								botReady,
+							)
 							const messageCountText = language === "en" ? `${item.sourceMessageCount} messages` : `消息 ${item.sourceMessageCount} 条`
 							return (
 								<button
@@ -291,18 +295,57 @@ export function statusText(status: Summary["status"]) {
 	return "等待中"
 }
 
-export function deliveryState(summary: Summary, chat: Chat | null, botReady: boolean): DeliveryState {
+export function deliveryState(
+	summary: Summary,
+	chat: Chat | null,
+	botReady: boolean,
+): DeliveryState {
 	if (!chat || chat.deliveryMode !== "bot") {
 		return { label: "不发送", tone: "neutral", detail: "当前群组设置为不通过 Bot 推送。", retryable: false }
+	}
+	if (summary.dailyDigestId) {
+		if (!summary.dailyDigestIncluded && summary.dailyDigestOmissionReason === "no_messages") {
+			return { label: "当日无消息", tone: "neutral", detail: "该群当天没有新消息，已完成等待但未进入总览正文。", retryable: false }
+		}
+		if (!summary.dailyDigestIncluded) {
+			return { label: "未纳入总览", tone: "neutral", detail: "单群摘要生成失败，无法纳入每日总览。", retryable: false }
+		}
+		if (summary.dailyDigestStatus === "failed") {
+			return { label: "总览生成失败", tone: "bad", detail: "该摘要已纳入每日总览，但总览生成失败。", retryable: false }
+		}
+		if (summary.dailyDigestStatus === "pending" || summary.dailyDigestStatus === "running") {
+			return { label: "等待总览", tone: "warn", detail: "每日总览正在处理该摘要。", retryable: false }
+		}
+		if (summary.dailyDigestDeliveredAt || summary.dailyDigestDeliverySkippedReason) {
+			return { label: "已归入总览", tone: "good", detail: "该摘要已由每日总览统一处理。", retryable: false }
+		}
+		if (summary.dailyDigestDeliveryError) {
+			return { label: "总览发送失败", tone: "bad", detail: summary.dailyDigestDeliveryError, retryable: false }
+		}
+		if (summary.dailyDigestDeliverySuppressed) {
+			return { label: "总览待手动发送", tone: "warn", detail: "每日总览已由用户重新生成，需要手动确认发送。", retryable: false }
+		}
+		return { label: "总览待发送", tone: "warn", detail: "每日总览已经生成，等待统一发送。", retryable: false }
+	}
+	if (summary.deliveredAt) {
+		return { label: "已发送", tone: "good", detail: `已发送于 ${summary.deliveredAt}`, retryable: false }
+	}
+	if (summary.botSummaryDeliveryMode === "daily_digest") {
+		if (summary.status === "failed") {
+			return { label: "未纳入总览", tone: "neutral", detail: "单群摘要生成失败，无法纳入每日总览。", retryable: false }
+		}
+		return {
+			label: "等待总览",
+			tone: botReady ? "warn" : "neutral",
+			detail: botReady ? "等待其它参与群组完成后统一生成每日总览。" : "Bot 配置尚未完成，暂时无法生成每日总览。",
+			retryable: false,
+		}
 	}
 	if (!botReady) {
 		return { label: "待发送", tone: "warn", detail: "Bot 配置尚未完成，当前无法发送。", retryable: false }
 	}
 	if (summary.status !== "succeeded") {
 		return { label: "未发送", tone: "neutral", detail: "摘要尚未生成成功，当前不会执行发送。", retryable: false }
-	}
-	if (summary.deliveredAt) {
-		return { label: "已发送", tone: "good", detail: `已发送于 ${summary.deliveredAt}`, retryable: false }
 	}
 	if (summary.deliveryError) {
 		return { label: "发送失败", tone: "bad", detail: summary.deliveryError, retryable: true }

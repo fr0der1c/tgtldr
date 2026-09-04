@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/fr0der1c/tgtldr/app/internal/model"
+	"github.com/fr0der1c/tgtldr/app/internal/rollup"
 )
 
 // buildFinalPrompt 约束最终文档结构、证据强度和来源编号格式。
@@ -75,22 +76,22 @@ You are TGTLDR's Catch Up evidence extractor. Read this batch of daily summaries
 `)
 }
 
-// buildSourceUnits 按输入顺序为每日摘要编号并编码为模型输入单元。
-func buildSourceUnits(sources []model.CatchUpSource, language model.Language) []string {
-	units := make([]string, 0, len(sources))
+// buildRollupSources 按输入顺序为每日摘要编号并编码来源头。
+func buildRollupSources(sources []model.CatchUpSource, language model.Language) []rollup.Source {
+	units := make([]rollup.Source, 0, len(sources))
 	for index, source := range sources {
 		ref := fmt.Sprintf("S%03d", index+1)
 		if language == model.LanguageEN {
-			units = append(units, fmt.Sprintf(
-				"[%s]\nChat: %s\nDate: %s\nDaily summary:\n%s",
-				ref, source.ChatTitle, source.SummaryDate, strings.TrimSpace(source.Content),
-			))
+			units = append(units, rollup.Source{
+				Header:  fmt.Sprintf("[%s]\nChat: %s\nDate: %s\nDaily summary:\n", ref, source.ChatTitle, source.SummaryDate),
+				Content: strings.TrimSpace(source.Content),
+			})
 			continue
 		}
-		units = append(units, fmt.Sprintf(
-			"[%s]\n群组：%s\n日期：%s\n每日摘要：\n%s",
-			ref, source.ChatTitle, source.SummaryDate, strings.TrimSpace(source.Content),
-		))
+		units = append(units, rollup.Source{
+			Header:  fmt.Sprintf("[%s]\n群组：%s\n日期：%s\n每日摘要：\n", ref, source.ChatTitle, source.SummaryDate),
+			Content: strings.TrimSpace(source.Content),
+		})
 	}
 	return units
 }

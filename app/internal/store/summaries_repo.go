@@ -16,13 +16,20 @@ type SummaryRepository struct {
 func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
-		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, error_context, error_system_prompt,
-		       error_user_prompt, retry_count, next_retry_at, ''::text as match_snippet,
-		       '{}'::text[] as matched_fields, created_at, updated_at
-		from summaries
-		where id = $1
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
+		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
+		       ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
+		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
+		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
+		       s.created_at, s.updated_at
+		from summaries s
+		left join daily_digest_sources dds on dds.summary_id = s.id
+		left join daily_digests dd on dd.id = dds.daily_digest_id
+		where s.id = $1
 	`, id), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary %d: %w", id, err)
 	}
@@ -32,13 +39,20 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, date string) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select id, chat_id, summary_date::text, status, content, model,
-		       source_message_count, chunk_count, generated_at, delivered_at,
-		       delivery_error, error_message, error_context, error_system_prompt,
-		       error_user_prompt, retry_count, next_retry_at, ''::text as match_snippet,
-		       '{}'::text[] as matched_fields, created_at, updated_at
-		from summaries
-		where chat_id = $1 and summary_date = $2::date
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
+		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
+		       ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
+		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
+		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
+		       s.created_at, s.updated_at
+		from summaries s
+		left join daily_digest_sources dds on dds.summary_id = s.id
+		left join daily_digests dd on dd.id = dds.daily_digest_id
+		where s.chat_id = $1 and s.summary_date = $2::date
 	`, chatID, date), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary for chat %d on %s: %w", chatID, date, err)
 	}
@@ -63,6 +77,8 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		select count(*)
 		from summaries s
 		join chats c on c.id = s.chat_id
+		left join daily_digest_sources dds on dds.summary_id = s.id
+		left join daily_digests dd on dd.id = dds.daily_digest_id
 	` + whereClause
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", err)
@@ -74,10 +90,17 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
 		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
-		       s.error_user_prompt, s.retry_count, s.next_retry_at, ''::text as match_snippet,
-		       '{}'::text[] as matched_fields, s.created_at, s.updated_at, c.title
+		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
+		       ''::text as match_snippet,
+		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
+		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
+		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
+		       s.created_at, s.updated_at, c.title
 		from summaries s
 		join chats c on c.id = s.chat_id
+		left join daily_digest_sources dds on dds.summary_id = s.id
+		left join daily_digests dd on dd.id = dds.daily_digest_id
 	` + whereClause + `
 		order by s.summary_date desc, s.id desc
 		limit $` + fmt.Sprint(len(args)+1) + ` offset $` + fmt.Sprint(len(args)+2)
@@ -110,14 +133,38 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	}, nil
 }
 
-func (r *SummaryRepository) UpsertPending(ctx context.Context, chatID int64, date string) error {
+func (r *SummaryRepository) UpsertPending(
+	ctx context.Context,
+	chatID int64,
+	date string,
+	deliveryMode model.BotSummaryDeliveryMode,
+) error {
 	_, err := r.pool.Exec(ctx, `
-		insert into summaries (chat_id, summary_date, status)
-		values ($1, $2::date, 'pending')
+		insert into summaries (chat_id, summary_date, status, bot_summary_delivery_mode)
+		values ($1, $2::date, 'pending', $3)
 		on conflict (chat_id, summary_date) do nothing
-	`, chatID, date)
+	`, chatID, date, model.NormalizeBotSummaryDeliveryMode(deliveryMode))
 	if err != nil {
 		return fmt.Errorf("upsert pending summary: %w", err)
+	}
+	return nil
+}
+
+// SetBotSummaryDeliveryMode 固化定时任务对该摘要日期采用的 Bot 包装方式。
+func (r *SummaryRepository) SetBotSummaryDeliveryMode(
+	ctx context.Context,
+	chatID int64,
+	date string,
+	deliveryMode model.BotSummaryDeliveryMode,
+) error {
+	_, err := r.pool.Exec(ctx, `
+		update summaries
+		set bot_summary_delivery_mode = $1, updated_at = now()
+		where chat_id = $2 and summary_date = $3::date
+		  and bot_summary_delivery_mode <> $1
+	`, model.NormalizeBotSummaryDeliveryMode(deliveryMode), chatID, date)
+	if err != nil {
+		return fmt.Errorf("set summary Bot delivery mode: %w", err)
 	}
 	return nil
 }
@@ -306,8 +353,17 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.ErrorUserPrompt,
 		&item.RetryCount,
 		&item.NextRetryAt,
+		&item.BotSummaryDeliveryMode,
 		&item.MatchSnippet,
 		&item.MatchedFields,
+		&item.DailyDigestID,
+		&item.DailyDigestIncluded,
+		&item.DailyDigestOmissionReason,
+		&item.DailyDigestStatus,
+		&item.DailyDigestDeliveredAt,
+		&item.DailyDigestDeliveryError,
+		&item.DailyDigestDeliverySkippedReason,
+		&item.DailyDigestDeliverySuppressed,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -332,8 +388,17 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.ErrorUserPrompt,
 		&item.RetryCount,
 		&item.NextRetryAt,
+		&item.BotSummaryDeliveryMode,
 		&item.MatchSnippet,
 		&item.MatchedFields,
+		&item.DailyDigestID,
+		&item.DailyDigestIncluded,
+		&item.DailyDigestOmissionReason,
+		&item.DailyDigestStatus,
+		&item.DailyDigestDeliveredAt,
+		&item.DailyDigestDeliveryError,
+		&item.DailyDigestDeliverySkippedReason,
+		&item.DailyDigestDeliverySuppressed,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		chatTitle,

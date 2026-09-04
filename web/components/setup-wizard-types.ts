@@ -61,6 +61,7 @@ export const emptySettings: AppSettings = {
   defaultTimezone: "Asia/Shanghai",
   language: "zh-CN",
   autoDownloadAttachments: true,
+  botSummaryDeliveryMode: "per_chat",
   botEnabled: false,
   botToken: "",
   botTargetChatId: "",
