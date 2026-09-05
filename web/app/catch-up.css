@@ -82,6 +82,22 @@
   white-space: nowrap;
 }
 
+.daily-digest-status-placeholder {
+  display: inline-block;
+  width: 68px;
+  min-height: 34px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+}
+
+.daily-digest-button-placeholder {
+  display: inline-block;
+  width: 6em;
+  height: 0.9em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
 .daily-digest-modal-actions {
   display: flex;
   justify-content: flex-end;

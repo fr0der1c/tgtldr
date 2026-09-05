@@ -31,6 +31,7 @@ export function DailyDigestExperience({
   const router = useRouter();
   const toast = useToast();
   const showErrorRef = useRef(toast.showError);
+  const settingsLoaded = botConfigured !== null;
   const enabled = deliveryMode === "daily_digest" && botReady;
 
   useEffect(() => {
@@ -103,17 +104,17 @@ export function DailyDigestExperience({
         <div>
           <span>每日总览</span>
           <h2>一天一篇，看完所有群</h2>
-          <p>
-            {enabled
-              ? "参与推送的群组全部完成后，会合并成一篇总览发送到 Telegram。"
-              : "将参与推送的群组摘要合并成一篇，每天只接收一次 Telegram 推送。"}
-          </p>
+          <p>将所有参与推送的群组摘要合并成一篇，每天只接收一次 Telegram 推送。</p>
           <div className="daily-digest-cta-status">
-            <StatusPill tone={enabled ? "good" : "neutral"}>
-              {enabled ? "已启用" : "未启用"}
-            </StatusPill>
-            {enabled && latest ? <small>最近一次：{latest.summaryDate}</small> : null}
-            {!enabled && latest ? (
+            {settingsLoaded ? (
+              <StatusPill tone={enabled ? "good" : "neutral"}>
+                {enabled ? "已启用" : "未启用"}
+              </StatusPill>
+            ) : (
+              <span aria-hidden="true" className="daily-digest-status-placeholder" />
+            )}
+            {settingsLoaded && enabled && latest ? <small>最近一次：{latest.summaryDate}</small> : null}
+            {settingsLoaded && !enabled && latest ? (
               <button className="text-link-button daily-digest-history-link" onClick={() => setDrawerOpen(true)} type="button">
                 查看历史总览
               </button>
@@ -121,11 +122,16 @@ export function DailyDigestExperience({
           </div>
         </div>
         <Button
-          disabled={!enabled && botConfigured === null}
+          aria-label={settingsLoaded ? undefined : "正在读取每日总览状态"}
+          disabled={!settingsLoaded}
           onClick={enabled ? () => setDrawerOpen(true) : openEnableDialog}
           type="button"
         >
-          {enabled ? "查看每日总览" : "启用每日总览"}
+          {settingsLoaded ? (
+            enabled ? "查看每日总览" : "启用每日总览"
+          ) : (
+            <span aria-hidden="true" className="daily-digest-button-placeholder">启用每日总览</span>
+          )}
         </Button>
       </section>
 

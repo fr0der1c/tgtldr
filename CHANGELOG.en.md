@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-05
+
+### Fixed
+
+- Fixed the Daily Digest description flashing when entering the Summaries page while settings load asynchronously; the page no longer assumes the feature is disabled during loading.
+
 ## 2026-09-04
 
 ### Added
