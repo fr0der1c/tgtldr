@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-06
+
+### Changed
+
+- Enabling Daily Digest now automatically includes all chats with AI summaries enabled, including web-only chats. Activation copy explains this scope, and individual chats can still be excluded afterward.
+
 ## 2026-09-05
 
 ### Fixed

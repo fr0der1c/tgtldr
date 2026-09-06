@@ -153,7 +153,7 @@ export function DailyDigestExperience({
       >
         <div className="daily-digest-enable-copy">
           <p>
-            参与推送的群组仍会分别生成每日摘要，但不再逐条发送。系统会等待它们全部完成，再合并成一篇「每日总览」发送到 Telegram。
+            启用时，所有已开启 AI 总结的群组（包括仅网页查看的群组）都会自动参与推送。系统会等待各群摘要完成，合并成一篇「每日总览」发送到 Telegram。之后可在群组设置中单独取消参与。
           </p>
           {!botReady ? (
             <div className="daily-digest-enable-note">

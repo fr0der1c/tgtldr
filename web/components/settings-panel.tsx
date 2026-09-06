@@ -919,7 +919,7 @@ export function SettingsPanel() {
               <Field
                 label="摘要推送形式"
                 hint={settings.botSummaryDeliveryMode === "daily_digest"
-                  ? "参与 Bot 推送的群组会在全部完成后合并成一篇每日总览，不再单独发送。修改从保存当天的消息开始生效。"
+                  ? "启用每日总览时，所有已开启 AI 总结的群组都会自动参与推送，之后可在群组设置中单独取消参与。修改从保存当天的消息开始生效。"
                   : "参与 Bot 推送的群组会在各自摘要完成后分别发送。修改从保存当天的消息开始生效。"}
               >
                 <AppSelect

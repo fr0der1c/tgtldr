@@ -101,6 +101,7 @@ func (r *SettingsRepository) Get(ctx context.Context) (model.AppSettings, error)
 	return normalizeAppSettings(row), nil
 }
 
+// Save 在启用每日总览时一并纳入已开启 AI 总结的群组，配置与参与范围原子提交。
 func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSettings) (model.AppSettings, error) {
 	settings = normalizeAppSettings(settings)
 
@@ -118,7 +119,17 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	}
 
 	var saved model.AppSettings
-	err = r.pool.QueryRow(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return model.AppSettings{}, fmt.Errorf("begin settings save: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var wasEnabled bool
+	if err := tx.QueryRow(ctx, `select bot_enabled and bot_summary_delivery_mode = 'daily_digest'
+		from app_settings order by id limit 1 for update`).Scan(&wasEnabled); err != nil {
+		return model.AppSettings{}, fmt.Errorf("lock settings: %w", err)
+	}
+	err = tx.QueryRow(ctx, `
 		update app_settings
 		set telegram_api_id = $1,
 		    telegram_api_hash = $2,
@@ -175,6 +186,15 @@ func (r *SettingsRepository) Save(ctx context.Context, settings model.AppSetting
 	).Scan(&saved.ID, &saved.CreatedAt, &saved.UpdatedAt)
 	if err != nil {
 		return model.AppSettings{}, fmt.Errorf("save settings: %w", err)
+	}
+	if !wasEnabled && settings.BotEnabled && settings.BotSummaryDeliveryMode == model.BotSummaryDeliveryModeDailyDigest {
+		if _, err := tx.Exec(ctx, `update chats set delivery_mode = 'bot', updated_at = now()
+			where summary_enabled and delivery_mode <> 'bot'`); err != nil {
+			return model.AppSettings{}, fmt.Errorf("enable daily digest participants: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return model.AppSettings{}, fmt.Errorf("commit settings: %w", err)
 	}
 
 	saved.TelegramAPIID = settings.TelegramAPIID
