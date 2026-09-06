@@ -185,17 +185,27 @@ func TestBuildDailyDigestDeliveryMessage(t *testing.T) {
 		So(buildDeliveryMessage(model.LanguageZhCN, item), ShouldStartWith, "**每日总览 · 2026-09-04**")
 		So(buildDeliveryMessage(model.LanguageEN, item), ShouldStartWith, "**Daily Digest · 2026-09-04**")
 	})
+	Convey("推送移除来源标记但保留正文、段落和网页原文", t, func() {
+		item.Content = "重点 [S002] [S010]。\n\n- 结论[S001]\n- [注意] 保留"
+		message := buildDeliveryMessage(model.LanguageZhCN, item)
+		So(message, ShouldEqual, "**每日总览 · 2026-09-04**\n\n重点。\n\n- 结论\n- [注意] 保留")
+		So(item.Content, ShouldContainSubstring, "[S002]")
+	})
 }
 
+// TestDailyDigestRetryBackoff 验证总览沿用四次阶梯等待且耗尽后不再重试。
 func TestDailyDigestRetryBackoff(t *testing.T) {
-	Convey("极大重试次数不会导致时长溢出", t, func() {
-		delay := summaryRetryBackoffDelay(model.AppSettings{
-			SummaryRetryBackoffBaseMinutes: 1,
-			SummaryRetryBackoffMultiplier:  3,
-		}, 1000)
-
-		So(delay, ShouldEqual, time.Duration(1<<63-1))
-	})
+	now := time.Now()
+	settings := model.AppSettings{SummaryRetryLimit: 4}
+	for index, delay := range []time.Duration{time.Minute, 3 * time.Minute, 5 * time.Minute, 10 * time.Minute} {
+		next := nextRetryAt(settings, index, now)
+		if next == nil || !next.Equal(now.Add(delay)) {
+			t.Fatalf("retry %d: %v", index+1, next)
+		}
+	}
+	if nextRetryAt(settings, 4, now) != nil {
+		t.Fatal("retry limit exceeded")
+	}
 }
 
 func TestShouldAutomaticallyDeliver(t *testing.T) {

@@ -3,7 +3,7 @@ package dailydigest
 import (
 	"context"
 	"fmt"
-	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -87,31 +87,12 @@ func nextRetryAt(settings model.AppSettings, retryCount int, now time.Time) *tim
 	if settings.SummaryRetryLimit <= 0 || retryCount >= settings.SummaryRetryLimit {
 		return nil
 	}
-	delay := summaryRetryBackoffDelay(settings, retryCount+1)
+	delay := model.SummaryRetryDelay(retryCount + 1)
 	next := now.Add(delay)
 	return &next
 }
 
-// summaryRetryBackoffDelay 沿用单群摘要的指数退避配置并防止时长溢出。
-func summaryRetryBackoffDelay(settings model.AppSettings, retryNumber int) time.Duration {
-	base := settings.SummaryRetryBackoffBaseMinutes
-	if base < 1 {
-		base = model.DefaultSummaryRetryBackoffBaseMinutes
-	}
-	multiplier := settings.SummaryRetryBackoffMultiplier
-	if multiplier < 1 {
-		multiplier = model.DefaultSummaryRetryBackoffMultiplier
-	}
-	if retryNumber < 1 {
-		retryNumber = 1
-	}
-	minutes := float64(base) * math.Pow(multiplier, float64(retryNumber-1))
-	maxDuration := time.Duration(math.MaxInt64)
-	if math.IsInf(minutes, 0) || minutes > float64(maxDuration/time.Minute) {
-		return maxDuration
-	}
-	return time.Duration(minutes * float64(time.Minute))
-}
+var deliverySourceMarker = regexp.MustCompile(`[ \t]*\[S[0-9]{3,}\]`)
 
 // buildDeliveryMessage 生成带日期标题的 Telegram Markdown 消息。
 func buildDeliveryMessage(language model.Language, item model.DailyDigest) string {
@@ -123,5 +104,5 @@ func buildDeliveryMessage(language model.Language, item model.DailyDigest) strin
 	if strings.TrimSpace(item.Content) == "" {
 		return header
 	}
-	return header + "\n\n" + strings.TrimSpace(item.Content)
+	return header + "\n\n" + strings.TrimSpace(deliverySourceMarker.ReplaceAllString(item.Content, ""))
 }

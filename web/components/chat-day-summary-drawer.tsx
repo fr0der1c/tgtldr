@@ -21,7 +21,7 @@ export function ChatDaySummaryDrawer({
   const [summary, setSummary] = useState<Summary | null>(null);
   const [chat, setChat] = useState<Chat | null>(null);
   const [botReady, setBotReady] = useState(false);
-  const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
+  const [summaryRetryLimit, setSummaryRetryLimit] = useState(4);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,7 +46,7 @@ export function ChatDaySummaryDrawer({
         && Boolean(settings.botToken?.trim())
         && Boolean(settings.botTargetChatId?.trim()),
       );
-      setSummaryRetryLimit(settings.summaryRetryLimit ?? 2);
+      setSummaryRetryLimit(settings.summaryRetryLimit ?? 4);
     }).catch((reason) => {
       if (!cancelled) setError(asMessage(reason));
     }).finally(() => {

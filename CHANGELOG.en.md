@@ -6,6 +6,10 @@
 
 ### Changed
 
+- Chat summaries and Daily Digests now retry up to four times with delays of 1, 3, 5, and 10 minutes. Upgrades set enabled retry policies to four attempts while preserving disabled retries.
+- Chat delivery now offers “Include in Daily Digest” without the hint that misaligned form fields.
+- Telegram Daily Digests omit web source markers while web references remain available.
+
 - Enabling Daily Digest now automatically includes all chats with AI summaries enabled, including web-only chats. Activation copy explains this scope, and individual chats can still be excluded afterward.
 
 ## 2026-09-05

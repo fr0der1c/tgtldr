@@ -43,6 +43,29 @@ func TestDigestActivation(t *testing.T) {
 	if err := RunMigrations(ctx, st); err != nil {
 		t.Fatal(err)
 	}
+	retryMigration, err := migrationsFS.ReadFile("migrations/020_summary_retry_schedule.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, limit := range []int{0, 2, 7} {
+		if _, err := st.Pool.Exec(ctx, "update app_settings set summary_retry_limit = $1", limit); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.Pool.Exec(ctx, string(retryMigration)); err != nil {
+			t.Fatal(err)
+		}
+		settings, err := st.Settings.Get(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 4
+		if limit == 0 {
+			want = 0
+		}
+		if settings.SummaryRetryLimit != want {
+			t.Fatalf("retry migration from %d: got %d, want %d", limit, settings.SummaryRetryLimit, want)
+		}
+	}
 	if _, err := st.Pool.Exec(ctx, `insert into chats (telegram_chat_id, title, summary_enabled, delivery_mode)
 		values (900001, 'enabled', true, 'dashboard'), (900002, 'disabled', false, 'dashboard'), (900003, 'bot', true, 'bot')`); err != nil {
 		t.Fatal(err)

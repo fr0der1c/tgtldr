@@ -36,7 +36,7 @@ const (
 	BotSummaryDeliveryModePerChat         BotSummaryDeliveryMode = "per_chat"
 	BotSummaryDeliveryModeDailyDigest     BotSummaryDeliveryMode = "daily_digest"
 	DefaultOpenAIBaseURL                                         = "https://api.openai.com/v1"
-	DefaultSummaryRetryLimit                                     = 2
+	DefaultSummaryRetryLimit                                     = 4
 	DefaultSummaryRetryBackoffBaseMinutes                        = 1
 	DefaultSummaryRetryBackoffMultiplier                         = 3
 )

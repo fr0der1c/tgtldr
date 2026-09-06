@@ -107,7 +107,7 @@ export function SettingsPanel() {
           settingsData.openAIContextWindowMode || "auto",
         openAIRequestMode: settingsData.openAIRequestMode || "stream",
         summaryParallelism: settingsData.summaryParallelism || 2,
-        summaryRetryLimit: settingsData.summaryRetryLimit ?? 2,
+        summaryRetryLimit: settingsData.summaryRetryLimit ?? 4,
         summaryRetryBackoffBaseMinutes:
           settingsData.summaryRetryBackoffBaseMinutes || 1,
         summaryRetryBackoffMultiplier:
@@ -678,55 +678,18 @@ export function SettingsPanel() {
               </Field>
               <Field
                 label="重试次数上限"
-                hint="OpenAI 调用失败后最多额外自动重试多少次；0 表示关闭自动重试。"
+                hint="临时故障最多重试 4 次，依次等待 1、3、5、10 分钟；0 表示关闭自动重试。"
               >
                 <Input
                   min="0"
                   step="1"
                   type="number"
                   value={settings.summaryRetryLimit}
+                  max="4"
                   onChange={(event) =>
                     setSettings({
                       ...settings,
                       summaryRetryLimit: Number(event.target.value || "0"),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label="重试起始间隔（分钟）"
-                hint="第一次自动重试前等待的分钟数。"
-              >
-                <Input
-                  min="1"
-                  step="1"
-                  type="number"
-                  value={settings.summaryRetryBackoffBaseMinutes}
-                  onChange={(event) =>
-                    setSettings({
-                      ...settings,
-                      summaryRetryBackoffBaseMinutes: Number(
-                        event.target.value || "0",
-                      ),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label="退避倍率"
-                hint="每次失败后的等待倍数；1 表示固定间隔。"
-              >
-                <Input
-                  min="1"
-                  step="0.1"
-                  type="number"
-                  value={settings.summaryRetryBackoffMultiplier}
-                  onChange={(event) =>
-                    setSettings({
-                      ...settings,
-                      summaryRetryBackoffMultiplier: Number(
-                        event.target.value || "0",
-                      ),
                     })
                   }
                 />

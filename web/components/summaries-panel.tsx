@@ -41,7 +41,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 	const [botReady, setBotReady] = useState(false);
 	const [botConfigured, setBotConfigured] = useState<boolean | null>(null);
 	const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
-	const [summaryRetryLimit, setSummaryRetryLimit] = useState(2);
+	const [summaryRetryLimit, setSummaryRetryLimit] = useState(4);
 	const [defaultTimezone, setDefaultTimezone] = useState("Asia/Shanghai");
 	const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
 	const [externalSummary, setExternalSummary] = useState<Summary | null>(null);
@@ -132,7 +132,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			setAllChats(chatData);
 			setChats(manualChats);
 			applyBotDeliverySettings(settingsData);
-			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 2);
+			setSummaryRetryLimit(settingsData.summaryRetryLimit ?? 4);
 			setDefaultTimezone(settingsData.defaultTimezone || "Asia/Shanghai");
 			setSelectedChatId((current) => {
 				if (current && manualChats.some((chat) => String(chat.id) === current)) {

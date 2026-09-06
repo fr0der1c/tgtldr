@@ -470,9 +470,6 @@ function ChatTableRow({
                       <div className="form-grid">
                         <Field
                           label="Telegram 推送"
-                          hint={botSummaryDeliveryMode === "daily_digest"
-                            ? "参与后，该群只会纳入每日总览，不会单独发送。"
-                            : "参与后，该群摘要会通过 Bot 单独发送。"}
                         >
                           <AppSelect
                             onChange={(value) =>
@@ -482,7 +479,7 @@ function ChatTableRow({
                             }
                             options={[
                               { value: "dashboard", label: "不参与，仅网页查看" },
-                              { value: "bot", label: "参与推送" }
+                              { value: "bot", label: botSummaryDeliveryMode === "daily_digest" ? "纳入每日总览" : "参与推送" }
                             ]}
                             value={chat.deliveryMode}
                           />

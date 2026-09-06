@@ -49,6 +49,9 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const textTranslations = {
+  "纳入每日总览": "Include in Daily Digest",
+  "临时故障最多重试 4 次，依次等待 1、3、5、10 分钟；0 表示关闭自动重试。": "Retry temporary failures up to 4 times, waiting 1, 3, 5, and 10 minutes in order; 0 disables automatic retries.",
+  "重试次数上限必须在 0 到 4 之间。": "Summary retry limit must be between 0 and 4.",
   "正在检查当前状态...": "Checking current status...",
   "正在进入首次配置...": "Opening first-time setup...",
   "正在进入登录...": "Opening login...",
@@ -323,11 +326,6 @@ const textTranslations = {
   "当一天消息被拆成多个分块时，最多同时生成多少个阶段摘要。": "Maximum number of chunks to summarize at the same time.",
   "最多同时总结多少个消息分块。": "Maximum number of chunks to summarize at the same time.",
   "重试次数上限": "Retry limit",
-  "OpenAI 调用失败后最多额外自动重试多少次；0 表示关闭自动重试。": "Maximum additional automatic retries after an OpenAI failure. Use 0 to disable automatic retries.",
-  "重试起始间隔（分钟）": "Initial retry delay (minutes)",
-  "第一次自动重试前等待的分钟数。": "Minutes to wait before the first automatic retry.",
-  "退避倍率": "Backoff multiplier",
-  "每次失败后的等待倍数；1 表示固定间隔。": "Delay multiplier after each failure. Use 1 for a fixed interval.",
   "保存并继续": "Save and continue",
   "登录 Telegram": "Log in to Telegram",
   "为了登录并获取消息，我们需要登录你的 Telegram 账号。登录后，": "To read messages, TGTLDR needs to log in to your Telegram account. After login,",
@@ -515,8 +513,6 @@ const textTranslations = {
   "按群分别发送": "Send each chat separately",
   "每日总览（合并发送）": "Daily Digest (combined)",
   "Telegram 推送": "Telegram delivery",
-  "参与后，该群只会纳入每日总览，不会单独发送。": "When included, this chat is added to the Daily Digest and is not sent separately.",
-  "参与后，该群摘要会通过 Bot 单独发送。": "When included, this chat's summary is sent separately through the Bot.",
   "不参与，仅网页查看": "Do not include; web only",
   "参与推送": "Include in delivery",
   "未纳入总览": "Not included",

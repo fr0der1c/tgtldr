@@ -55,7 +55,7 @@ export const emptySettings: AppSettings = {
   openAIContextWindowTokens: 0,
   openAIRequestMode: "stream",
   summaryParallelism: 2,
-  summaryRetryLimit: 2,
+  summaryRetryLimit: 4,
   summaryRetryBackoffBaseMinutes: 1,
   summaryRetryBackoffMultiplier: 3,
   defaultTimezone: "Asia/Shanghai",

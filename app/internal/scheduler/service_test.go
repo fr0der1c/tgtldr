@@ -182,39 +182,22 @@ func TestDecideScheduledAction(t *testing.T) {
 	}
 }
 
+// TestSummaryRetryBackoff 验证四次等待时间及达到上限后停止安排。
 func TestSummaryRetryBackoff(t *testing.T) {
-	Convey("重试退避按起始间隔和倍率计算", t, func() {
-		settings := model.AppSettings{
-			SummaryRetryLimit:              3,
-			SummaryRetryBackoffBaseMinutes: 1,
-			SummaryRetryBackoffMultiplier:  3,
+	now := time.Now()
+	settings := model.AppSettings{SummaryRetryLimit: 4}
+	for index, delay := range []time.Duration{time.Minute, 3 * time.Minute, 5 * time.Minute, 10 * time.Minute} {
+		next, ok := nextSummaryRetryAt(settings, index, now)
+		if !ok || !next.Equal(now.Add(delay)) {
+			t.Fatalf("retry %d: %v, %v", index+1, next, ok)
 		}
-
-		So(summaryRetryBackoffDelay(settings, 1), ShouldEqual, time.Minute)
-		So(summaryRetryBackoffDelay(settings, 2), ShouldEqual, 3*time.Minute)
-		So(summaryRetryBackoffDelay(settings, 3), ShouldEqual, 9*time.Minute)
-	})
-
-	Convey("倍率为 1 时固定间隔重试", t, func() {
-		settings := model.AppSettings{
-			SummaryRetryLimit:              3,
-			SummaryRetryBackoffBaseMinutes: 2,
-			SummaryRetryBackoffMultiplier:  1,
-		}
-
-		So(summaryRetryBackoffDelay(settings, 1), ShouldEqual, 2*time.Minute)
-		So(summaryRetryBackoffDelay(settings, 3), ShouldEqual, 2*time.Minute)
-	})
-
-	Convey("极大重试次数不会导致 duration 溢出", t, func() {
-		settings := model.AppSettings{
-			SummaryRetryLimit:              1000,
-			SummaryRetryBackoffBaseMinutes: 1,
-			SummaryRetryBackoffMultiplier:  3,
-		}
-
-		So(summaryRetryBackoffDelay(settings, 1000), ShouldEqual, maxRetryBackoffDuration)
-	})
+	}
+	if _, ok := nextSummaryRetryAt(settings, 4, now); ok {
+		t.Fatal("retry limit exceeded")
+	}
+	if _, ok := nextSummaryRetryAt(model.AppSettings{}, 0, now); ok {
+		t.Fatal("disabled retries must not run")
+	}
 }
 
 func timePtr(value time.Time) *time.Time {

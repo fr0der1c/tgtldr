@@ -212,5 +212,6 @@ func TestIsContextLimitError(t *testing.T) {
 		So(IsRetryableError(quotaErr), ShouldBeFalse)
 		So(IsRetryableError(rateErr), ShouldBeTrue)
 		So(IsRetryableError(&APIError{Message: "rate limited"}), ShouldBeTrue)
+		So(IsRetryableError(&APIError{Message: "Upstream service temporarily unavailable"}), ShouldBeTrue)
 	})
 }
