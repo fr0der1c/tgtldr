@@ -71,8 +71,8 @@ func (r *DailyDigestRepository) getExistingAfterConflict(ctx context.Context, su
 	return item, false, nil
 }
 
-// ReplaceSources 使用相同参与群组的最新单群摘要替换来源快照。
-func (r *DailyDigestRepository) ReplaceSources(
+// PrepareRegeneration 将来源快照与待生成状态一起提交，避免新来源配上旧正文和发送记录。
+func (r *DailyDigestRepository) PrepareRegeneration(
 	ctx context.Context,
 	id int64,
 	sources []model.DailyDigestSource,
@@ -94,7 +94,12 @@ func (r *DailyDigestRepository) ReplaceSources(
 	if _, err := tx.Exec(ctx, `
 		update daily_digests
 		set participant_count = $1, source_summary_count = $2, empty_chat_count = $3,
-		    omitted_chat_count = $4, updated_at = now()
+		    omitted_chat_count = $4, updated_at = now(),
+		    status = 'pending', content = '', model = '', chunk_count = 0,
+		    execution_mode = '', estimated_input_tokens = 0, context_window_tokens = 0,
+		    fallback_reason = '', delivery_skipped_reason = '', delivery_suppressed = false,
+		    delivered_at = null, delivery_error = '', error_message = '', retry_count = 0,
+		    next_retry_at = null, generated_at = null, completed_at = null
 		where id = $5
 	`, participantCount, sourceCount, emptyCount, omittedCount, id); err != nil {
 		return fmt.Errorf("update daily digest %d source counts: %w", id, err)

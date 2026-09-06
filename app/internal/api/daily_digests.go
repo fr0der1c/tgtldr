@@ -62,8 +62,16 @@ func (r *Router) handleDailyDigestByID(w http.ResponseWriter, req *http.Request)
 	}
 	if len(parts) == 2 && parts[1] == "rerun" && req.Method == http.MethodPost {
 		if err := r.dailyDigests.Rerun(req.Context(), id); err != nil {
+			if errors.Is(err, dailydigest.ErrBotUnavailable) {
+				httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "请先启用并配置 Telegram Bot。", "Enable and configure Telegram Bot first."))
+				return
+			}
 			if errors.Is(err, dailydigest.ErrSourcesNotReady) {
-				httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "部分来源摘要仍在处理中，请稍后重试。", "Some source summaries are still processing. Try again later."))
+				message := strings.TrimSuffix(err.Error(), ": "+dailydigest.ErrSourcesNotReady.Error())
+				if err == dailydigest.ErrSourcesNotReady {
+					message = r.localized(req.Context(), "总览或来源摘要仍在处理中，请稍后重试。", "The digest or its source summaries are still processing. Try again later.")
+				}
+				httpx.Error(w, http.StatusBadRequest, message)
 				return
 			}
 			httpx.Error(w, http.StatusBadRequest, err.Error())

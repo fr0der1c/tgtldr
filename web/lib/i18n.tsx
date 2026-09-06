@@ -49,6 +49,10 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const textTranslations = {
+  "未纳入当日总览": "Not included in this day's digest",
+  "当日总览已创建，但未包含该群。可按最新群组配置重新生成并发送。": "This day's digest already exists without this chat. Regenerate and send it using the latest chat settings.",
+  "重新生成并发送": "Regenerate and send",
+  "已按最新群组配置提交重新生成，成功后将自动发送到 Telegram。": "Regeneration with the latest chat settings has started. The digest will be sent to Telegram on success.",
   "纳入每日总览": "Include in Daily Digest",
   "临时故障最多重试 4 次，依次等待 1、3、5、10 分钟；0 表示关闭自动重试。": "Retry temporary failures up to 4 times, waiting 1, 3, 5, and 10 minutes in order; 0 disables automatic retries.",
   "重试次数上限必须在 0 到 4 之间。": "Summary retry limit must be between 0 and 4.",
@@ -501,7 +505,6 @@ const textTranslations = {
   "每日总览历史记录": "Daily Digest history",
   "启用后，每天生成的总览会保存在这里。": "Daily Digests will be saved here after you enable the feature.",
   "没有可查看的每日总览": "No Daily Digest to view",
-  "已提交每日总览重新生成。完成后不会自动重复发送。": "Daily Digest regeneration started. It will not be sent again automatically.",
   "正在生成每日总览…": "Generating Daily Digest…",
   "点击群组可打开对应的单群每日摘要。": "Select a chat to open its daily summary.",
   "未纳入": "Omitted",

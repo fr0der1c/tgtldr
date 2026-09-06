@@ -330,6 +330,9 @@ export function deliveryState(
 	if (summary.deliveredAt) {
 		return { label: "已发送", tone: "good", detail: `已发送于 ${summary.deliveredAt}`, retryable: false }
 	}
+	if (summary.dailyDigestStatus) {
+		return { label: "未纳入当日总览", tone: "neutral", detail: "当日总览已创建，但未包含该群。可按最新群组配置重新生成并发送。", retryable: false }
+	}
 	if (summary.botSummaryDeliveryMode === "daily_digest") {
 		if (summary.status === "failed") {
 			return { label: "未纳入总览", tone: "neutral", detail: "单群摘要生成失败，无法纳入每日总览。", retryable: false }

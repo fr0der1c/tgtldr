@@ -122,12 +122,12 @@ export function DailyDigestDrawer({
     }
   }
 
-  /** 使用原参与群组的最新摘要重新生成正文。 */
+  /** 按最新群组参与范围重建，成功后自动发送到 Telegram。 */
   async function rerun() {
     if (!detail) return;
     try {
       await api.rerunDailyDigest(detail.id);
-      toast.showSuccess("已提交每日总览重新生成。完成后不会自动重复发送。");
+      toast.showSuccess("已按最新群组配置提交重新生成，成功后将自动发送到 Telegram。");
       await refreshProcessing();
     } catch (error) {
       toast.showError(asMessage(error));
@@ -254,7 +254,7 @@ function DailyDigestDetail({
         <div className="summary-status-actions">
           <StatusPill tone={statusTone(item.status)}>{statusText(item.status)}</StatusPill>
           <StatusPill tone={delivery.tone} title={delivery.detail}>{delivery.label}</StatusPill>
-          {!processing ? <button className="text-link-button" onClick={onRerun} type="button">重新生成</button> : null}
+          {!processing ? <button className="text-link-button" disabled={!botReady} onClick={onRerun} type="button">重新生成并发送</button> : null}
           {botReady && item.status === "succeeded" && !item.deliveredAt && !item.deliverySkippedReason ? (
             <button className="text-link-button" onClick={onRetryDelivery} type="button">通过 Bot 发送</button>
           ) : null}

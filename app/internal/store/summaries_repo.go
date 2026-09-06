@@ -23,12 +23,13 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
-		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
 		       s.created_at, s.updated_at
 		from summaries s
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
 		where s.id = $1
 	`, id), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary %d: %w", id, err)
@@ -46,12 +47,13 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
-		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
 		       s.created_at, s.updated_at
 		from summaries s
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
 		where s.chat_id = $1 and s.summary_date = $2::date
 	`, chatID, date), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary for chat %d on %s: %w", chatID, date, err)
@@ -79,6 +81,7 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		join chats c on c.id = s.chat_id
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
 	` + whereClause
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", err)
@@ -94,13 +97,14 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
-		       coalesce(dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
+		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
 		       s.created_at, s.updated_at, c.title
 		from summaries s
 		join chats c on c.id = s.chat_id
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
 	` + whereClause + `
 		order by s.summary_date desc, s.id desc
 		limit $` + fmt.Sprint(len(args)+1) + ` offset $` + fmt.Sprint(len(args)+2)

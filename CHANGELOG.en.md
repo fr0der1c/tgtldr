@@ -6,6 +6,9 @@
 
 ### Changed
 
+- Daily Digests can be regenerated and sent using the latest participating chats. Missing or processing summaries are listed, preserving the existing digest until ready.
+- Chats absent from an existing daily digest now show “Not included in this day's digest” instead of waiting indefinitely.
+
 - Chat summaries and Daily Digests now retry up to four times with delays of 1, 3, 5, and 10 minutes. Upgrades set enabled retry policies to four attempts while preserving disabled retries.
 - Chat delivery now offers “Include in Daily Digest” without the hint that misaligned form fields.
 - Telegram Daily Digests omit web source markers while web references remain available.

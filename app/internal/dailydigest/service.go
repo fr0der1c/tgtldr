@@ -90,6 +90,9 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 		return nil
 	}
 	sources, ready, err := s.collectSources(ctx, settings, summaryDate, participantsFromChats(selectedChats))
+	if errors.Is(err, ErrSourcesNotReady) {
+		return nil
+	}
 	if err != nil || !ready {
 		return err
 	}
@@ -103,8 +106,13 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 	return s.startGeneration(ctx, item.ID, false, true)
 }
 
-// Rerun 使用原参与群组的最新单群摘要重建正文，完成后由用户决定是否再次发送。
+// Rerun 按最新参与配置重建并发送；来源未就绪时保留已有总览。
 func (s *Service) Rerun(ctx context.Context, id int64) error {
+	key := fmt.Sprintf("rerun:%d", id)
+	if !s.begin(key) {
+		return ErrSourcesNotReady
+	}
+	defer s.finish(key)
 	item, err := s.store.DailyDigests.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -116,9 +124,19 @@ func (s *Service) Rerun(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	participants := make([]participant, 0, len(item.Sources))
-	for _, source := range item.Sources {
-		participants = append(participants, participant{chatID: source.ChatID, chatTitle: source.ChatTitle})
+	if !botReady(settings) {
+		return ErrBotUnavailable
+	}
+	chats, err := s.store.Chats.ListSummaryEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	participants := participantsFromChats(participantChats(chats))
+	if len(participants) == 0 {
+		if settings.Language == model.LanguageEN {
+			return fmt.Errorf("No chats are participating in Daily Digest")
+		}
+		return fmt.Errorf("没有参与每日总览的群组")
 	}
 	sources, ready, err := s.collectSources(ctx, settings, item.SummaryDate, participants)
 	if err != nil {
@@ -127,10 +145,10 @@ func (s *Service) Rerun(ctx context.Context, id int64) error {
 	if !ready {
 		return ErrSourcesNotReady
 	}
-	if err := s.store.DailyDigests.ReplaceSources(ctx, id, sources); err != nil {
+	if err := s.store.DailyDigests.PrepareRegeneration(ctx, id, sources); err != nil {
 		return err
 	}
-	return s.startGeneration(ctx, id, false, false)
+	return s.startGeneration(ctx, id, false, true)
 }
 
 // RetryDelivery 只重新发送已经生成的正文，不重新调用模型。
@@ -279,18 +297,27 @@ func (s *Service) collectSources(
 	participants []participant,
 ) ([]model.DailyDigestSource, bool, error) {
 	sources := make([]model.DailyDigestSource, 0, len(participants))
+	var waiting []string
 	for _, selected := range participants {
 		item, err := s.store.Summaries.GetByChatAndDate(ctx, selected.chatID, summaryDate)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, false, nil
+			waiting = append(waiting, selected.chatTitle)
+			continue
 		}
 		if err != nil {
 			return nil, false, err
 		}
 		if !summaryTerminal(item, settings, summaryDate) {
-			return nil, false, nil
+			waiting = append(waiting, selected.chatTitle)
+			continue
 		}
 		sources = append(sources, dailyDigestSource(selected, item))
+	}
+	if len(waiting) > 0 {
+		if settings.Language == model.LanguageEN {
+			return nil, false, fmt.Errorf("Summaries missing or still processing: %s: %w", strings.Join(waiting, ", "), ErrSourcesNotReady)
+		}
+		return nil, false, fmt.Errorf("以下群组的摘要尚未生成或仍在处理中：%s: %w", strings.Join(waiting, "、"), ErrSourcesNotReady)
 	}
 	return sources, true, nil
 }
