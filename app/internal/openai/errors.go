@@ -11,6 +11,8 @@ import (
 
 const maxErrorResponseLength = 2000
 
+var ErrEmptyResponse = errors.New("model returned empty summary content")
+
 type APIError struct {
 	StatusCode int
 	Code       string
@@ -24,7 +26,7 @@ func IsRetryableError(err error) bool {
 	if errors.Is(err, context.Canceled) {
 		return false
 	}
-	if errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrEmptyResponse) {
 		return true
 	}
 	var networkErr net.Error

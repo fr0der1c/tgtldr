@@ -72,6 +72,13 @@ func TestRerunLatestParticipants(t *testing.T) {
 		(2, 2, '2026-01-01', 'succeeded', '最新摘要', 2, 'daily_digest')`); err != nil {
 		t.Fatal(err)
 	}
+	if err := st.Summaries.SaveResult(ctx, model.Summary{
+		ChatID: 2, SummaryDate: "2026-01-01", Status: model.SummaryStatusSucceeded,
+		Content: "最新摘要", SourceMessageCount: 2, GeneratedAt: time.Now(),
+		Model: "terra", RequestedModel: "luna", ReturnedModel: "terra",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	item, _, err := st.DailyDigests.Create(ctx, "2026-01-01", []model.DailyDigestSource{{ChatID: 1, SummaryID: 1, ChatTitle: "退出群", Included: true, Content: "原摘要", SummaryStatus: model.SummaryStatusSucceeded}})
 	if err != nil {
 		t.Fatal(err)
@@ -138,5 +145,17 @@ func TestRerunLatestParticipants(t *testing.T) {
 	included, err := st.Summaries.GetByID(ctx, 2)
 	if err != nil || included.DailyDigestID != item.ID || !included.DailyDigestIncluded {
 		t.Fatalf("included metadata: %+v, %v", included, err)
+	}
+	if included.RequestedModel != "luna" || included.ReturnedModel != "terra" {
+		t.Fatalf("model attribution lost: %+v", included)
+	}
+	list, err := st.Summaries.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, summary := range list {
+		if summary.ChatID == 2 && (summary.RequestedModel != "luna" || summary.ReturnedModel != "terra") {
+			t.Fatalf("list model attribution lost: %+v", summary)
+		}
 	}
 }

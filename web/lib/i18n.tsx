@@ -49,6 +49,7 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const textTranslations = {
+  "总览创建时该群摘要正文为空，请先重新生成单群摘要。": "This chat's summary was empty when the digest was created. Regenerate the chat summary first.",
   "重试发送": "Retry delivery",
   "未纳入当日总览": "Not included in this day's digest",
   "当日总览已创建，但未包含该群。可按最新群组配置重新生成并发送。": "This day's digest already exists without this chat. Regenerate and send it using the latest chat settings.",

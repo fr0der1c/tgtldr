@@ -126,6 +126,7 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 		SummaryDate:        date,
 		Status:             model.SummaryStatusSucceeded,
 		Model:              resolveSummaryModel(chat, settings),
+		RequestedModel:     resolveSummaryModel(chat, settings),
 		SourceMessageCount: len(filteredMessages),
 		GeneratedAt:        s.clock.Now(),
 	}

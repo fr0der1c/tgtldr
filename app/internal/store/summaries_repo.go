@@ -16,7 +16,7 @@ type SummaryRepository struct {
 func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
 		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
@@ -40,7 +40,7 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, date string) (model.Summary, error) {
 	var item model.Summary
 	if err := scanSummary(r.pool.QueryRow(ctx, `
-		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
 		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
@@ -90,7 +90,7 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	offset := (normalized.Page - 1) * normalized.PageSize
 	argsWithPagination := append(args, normalized.PageSize, offset)
 	dataQuery := `
-		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model,
+		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
 		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
@@ -229,6 +229,7 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		set status = $1,
 		    content = $2,
 		    model = $3,
+		    requested_model = $15, returned_model = $16,
 		    source_message_count = $4,
 		    chunk_count = $5,
 		    generated_at = $6,
@@ -257,6 +258,8 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		nextRetryAt,
 		summary.ChatID,
 		summary.SummaryDate,
+		summary.RequestedModel,
+		summary.ReturnedModel,
 	)
 	if err != nil {
 		return fmt.Errorf("save summary result: %w", err)
@@ -346,6 +349,8 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.Status,
 		&item.Content,
 		&item.Model,
+		&item.RequestedModel,
+		&item.ReturnedModel,
 		&item.SourceMessageCount,
 		&item.ChunkCount,
 		&item.GeneratedAt,
@@ -381,6 +386,8 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.Status,
 		&item.Content,
 		&item.Model,
+		&item.RequestedModel,
+		&item.ReturnedModel,
 		&item.SourceMessageCount,
 		&item.ChunkCount,
 		&item.GeneratedAt,

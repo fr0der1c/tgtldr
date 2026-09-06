@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown } from "@/components/summary-markdown";
 import { StatusPill } from "@/components/ui";
 import { Chat, Summary } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import { summaryModelLabel } from "@/lib/summary-model";
 import { deliveryState, statusText, statusTone } from "@/components/summaries-panel-sections";
 
 export function SummaryDetailDrawer({
@@ -39,6 +41,7 @@ export function SummaryDetailDrawer({
   selectedSummary: Summary | null;
   summaryRetryLimit: number;
 }) {
+  const { language } = useI18n();
   const selectedDelivery = selectedSummary
     ? deliveryState(selectedSummary, selectedChat, botReady)
     : null;
@@ -82,7 +85,7 @@ export function SummaryDetailDrawer({
           </div>
           <div className="summary-detail-meta">
             <p>
-              {selectedSummary.model || "未记录模型"} · 消息 {selectedSummary.sourceMessageCount} 条 · 分块{" "}
+              {summaryModelLabel(selectedSummary, language)} · 消息 {selectedSummary.sourceMessageCount} 条 · 分块{" "}
               {selectedSummary.chunkCount}
             </p>
             <div className="summary-detail-meta-actions">

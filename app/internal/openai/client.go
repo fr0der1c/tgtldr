@@ -87,11 +87,19 @@ func New(cfg Config) *Client {
 	}
 }
 
+// Chat 将没有可用正文的响应视为临时失败，交由摘要任务的有限重试策略处理。
 func (c *Client) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
+	var response ChatResponse
+	var err error
 	if c.stream {
-		return c.chatStream(ctx, req)
+		response, err = c.chatStream(ctx, req)
+	} else {
+		response, err = c.chatNonStream(ctx, req)
 	}
-	return c.chatNonStream(ctx, req)
+	if err == nil && strings.TrimSpace(response.Content) == "" {
+		err = ErrEmptyResponse
+	}
+	return response, err
 }
 
 func (c *Client) chatNonStream(ctx context.Context, req ChatRequest) (ChatResponse, error) {

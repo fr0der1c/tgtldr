@@ -6,6 +6,9 @@
 
 ### Changed
 
+- Summaries record requested and returned models, displaying both when they differ. Historical records retain their existing model labels.
+- Empty model responses now trigger bounded retries instead of being marked successful; Daily Digests explain omissions caused by empty summaries.
+
 - Daily Digests show “Regenerate and send” by default, with “Retry delivery” available only when generation succeeded but delivery failed.
 
 - Daily Digests can be regenerated and sent using the latest participating chats. Missing or processing summaries are listed, preserving the existing digest until ready.

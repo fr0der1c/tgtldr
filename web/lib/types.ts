@@ -225,6 +225,8 @@ export type Summary = {
   status: "pending" | "running" | "succeeded" | "failed";
   content: string;
   model: string;
+  requestedModel?: string;
+  returnedModel?: string;
   sourceMessageCount: number;
   chunkCount: number;
   generatedAt: string;

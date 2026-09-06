@@ -251,6 +251,8 @@ type Summary struct {
 	Status                           SummaryStatus          `json:"status"`
 	Content                          string                 `json:"content"`
 	Model                            string                 `json:"model"`
+	RequestedModel                   string                 `json:"requestedModel"`
+	ReturnedModel                    string                 `json:"returnedModel"`
 	SourceMessageCount               int                    `json:"sourceMessageCount"`
 	ChunkCount                       int                    `json:"chunkCount"`
 	GeneratedAt                      time.Time              `json:"generatedAt"`

@@ -11,6 +11,7 @@ import { Button, Field, Input, StatusPill } from "@/components/ui";
 import { TextHighlight } from "@/components/text-highlight";
 import { Chat, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { summaryModelLabel } from "@/lib/summary-model";
 
 export type SummaryFilter = "all" | "processing" | Summary["status"];
 export type DeliveryFilter = "all" | "sent" | "pending" | "failed" | "disabled";
@@ -240,7 +241,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 									<div className="entity-row-main">
 										<strong>{chatTitles.get(item.chatId) ?? "未知群组"}</strong>
 										<p>
-											{item.summaryDate} · {item.model || "未记录模型"} · {messageCountText}
+											{item.summaryDate} · {summaryModelLabel(item, language)} · {messageCountText}
 										</p>
 										{searching && item.matchSnippet ? (
 											<p className="entity-row-snippet">
@@ -304,6 +305,9 @@ export function deliveryState(
 		return { label: "不发送", tone: "neutral", detail: "当前群组设置为不通过 Bot 推送。", retryable: false }
 	}
 	if (summary.dailyDigestId) {
+		if (!summary.dailyDigestIncluded && summary.dailyDigestOmissionReason === "empty_content") {
+			return { label: "未纳入总览", tone: "neutral", detail: "总览创建时该群摘要正文为空，请先重新生成单群摘要。", retryable: false }
+		}
 		if (!summary.dailyDigestIncluded && summary.dailyDigestOmissionReason === "no_messages") {
 			return { label: "当日无消息", tone: "neutral", detail: "该群当天没有新消息，已完成等待但未进入总览正文。", retryable: false }
 		}

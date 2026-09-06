@@ -233,6 +233,7 @@ func completeDailySummary(result model.Summary, response openai.ChatResponse) mo
 	result.Content = strings.TrimSpace(response.Content)
 	if strings.TrimSpace(response.Model) != "" {
 		result.Model = response.Model
+		result.ReturnedModel = strings.TrimSpace(response.Model)
 	}
 	return result
 }

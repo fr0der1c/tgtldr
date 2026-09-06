@@ -118,7 +118,7 @@ func appendOmissionNotice(content string, sources []model.DailyDigestSource, lan
 	if len(names) == 0 {
 		return strings.TrimSpace(content)
 	}
-	label := "以下群组因单群摘要生成失败而未纳入："
+	label := "以下群组因单群摘要生成失败或正文为空而未纳入："
 	separator := "、"
 	if language == model.LanguageEN {
 		label = "Omitted because their chat summaries were unavailable: "
