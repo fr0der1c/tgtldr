@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown, type MarkdownSourceReference } from "@/components/summary-markdown";
@@ -14,11 +14,13 @@ import { useI18n } from "@/lib/i18n";
 /** DailyDigestDrawer 在侧栏中展示每日总览历史、正文和来源摘要。 */
 export function DailyDigestDrawer({
   botReady,
+  onChanged,
   onClose,
   onOpenSummary,
   open,
 }: {
   botReady: boolean;
+  onChanged: () => Promise<void>;
   onClose: () => void;
   onOpenSummary: (summary: Summary) => void;
   open: boolean;
@@ -31,6 +33,11 @@ export function DailyDigestDrawer({
   const [total, setTotal] = useState(0);
   const toast = useToast();
   const { language } = useI18n();
+  const onChangedRef = useRef(onChanged);
+
+  useEffect(() => {
+    onChangedRef.current = onChanged;
+  }, [onChanged]);
 
   useEffect(() => {
     if (open) void loadHistory();
@@ -44,10 +51,10 @@ export function DailyDigestDrawer({
   );
 
   useEffect(() => {
-    if (!open || !processing) return;
+    if (!processing) return;
     const timer = window.setInterval(() => void refreshProcessing(), 3000);
     return () => window.clearInterval(timer);
-  }, [open, processing, selectedId]);
+  }, [processing, selectedId]);
 
   /** 刷新第一页，并优先保留用户正在查看的记录。 */
   async function loadHistory() {
@@ -67,7 +74,7 @@ export function DailyDigestDrawer({
     }
   }
 
-  /** 轮询生成中的任务，并同步当前详情。 */
+  /** 轮询生成中的任务，即使侧栏关闭也同步详情和摘要列表，直到生成结束。 */
   async function refreshProcessing() {
     try {
       const response = await api.listDailyDigests();
@@ -77,6 +84,7 @@ export function DailyDigestDrawer({
       });
       setTotal(response.total);
       if (selectedId) setDetail(await api.getDailyDigest(selectedId));
+      await onChangedRef.current();
     } catch (error) {
       toast.showError(asMessage(error));
     }
@@ -141,6 +149,7 @@ export function DailyDigestDrawer({
       await api.retryDailyDigestDelivery(detail.id);
       toast.showSuccess("已重新提交 Telegram 发送。");
       setDetail(await api.getDailyDigest(detail.id));
+      await onChangedRef.current();
     } catch (error) {
       toast.showError(asMessage(error));
     }

@@ -15,12 +15,14 @@ export function DailyDigestExperience({
   botConfigured,
   botReady,
   deliveryMode,
+  onChanged,
   onEnabled,
   onOpenSummary,
 }: {
   botConfigured: boolean | null;
   botReady: boolean;
   deliveryMode: BotSummaryDeliveryMode;
+  onChanged: () => Promise<void>;
   onEnabled: (settings: AppSettings) => void;
   onOpenSummary: (summary: Summary) => void;
 }) {
@@ -186,6 +188,9 @@ export function DailyDigestExperience({
 
       <DailyDigestDrawer
         botReady={botReady}
+        onChanged={async () => {
+          await Promise.all([loadLatest(), onChanged()]);
+        }}
         onClose={() => {
           setDrawerOpen(false);
           void loadLatest();

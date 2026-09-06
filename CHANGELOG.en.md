@@ -4,6 +4,10 @@
 
 ## 2026-09-06
 
+### Fixed
+
+- Summary list inclusion statuses now refresh automatically when regenerating a Daily Digest, even if its drawer is closed before generation finishes.
+
 ### Changed
 
 - Summaries record requested and returned models, displaying both when they differ. Historical records retain their existing model labels.

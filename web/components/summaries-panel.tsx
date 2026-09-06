@@ -247,6 +247,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					botConfigured={botConfigured}
 					botReady={botReady}
 					deliveryMode={botSummaryDeliveryMode}
+					onChanged={() => loadRef.current()}
 					onEnabled={applyBotDeliverySettings}
 					onOpenSummary={(summary) => {
 						setExternalSummary(summary);
