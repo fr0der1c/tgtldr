@@ -255,8 +255,8 @@ function DailyDigestDetail({
           <StatusPill tone={statusTone(item.status)}>{statusText(item.status)}</StatusPill>
           <StatusPill tone={delivery.tone} title={delivery.detail}>{delivery.label}</StatusPill>
           {!processing ? <button className="text-link-button" disabled={!botReady} onClick={onRerun} type="button">重新生成并发送</button> : null}
-          {botReady && item.status === "succeeded" && !item.deliveredAt && !item.deliverySkippedReason ? (
-            <button className="text-link-button" onClick={onRetryDelivery} type="button">通过 Bot 发送</button>
+          {botReady && item.status === "succeeded" && item.deliveryError && !item.deliveredAt && !item.deliverySkippedReason ? (
+            <button className="text-link-button" onClick={onRetryDelivery} type="button">重试发送</button>
           ) : null}
         </div>
       </header>

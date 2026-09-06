@@ -6,6 +6,8 @@
 
 ### Changed
 
+- Daily Digests show “Regenerate and send” by default, with “Retry delivery” available only when generation succeeded but delivery failed.
+
 - Daily Digests can be regenerated and sent using the latest participating chats. Missing or processing summaries are listed, preserving the existing digest until ready.
 - Chats absent from an existing daily digest now show “Not included in this day's digest” instead of waiting indefinitely.
 

@@ -49,6 +49,7 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const textTranslations = {
+  "重试发送": "Retry delivery",
   "未纳入当日总览": "Not included in this day's digest",
   "当日总览已创建，但未包含该群。可按最新群组配置重新生成并发送。": "This day's digest already exists without this chat. Regenerate and send it using the latest chat settings.",
   "重新生成并发送": "Regenerate and send",
