@@ -2,6 +2,12 @@
 
 [English version](CHANGELOG.en.md)
 
+## 2026-09-08
+
+### 修复
+
+- 将 PostgreSQL 驱动 pgx 升级至 v5.9.0，修复依赖中的 CVE-2026-33815；后端最低 Go 版本及 Docker 构建镜像同步升级至 Go 1.25。
+
 ## 2026-09-06
 
 ### 修复

@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-08
+
+### Fixed
+
+- Upgraded the PostgreSQL driver pgx to v5.9.0 to address CVE-2026-33815 in the dependency; updated the minimum backend Go version and Docker build image to Go 1.25.
+
 ## 2026-09-06
 
 ### Fixed

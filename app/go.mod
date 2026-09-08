@@ -1,10 +1,10 @@
 module github.com/fr0der1c/tgtldr/app
 
-go 1.24.6
+go 1.25.0
 
 require (
 	github.com/gotd/td v0.134.0
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.9.0
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/tiktoken-go/tokenizer v0.7.0
 	golang.org/x/crypto v0.44.0
