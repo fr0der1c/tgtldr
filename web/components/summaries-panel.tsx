@@ -25,6 +25,7 @@ import { SummaryDrawerPair } from "@/components/summary-drawer-pair";
 import { CatchUpExperience } from "@/components/catch-up-experience";
 import { DailyDigestExperience } from "@/components/daily-digest-experience";
 import { useToast } from "@/components/toast";
+import { SummaryRecovery } from "@/components/summary-recovery";
 
 const summaryPageSize = 20;
 
@@ -268,34 +269,28 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 			</div>
 			<MetricRail compact>
 				<MetricCard
-					badge="累计"
 					detail="已经写入数据库的摘要任务与结果。"
 					label="摘要记录"
 					onClick={() => applyMetricFilter("all")}
 					value={summaryStats.total}
 				/>
 				<MetricCard
-					badge={summaryStats.successCount > 0 ? "正常" : "暂无"}
 					detail="状态为 succeeded 的摘要数量。"
 					label="生成成功"
 					onClick={() => applyMetricFilter("succeeded")}
-					tone={summaryStats.successCount > 0 ? "good" : "neutral"}
 					value={summaryStats.successCount}
 				/>
 				<MetricCard
-					badge={summaryStats.processingCount > 0 ? "进行中" : "空闲"}
 					detail="当前正在运行或等待完成的摘要。"
 					label="处理中"
 					onClick={() => applyMetricFilter("processing")}
-					tone={summaryStats.processingCount > 0 ? "warn" : "neutral"}
 					value={summaryStats.processingCount}
 				/>
 				<MetricCard
-					badge={summaryStats.failedCount > 0 ? "需排查" : "稳定"}
+					actions={<SummaryRecovery onChanged={() => { void loadRef.current(); void loadStatsRef.current(); }} />}
 					detail="失败任务建议重新执行，并检查模型配置或上下文限制。"
 					label="生成失败"
 					onClick={() => applyMetricFilter("failed")}
-					tone={summaryStats.failedCount > 0 ? "bad" : "good"}
 					value={summaryStats.failedCount}
 				/>
 			</MetricRail>

@@ -57,6 +57,9 @@ func run() error {
 		return fmt.Errorf("recover interrupted daily digest tasks: %w", err)
 	}
 	schedulerService := scheduler.NewService(st, sysClock, summaryService, botService, dailyDigestService)
+	if err := schedulerService.RecoverInterruptedSummaries(ctx); err != nil {
+		return fmt.Errorf("recover interrupted summary tasks: %w", err)
+	}
 	catchUpService := catchup.NewService(ctx, st, sysClock, botService, cfg.OpenAITimeout)
 	if err := catchUpService.RecoverInterrupted(ctx); err != nil {
 		return fmt.Errorf("recover interrupted Catch Up tasks: %w", err)
@@ -90,6 +93,9 @@ func run() error {
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return schedulerService.RunMaintenance(groupCtx, cfg.WebOrigin)
+	})
 	group.Go(func() error {
 		if err := schedulerService.Run(groupCtx); err != nil && !errors.Is(err, context.Canceled) {
 			return err

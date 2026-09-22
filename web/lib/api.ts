@@ -1,4 +1,6 @@
 import {
+  RecoveryItem,
+  FailureNotice,
   AppSettings,
   AuthStatus,
   Bootstrap,
@@ -253,6 +255,9 @@ export const api = {
     }),
   getHistoryBackfill: (taskId: string) =>
     request<HistoryBackfillTask>(`/api/history-backfills/${taskId}`),
+  summaryRecovery: () => request<RecoveryItem[]>("/api/summaries/recovery"),
+  startSummaryRecovery: () => request<RecoveryItem[]>("/api/summaries/recovery", { method: "POST" }),
+  failureNotices: () => request<FailureNotice[]>("/api/summaries/failure-notices"),
   summaryStats: () => request<SummaryStats>("/api/summaries/stats"),
   listSummaries: (filters?: SummarySearchFilters) =>
     request<SummaryListResponse>(

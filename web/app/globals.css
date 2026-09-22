@@ -6,6 +6,7 @@
 @import "./chat-search.css";
 @import "./chat-focus.css";
 @import "./catch-up.css";
+@import "./summary-recovery.css";
 
 :root {
   color-scheme: light;

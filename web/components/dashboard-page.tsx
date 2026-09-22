@@ -37,13 +37,15 @@ export function MetricRail({
   return <div className={`metric-rail${compact ? " metric-rail-compact" : ""}`}>{children}</div>;
 }
 
+/** 统计卡可独立提供筛选入口与操作按钮，避免交互控件相互嵌套。 */
 export function MetricCard({
   label,
   value,
   tone = "neutral",
   detail,
   badge,
-  onClick
+  onClick,
+  actions,
 }: {
   label: string;
   value: string | number;
@@ -51,17 +53,31 @@ export function MetricCard({
   detail?: string;
   badge?: string;
   onClick?: () => void;
+  actions?: ReactNode;
 }) {
+  const head = <div className="metric-card-head">
+    <span>{label}</span>
+    {badge ? <StatusPill tone={tone}>{badge}</StatusPill> : null}
+  </div>;
   const content = (
     <>
-      <div className="metric-card-head">
-        <span>{label}</span>
-        {badge ? <StatusPill tone={tone}>{badge}</StatusPill> : null}
-      </div>
+      {head}
       <strong>{value}</strong>
       {detail ? <p>{detail}</p> : null}
     </>
   );
+
+  if (actions) {
+    return <article className="metric-card metric-card-with-actions">
+      {onClick ? <button className="metric-card-select" type="button" aria-label={label} title={detail} onClick={onClick} /> : null}
+      {head}
+      <div className="metric-card-value-row">
+        <strong>{value}</strong>
+        <div className="metric-card-controls">{actions}</div>
+      </div>
+      {detail ? <p>{detail}</p> : null}
+    </article>;
+  }
 
   if (onClick) {
     return (

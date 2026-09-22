@@ -95,6 +95,8 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
+	mux.HandleFunc("/api/summaries/recovery", r.handleSummaryRecovery)
+	mux.HandleFunc("/api/summaries/failure-notices", r.handleFailureNotices)
 	mux.HandleFunc("/api/catch-ups", r.handleCatchUps)
 	mux.HandleFunc("/api/catch-ups/", r.handleCatchUpByID)
 	mux.HandleFunc("/api/daily-digests", r.handleDailyDigests)

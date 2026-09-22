@@ -387,3 +387,17 @@ export type DailyDigestListResponse = {
   page: number;
   pageSize: number;
 };
+export type RecoveryItem = {
+  kind: "summary" | "digest";
+  id: number;
+  date: string;
+  status: string;
+  error: string;
+};
+
+export type FailureNotice = {
+  date: string;
+  attempts: number;
+  deliveredAt: string | null;
+  error: string;
+};

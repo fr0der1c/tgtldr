@@ -80,7 +80,7 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 		return nil
 	}
 	if item, err := s.store.DailyDigests.GetByDate(ctx, summaryDate); err == nil {
-		return s.continueExisting(ctx, settings, item)
+		return s.ContinueExisting(ctx, settings, item)
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -101,7 +101,7 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 		return err
 	}
 	if !created {
-		return s.continueExisting(ctx, settings, item)
+		return s.ContinueExisting(ctx, settings, item)
 	}
 	return s.startGeneration(ctx, item.ID, false, true)
 }
@@ -170,8 +170,8 @@ func (s *Service) RetryDelivery(ctx context.Context, id int64) error {
 	return s.deliverAndRecord(ctx, settings, item)
 }
 
-// continueExisting 根据持久化状态恢复生成、重试模型或重试投递。
-func (s *Service) continueExisting(ctx context.Context, settings model.AppSettings, item model.DailyDigest) error {
+// ContinueExisting 根据持久化状态恢复生成、重试模型或重试投递，供定时和历史恢复共用。
+func (s *Service) ContinueExisting(ctx context.Context, settings model.AppSettings, item model.DailyDigest) error {
 	switch item.Status {
 	case model.SummaryStatusPending:
 		return s.startGeneration(ctx, item.ID, false, !item.DeliverySuppressed)

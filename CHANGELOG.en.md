@@ -2,6 +2,22 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-22
+
+### Added
+
+- Added a Retry all button and retry details to the Failed metric card on the summaries page, showing task progress, failure reasons, and notification delivery errors. Retrying and filtering are separate actions.
+- Batch recovery processes up to two chat summary tasks concurrently while preserving successful results, then regenerates unsent failed Daily Digests in date order and retries failed digest deliveries. Progress is persisted so processing can continue after closing the page or restarting the service.
+- When the Telegram Bot is enabled and configured, chat summary and Daily Digest failures are combined into a notification for each summary date after automatic retries end. Notifications are deduplicated by date and delivery is attempted up to four times. Messages contain error categories without raw upstream responses or chat content.
+
+### Changed
+
+- Removed status badges from the four summary metric cards, keeping their labels, counts, and relevant actions.
+
+### Fixed
+
+- Fixed scheduled retries not running for historical reruns and failures carried across midnight. Summaries interrupted by an application restart are recovered at startup and processed within the configured retry limit.
+
 ## 2026-09-08
 
 ### Fixed

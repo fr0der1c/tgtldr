@@ -18,6 +18,16 @@ type Service struct {
 	apiBaseURL string
 }
 
+// DeliveryError 保留 Telegram 的 HTTP 状态，便于安全地分类通知投递错误。
+type DeliveryError struct {
+	StatusCode  int
+	Description string
+}
+
+func (e *DeliveryError) Error() string {
+	return fmt.Sprintf("bot status %d: %s", e.StatusCode, e.Description)
+}
+
 func New() *Service {
 	return newService("https://api.telegram.org")
 }
@@ -91,7 +101,7 @@ func (s *Service) sendHTML(ctx context.Context, token, chatID, formatted string)
 		return fmt.Errorf("read bot response: %w", err)
 	}
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("bot status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return &DeliveryError{StatusCode: resp.StatusCode, Description: strings.TrimSpace(string(body))}
 	}
 	return nil
 }

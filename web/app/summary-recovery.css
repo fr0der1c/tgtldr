@@ -1,0 +1,145 @@
+.metric-card-with-actions {
+  position: relative;
+}
+
+.metric-card-select {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.metric-card-select:hover {
+  background: var(--brand-soft);
+}
+
+.metric-card-select:focus-visible,
+.summary-recovery-button:focus-visible,
+.summary-recovery-details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.metric-card-with-actions > .metric-card-head,
+.metric-card-value-row {
+  position: relative;
+  pointer-events: none;
+}
+
+.metric-card-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metric-card-controls {
+  position: relative;
+  margin-left: auto;
+  pointer-events: auto;
+}
+
+.summary-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summary-recovery-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid rgba(185, 137, 59, 0.28);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.summary-recovery-button:hover:not(:disabled) {
+  background: rgba(185, 137, 59, 0.22);
+}
+
+.summary-recovery-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.summary-recovery-details > summary,
+.summary-recovery-progress {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.summary-recovery-details > summary {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 30px;
+  border-radius: 8px;
+  list-style: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.summary-recovery-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-recovery-details > summary:hover {
+  background: var(--brand-soft);
+}
+
+.summary-recovery-progress {
+  position: absolute;
+  top: calc(100% + 1px);
+  right: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.summary-recovery-popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 20px);
+  right: 0;
+  display: grid;
+  gap: 12px;
+  width: min(320px, calc(100vw - 40px));
+  max-height: 280px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.summary-recovery-heading {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .summary-recovery-button {
+    padding-inline: 8px;
+  }
+
+  .summary-recovery-button svg {
+    display: none;
+  }
+}
