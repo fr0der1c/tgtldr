@@ -58,6 +58,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     concurrency:
       group: ${{ github.workflow }}-app-${{ github.ref }}
       cancel-in-progress: true
@@ -88,8 +89,11 @@ jobs:
             type=sha,format=short
 
       - name: Build and push image
+        id: build
+        continue-on-error: true
+        timeout-minutes: 20
         uses: docker/build-push-action@v6
-        with:
+        with: &app-build-inputs
           context: .
           file: deploy/docker/app.Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -103,10 +107,40 @@ jobs:
             type=gha,mode=max,scope=tgtldr-app
             type=registry,ref=fr0der1c/tgtldr-app:buildcache,mode=max
 
+      - &network-retry
+        name: Check for transient network failure
+        id: network_retry
+        if: ${{ !cancelled() && steps.build.outcome == 'failure' }}
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/build-failure.log"
+          # 当前 job 只有一次构建；读取失败时保留失败状态，不盲目重试。
+          docker buildx history logs --progress plain > "$log" 2>&1
+          if grep -Eiq 'ERESOLVE|EINTEGRITY|E401|E403|E404|ENOTFOUND|CERT_HAS_EXPIRED|SELF_SIGNED_CERT|certificate verify failed|unauthorized|denied:|Type error:|error TS[0-9]+|Failed to compile|syntax error' "$log"; then
+            echo "::error::Build failed with a non-retryable error."
+            exit 1
+          fi
+          if ! grep -Eiq 'ECONNRESET|ETIMEDOUT|EAI_AGAIN|connection reset by peer|TLS handshake timeout|i/o timeout|temporary failure in name resolution|unexpected status.*(502|503|504)|response status.*(502|503|504)|npm (error|ERR!) code E(502|503|504)' "$log"; then
+            echo "::error::Build failed without a recognized transient network error."
+            exit 1
+          fi
+          echo "::warning::Transient network failure; retrying the build once in 30 seconds."
+          sleep 30
+          echo "retry=true" >> "$GITHUB_OUTPUT"
+
+      - name: Retry build and push image
+        if: ${{ !cancelled() && steps.network_retry.outputs.retry == 'true' }}
+        timeout-minutes: 20
+        uses: docker/build-push-action@v6
+        with: *app-build-inputs
+
   docker-web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     concurrency:
       group: ${{ github.workflow }}-web-${{ github.ref }}
       cancel-in-progress: true
@@ -140,8 +174,11 @@ jobs:
             type=sha,format=short
 
       - name: Build and push image
+        id: build
+        continue-on-error: true
+        timeout-minutes: 20
         uses: docker/build-push-action@v6
-        with:
+        with: &web-build-inputs
           context: .
           file: deploy/docker/web.Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -154,3 +191,11 @@ jobs:
           cache-to: |
             type=gha,mode=max,scope=tgtldr-web
             type=registry,ref=fr0der1c/tgtldr-web:buildcache,mode=max
+
+      - *network-retry
+
+      - name: Retry build and push image
+        if: ${{ !cancelled() && steps.network_retry.outputs.retry == 'true' }}
+        timeout-minutes: 20
+        uses: docker/build-push-action@v6
+        with: *web-build-inputs

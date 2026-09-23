@@ -4,7 +4,11 @@ WORKDIR /app
 COPY web/package.json ./package.json
 COPY web/package-lock.json ./package-lock.json
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+    npm ci --prefer-offline \
+      --fetch-retries=4 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=60000
 
 FROM node:24-alpine AS builder
 WORKDIR /app
