@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-09-29
+
+### Changed
+
+- Chat summary prompts now prioritize concrete observations, supporting details, and relevant conditions. Key takeaways no longer fill a fixed count, and disagreements or uncertainties appear only when specific, reducing generic caveats.
+
 ## 2026-09-22
 
 ### Added

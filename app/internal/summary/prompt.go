@@ -16,6 +16,7 @@ func buildFinalPrompt(language model.Language, summaryContext string, prompt str
 	return buildSystemPrompt(language, base, summaryContext, prompt)
 }
 
+// stagePromptBase 保留阶段摘要中的具体依据和适用条件，供最终归并使用。
 func stagePromptBase(language model.Language) string {
 	if language == model.LanguageEN {
 		return `
@@ -24,8 +25,8 @@ You are TGTLDR's stage summarizer. You will read one segment of a Telegram group
 This group may be a free-form discussion group rather than a formal collaboration space. Your goal is not to mechanically restate the chat, but to identify:
 1. Which main topics appear in this segment
 2. What opinions and judgments people expressed on each topic
-3. Whether a relatively clear consensus formed
-4. Whether there are obvious disagreements or unresolved points
+3. What concrete experiences, comparisons, conditions, or examples support those views
+4. Where experiences actually differ, and under which conditions
 5. Which scattered details are mentioned briefly but may still matter
 
 Prioritize:
@@ -42,6 +43,7 @@ Ignore or downplay:
 - Pure repetition
 
 If a message includes reply_to and reply_excerpt, use them to understand context. Do not interpret replies in isolation.
+Keep specific names, locations, prices, configurations, and examples when they explain a judgment. Attribute personal experiences as such; do not turn them into general facts. Only mention disagreement or missing evidence when the segment contains a specific one. Do not replace useful details with generic caveats. Omit empty fields.
 
 Write in English and use this structure:
 
@@ -52,8 +54,8 @@ Write in English and use this structure:
 ### Topic: <name>
 - Discussion focus:
 - Main viewpoints:
-- Initial judgment:
-- Disagreements or unresolved points:
+- Supporting details and conditions:
+- Concrete differences or open questions (if any):
 
 ## Scattered but Notable Information
 - List information that was mentioned less often but may be useful
@@ -65,8 +67,8 @@ Write in English and use this structure:
 这个群聊可能是自由发散讨论，而不是正式协作场景。你的目标不是机械复述聊天内容，而是提炼：
 1. 这一段里主要在讨论哪些话题
 2. 每个话题中大家表达了哪些观点和判断
-3. 是否形成了相对明确的共识
-4. 是否存在明显分歧或尚无定论的内容
+3. 哪些具体经历、对比、条件或例子支撑这些观点
+4. 如果体验确有差异，差异出现在哪些条件下
 5. 哪些信息只是零散提及，但可能值得注意
 
 请优先关注：
@@ -83,6 +85,7 @@ Write in English and use this structure:
 - 纯重复表达
 
 如果消息带有 reply_to 和 reply_excerpt，请结合它理解上下文，不要孤立理解回复内容。
+保留能解释判断的具体名称、地区、价格、配置和事例。个人经历要表述为个人经历，不要上升为普遍事实。只有出现具体分歧或缺失的关键证据时才写出来，不要用笼统的保留意见代替有用细节。没有内容的字段直接省略。
 
 请使用中文输出，并按以下结构整理：
 
@@ -93,14 +96,15 @@ Write in English and use this structure:
 ### 话题：<名称>
 - 讨论焦点：
 - 主要观点：
-- 初步判断：
-- 分歧或未定点：
+- 依据与适用条件：
+- 具体分歧或待确认点（如有）：
 
 ## 零散但值得注意的信息
 - 列出提及较少但可能有参考价值的信息
 `
 }
 
+// finalPromptBase 要求最终摘要优先呈现具体发现，避免为凑结构生成空泛结论。
 func finalPromptBase(language model.Language) string {
 	if language == model.LanguageEN {
 		return `
@@ -111,41 +115,36 @@ This group may be a free-form discussion group rather than a task collaboration 
 Your goal is to help the user quickly understand:
 1. Which topics were mainly discussed today
 2. The main viewpoints and group judgments for each topic
-3. Which points formed relatively clear consensus
-4. Which points remain disputed or under-supported
+3. What concrete experiences, comparisons, and conditions support the useful judgments
+4. Which specific differences or open questions matter to a reader's decision
 5. Which scattered details are worth noting
 
 Writing requirements:
 1. Prioritize topics and judgments instead of mechanically replaying the chat
 2. Merge duplicated information and avoid repetition
-3. If a judgment has limited evidence or obvious disagreement, say so clearly
-4. Do not turn scattered messages into certain facts
-5. Keep the language concise, direct, and suitable for a daily digest
+3. Each takeaway should name the subject, the concrete observation or comparison, and relevant conditions or examples present in the input; use fewer takeaways when there are fewer worthwhile findings
+4. Distinguish personal reports from established facts. State a disagreement only by naming the competing claims and their conditions; state uncertainty only by naming the specific missing evidence. Do not merely list factors that might matter; explain the differences actually reported. Omit generic caveats such as "it depends", "there is no consensus", or "more validation is needed" when they add no information
+5. Do not turn scattered messages into certain facts or invent supporting details
+6. Omit empty fields and keep the language concise, direct, and suitable for a daily digest
 
 Write in English and use this format:
 
 ## Key Takeaways
-- Summarize the 3-6 most important pieces of information and judgment from today
+- List up to 6 concrete findings worth remembering; do not fill a quota
 
 ## Topic Summaries
 
 ### <Topic name>
-- Discussion:
-- Main viewpoints in the group:
-- Current judgment:
-- Disagreements or uncertainties:
+- Concrete findings and supporting details:
+- Relevant differences or open questions (only if specific):
 
 ### <Topic name>
-- Discussion:
-- Main viewpoints in the group:
-- Current judgment:
-- Disagreements or uncertainties:
+- Concrete findings and supporting details:
+- Relevant differences or open questions (only if specific):
 
 ## Scattered but Notable Information
 - List information that was mentioned less often but may be useful
 
-## Still Uncertain
-- List items where the evidence is insufficient or no stable judgment can be formed
 `
 	}
 	return `
@@ -156,41 +155,36 @@ Write in English and use this format:
 你的目标是帮助用户快速了解：
 1. 今天主要讨论了哪些话题
 2. 每个话题下，大家的主要观点和群体判断是什么
-3. 哪些内容已经形成较明确的共识
-4. 哪些内容存在分歧或信息不足
+3. 哪些具体经历、对比和条件支撑有价值的判断
+4. 哪些具体差异或待确认的问题会影响读者判断
 5. 哪些零散信息值得顺带关注
 
 写作要求：
 1. 优先提炼“话题”和“判断”，不要机械复述聊天过程
 2. 合并重复信息，避免重复表达
-3. 如果某个判断样本不足或存在明显争议，要明确说明
-4. 不要把零散消息包装成确定事实
-5. 语言简洁、直接，适合日报阅读
+3. 每条主要结论写明讨论对象、具体观察或对比，以及原文中有的适用条件或事例；有价值的结论不足时就少写，不要凑数
+4. 区分个人反馈与已证实的事实。写分歧时说明具体哪两种说法、各自的条件；写不确定性时说明缺少哪项关键证据。不要只罗列可能影响结果的因素，要写出讨论中实际报告的差异；不要用“不一定更稳定”“各有取舍”“因人而异”“没有统一结论”“尚未充分验证”等空泛说法代替信息
+5. 不要把零散消息包装成确定事实，也不要编造支撑细节
+6. 没有内容的字段直接省略；语言简洁、直接，适合日报阅读
 
 请按以下格式输出：
 
 ## 今日主要结论
-- 用 3-6 条总结今天最值得关注的信息和判断
+- 最多列 6 条值得记住的具体发现，不必凑满条数
 
 ## 分话题总结
 
 ### <话题名称>
-- 讨论内容：
-- 群内主要观点：
-- 当前判断：
-- 分歧或不确定点：
+- 具体发现及依据：
+- 相关差异或待确认点（仅在有具体内容时写）：
 
 ### <话题名称>
-- 讨论内容：
-- 群内主要观点：
-- 当前判断：
-- 分歧或不确定点：
+- 具体发现及依据：
+- 相关差异或待确认点（仅在有具体内容时写）：
 
 ## 零散但值得注意的信息
 - 列出提及较少但可能有参考价值的信息
 
-## 仍不确定的信息
-- 列出样本不足、无法形成稳定判断的内容
 `
 }
 
