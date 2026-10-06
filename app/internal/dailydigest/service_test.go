@@ -1,6 +1,7 @@
 package dailydigest
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -105,6 +106,7 @@ func TestDailyDigestSource(t *testing.T) {
 	})
 }
 
+// TestGenerateDailyDigest 验证空结果、单群编辑、多群归并及模型重试。
 func TestGenerateDailyDigest(t *testing.T) {
 	now := time.Date(2026, 9, 5, 9, 30, 0, 0, time.UTC)
 
@@ -113,28 +115,46 @@ func TestGenerateDailyDigest(t *testing.T) {
 			OmittedChatCount: 0,
 			Sources:          []model.DailyDigestSource{{OmissionReason: "no_messages"}},
 		}
-		result := generate(t.Context(), digestTestSettings("http://127.0.0.1:1"), item, time.Second, now)
+		result := generate(t.Context(), digestTestSettings("http://127.0.0.1:1"), item, []model.DailyDigest{{SummaryDate: "2026-09-03", Content: "旧总览"}}, time.Second, now)
 
 		So(result.Status, ShouldEqual, model.SummaryStatusSucceeded)
 		So(result.ExecutionMode, ShouldEqual, "no_content")
 		So(result.DeliverySkippedReason, ShouldEqual, "no_content")
 	})
 
-	Convey("只有一份有效摘要时直接复用且列出遗漏群组", t, func() {
+	Convey("只有一份有效摘要也使用历史对照编辑且列出遗漏群组", t, func() {
+		var payload struct {
+			Messages []struct{ Role, Content string }
+		}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+				t.Error(err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"model":"digest-model","choices":[{"message":{"role":"assistant","content":"编辑后的总览 [S001]"}}]}`))
+		}))
+		defer server.Close()
 		item := model.DailyDigest{
+			SummaryDate:      "2026-09-04",
 			OmittedChatCount: 1,
 			Sources: []model.DailyDigestSource{
 				{ChatTitle: "群 A", Included: true, Content: "单群正文", Model: "chat-model"},
 				{ChatTitle: "群 B", OmissionReason: "generation_failed"},
 			},
 		}
-		result := generate(t.Context(), digestTestSettings("http://127.0.0.1:1"), item, time.Second, now)
+		history := []model.DailyDigest{{SummaryDate: "2026-09-03", Content: "旧总览 [S009]"}}
+		result := generate(t.Context(), digestTestSettings(server.URL), item, history, time.Second, now)
 
 		So(result.Status, ShouldEqual, model.SummaryStatusSucceeded)
-		So(result.ExecutionMode, ShouldEqual, "passthrough")
-		So(result.Model, ShouldEqual, "chat-model")
-		So(result.Content, ShouldContainSubstring, "单群正文")
+		So(result.ExecutionMode, ShouldEqual, "single")
+		So(result.Model, ShouldEqual, "digest-model")
+		So(result.Content, ShouldContainSubstring, "编辑后的总览")
 		So(result.Content, ShouldContainSubstring, "群 B")
+		So(payload.Messages, ShouldHaveLength, 2)
+		So(payload.Messages[1].Content, ShouldContainSubstring, "单群正文")
+		So(payload.Messages[1].Content, ShouldContainSubstring, "2026-09-04")
+		So(payload.Messages[1].Content, ShouldContainSubstring, "2026-09-03\n旧总览")
+		So(payload.Messages[1].Content, ShouldNotContainSubstring, "[S009]")
 	})
 
 	Convey("多份有效摘要会调用归并模型", t, func() {
@@ -148,7 +168,7 @@ func TestGenerateDailyDigest(t *testing.T) {
 			{ChatTitle: "群 A", Included: true, Content: strings.Repeat("摘要 A", 5)},
 			{ChatTitle: "群 B", Included: true, Content: strings.Repeat("摘要 B", 5)},
 		}}
-		result := generate(t.Context(), digestTestSettings(server.URL), item, time.Second, now)
+		result := generate(t.Context(), digestTestSettings(server.URL), item, nil, time.Second, now)
 
 		So(result.Status, ShouldEqual, model.SummaryStatusSucceeded)
 		So(result.ExecutionMode, ShouldEqual, "single")
@@ -170,7 +190,7 @@ func TestGenerateDailyDigest(t *testing.T) {
 			{ChatTitle: "群 A", Included: true, Content: "摘要 A"},
 			{ChatTitle: "群 B", Included: true, Content: "摘要 B"},
 		}}
-		result := generate(t.Context(), settings, item, time.Second, now)
+		result := generate(t.Context(), settings, item, nil, time.Second, now)
 
 		So(result.Status, ShouldEqual, model.SummaryStatusFailed)
 		So(result.NextRetryAt, ShouldNotBeNil)

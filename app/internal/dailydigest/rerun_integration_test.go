@@ -1,10 +1,12 @@
 package dailydigest
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
@@ -58,11 +60,32 @@ func TestRerunLatestParticipants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var payload struct {
+			Messages []struct{ Role, Content string }
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		if len(payload.Messages) != 2 || !strings.Contains(payload.Messages[1].Content, "此前讨论") || strings.Contains(payload.Messages[1].Content, "未来讨论") {
+			t.Errorf("unexpected digest input: %+v", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"最新摘要"}}]}`))
+	}))
+	defer modelServer.Close()
+	settings.OpenAIBaseURL = modelServer.URL
+	settings.OpenAIAPIKey = "test"
+	settings.OpenAIRequestMode = model.OpenAIRequestModeNonStream
 	settings.BotEnabled = true
 	settings.BotToken = "test-token"
 	settings.BotTargetChatID = "123"
 	settings.BotSummaryDeliveryMode = model.BotSummaryDeliveryModeDailyDigest
 	if _, err := st.Settings.Save(ctx, settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Pool.Exec(ctx, `insert into daily_digests (summary_date, status, content)
+		values ('2025-12-31', 'succeeded', '此前讨论'), ('2026-01-02', 'succeeded', '未来讨论')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.Pool.Exec(ctx, `insert into chats (id, telegram_chat_id, title, summary_enabled, delivery_mode)
@@ -105,6 +128,9 @@ func TestRerunLatestParticipants(t *testing.T) {
 	sent := make(chan string, 1)
 	previous := http.DefaultTransport
 	http.DefaultTransport = deliveryTransport(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.telegram.org" {
+			return previous.RoundTrip(r)
+		}
 		body, _ := io.ReadAll(r.Body)
 		sent <- string(body)
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"ok":true}`)), Header: make(http.Header)}, nil

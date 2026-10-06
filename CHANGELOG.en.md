@@ -2,6 +2,13 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-06
+
+### Changed
+
+- Daily Digests prioritize specific information, viewpoints, and supporting details while reducing generic advice and repetition. They use Today's Highlights, optional Topic Developments, and optional Other Chat Updates instead of requiring tasks and open questions.
+- Digest generation compares successful digests from the 7 calendar days before the target date, prioritizing recent content within a bounded budget to identify repetition and concrete developments. History is not evidence of events today. Single-chat digests also go through editing; days without messages still skip model calls.
+
 ## 2026-09-29
 
 ### Changed

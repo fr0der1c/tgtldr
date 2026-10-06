@@ -244,7 +244,11 @@ func (s *Service) execute(ctx context.Context, id int64, deliver bool) error {
 	if err != nil {
 		return err
 	}
-	result := generate(ctx, settings, item, s.openAITimeout, s.clock.Now())
+	history, err := s.store.DailyDigests.ListHistory(ctx, item.SummaryDate, historyDays)
+	if err != nil {
+		return err
+	}
+	result := generate(ctx, settings, item, history, s.openAITimeout, s.clock.Now())
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return ctx.Err()
 	}

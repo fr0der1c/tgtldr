@@ -12,11 +12,12 @@ import (
 	"github.com/fr0der1c/tgtldr/app/internal/rollup"
 )
 
-// generate 根据有效来源数量选择空结果、直接复用或模型归并。
+// generate 将当天有效来源交给总览编辑，并使用历史对照；无消息时返回固定正文。
 func generate(
 	ctx context.Context,
 	settings model.AppSettings,
 	item model.DailyDigest,
+	history []model.DailyDigest,
 	openAITimeout time.Duration,
 	now time.Time,
 ) model.DailyDigest {
@@ -38,19 +39,10 @@ func generate(
 		item.GeneratedAt = &now
 		return item
 	}
-	if len(sources) == 1 {
-		item.Status = model.SummaryStatusSucceeded
-		item.Content = appendOmissionNotice(sources[0].Content, item.Sources, settings.Language)
-		item.Model = sourceModel(item.Sources, settings.OpenAIModel)
-		item.ChunkCount = 1
-		item.ExecutionMode = "passthrough"
-		item.GeneratedAt = &now
-		return item
-	}
-
 	result, err := rollup.Generate(ctx, settings, rollup.Prompts{
-		Stage: buildStagePrompt(settings.Language),
-		Final: buildFinalPrompt(settings.Language),
+		Stage:        buildStagePrompt(settings.Language),
+		Final:        buildFinalPrompt(settings.Language),
+		FinalContext: buildFinalContext(settings, item.SummaryDate, history, sources),
 	}, sources, openAITimeout)
 	if err != nil {
 		item.Status = model.SummaryStatusFailed
@@ -70,16 +62,6 @@ func generate(
 	item.FallbackReason = result.FallbackReason
 	item.GeneratedAt = &now
 	return item
-}
-
-// sourceModel 在直通模式下记录来源实际使用的模型。
-func sourceModel(sources []model.DailyDigestSource, fallback string) string {
-	for _, source := range sources {
-		if source.Included && strings.TrimSpace(source.Model) != "" {
-			return source.Model
-		}
-	}
-	return fallback
 }
 
 // nextRetryAt 在剩余重试次数内计算下一次模型调用时间。

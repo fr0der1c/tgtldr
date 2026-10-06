@@ -27,6 +27,8 @@ type Source struct {
 type Prompts struct {
 	Stage string
 	Final string
+	// FinalContext 仅在最终编辑时加入的对照材料，不进入阶段提取或中间归并。
+	FinalContext string
 }
 
 type Result struct {
@@ -70,7 +72,7 @@ func Generate(
 		Stream:  settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream,
 	})
 	units := sourceUnits(sources)
-	fullInput := strings.Join(units, separator)
+	fullInput := finalInput(prompts, strings.Join(units, separator))
 	directPlan := llmcontext.PlanRequest(
 		budget.counter, budget.contextWindow, prompts.Final, fullInput, budget.finalReserve,
 	)
@@ -105,7 +107,7 @@ func Generate(
 	if err != nil {
 		return Result{}, err
 	}
-	response, err := mergePartials(ctx, client, settings, prompts.Final, partials, budget, mergeBudget, 0)
+	response, err := mergePartials(ctx, client, settings, prompts, partials, budget, mergeBudget, 0)
 	if err != nil {
 		return Result{}, err
 	}
@@ -113,6 +115,29 @@ func Generate(
 	result.Model = responseModel(response.Model, modelName)
 	result.ChunkCount = chunkCount
 	return result, nil
+}
+
+// finalInput 将对照材料与当天证据分隔，仅供最后一次编辑使用。
+func finalInput(prompts Prompts, input string) string {
+	if strings.TrimSpace(prompts.FinalContext) == "" {
+		return input
+	}
+	return input + separator + prompts.FinalContext
+}
+
+// limitFinalContext 为最终请求保留证据容量，将对照材料限制在证据输入上限的四分之一。
+func limitFinalContext(prompts Prompts, counter llmcontext.Counter, inputBudgetCap int) Prompts {
+	if inputBudgetCap <= 0 || prompts.FinalContext == "" {
+		return prompts
+	}
+	contextBudget := max(128, inputBudgetCap/4)
+	if counter.Count(prompts.FinalContext) <= contextBudget {
+		return prompts
+	}
+	notice := "\n\n[对照材料因容量限制截断 / Comparison context truncated]"
+	parts := llmcontext.SplitTextToBudget(prompts.FinalContext, contextBudget-counter.Count(notice), counter)
+	prompts.FinalContext = parts[0] + notice
+	return prompts
 }
 
 // sourceUnits 将可重复的来源头与正文组合成模型输入单元。
@@ -204,7 +229,7 @@ func mergePartials(
 	ctx context.Context,
 	client *openai.Client,
 	settings model.AppSettings,
-	finalPrompt string,
+	prompts Prompts,
 	partials []string,
 	budget generationBudget,
 	inputBudgetCap int,
@@ -213,18 +238,27 @@ func mergePartials(
 	if depth > maximumMergeDepth {
 		return openai.ChatResponse{}, fmt.Errorf("merge rollup: exceeded %d levels", maximumMergeDepth)
 	}
+	prompts = limitFinalContext(prompts, budget.counter, inputBudgetCap)
 	input := strings.Join(partials, separator)
-	plan := llmcontext.PlanRequest(budget.counter, budget.contextWindow, finalPrompt, input, budget.finalReserve)
+	finalUserInput := finalInput(prompts, input)
+	plan := llmcontext.PlanRequest(budget.counter, budget.contextWindow, prompts.Final, finalUserInput, budget.finalReserve)
+	// 打包预算只用于当天证据，提前扣除最终请求需要的对照材料。
+	contextTokens := budget.counter.Count(finalInput(prompts, ""))
+	plan.InputBudget = max(0, plan.InputBudget-contextTokens)
 	if inputBudgetCap > 0 {
 		plan.InputBudget = min(plan.InputBudget, inputBudgetCap)
-		plan.Fits = plan.InputTokens <= plan.InputBudget
+		plan.Fits = plan.Fits && budget.counter.Count(input) <= plan.InputBudget
 	}
 	if plan.Fits {
-		response, err := callModel(ctx, client, settings, finalPrompt, input, budget.finalRequestMax)
+		response, err := callModel(ctx, client, settings, prompts.Final, finalUserInput, budget.finalRequestMax)
 		if err == nil || !openai.IsContextLimitError(err) {
 			return response, err
 		}
-		plan.InputBudget = max(minimumInputBudget, plan.InputTokens/2)
+		plan.InputBudget = max(minimumInputBudget, budget.counter.Count(input)/2)
+		if prompts.FinalContext != "" {
+			// 最终请求超限后先缩减对照材料，新的上限同时约束后续证据归并。
+			return mergePartials(ctx, client, settings, prompts, partials, budget, plan.InputBudget, depth+1)
+		}
 	}
 
 	mergeInputBudget := max(minimumInputBudget, plan.InputBudget)
@@ -234,12 +268,18 @@ func mergePartials(
 	}
 	merged := make([]string, 0, len(batches))
 	modelUsed := settings.OpenAIModel
+	mergePrompt := prompts.Final
+	mergeRequestMax := budget.finalRequestMax
+	if prompts.FinalContext != "" {
+		mergePrompt = prompts.Stage
+		mergeRequestMax = budget.stageRequestMax
+	}
 	for _, batch := range batches {
-		response, err := callModel(ctx, client, settings, finalPrompt, batch, budget.finalRequestMax)
+		response, err := callModel(ctx, client, settings, mergePrompt, batch, mergeRequestMax)
 		if err != nil {
 			if openai.IsContextLimitError(err) && mergeInputBudget > minimumInputBudget {
 				return mergePartials(
-					ctx, client, settings, finalPrompt, partials, budget,
+					ctx, client, settings, prompts, partials, budget,
 					max(minimumInputBudget, mergeInputBudget/2), depth,
 				)
 			}
@@ -248,10 +288,10 @@ func mergePartials(
 		merged = append(merged, strings.TrimSpace(response.Content))
 		modelUsed = responseModel(response.Model, modelUsed)
 	}
-	if len(merged) == 1 {
+	if len(merged) == 1 && prompts.FinalContext == "" {
 		return openai.ChatResponse{Content: merged[0], Model: modelUsed}, nil
 	}
-	return mergePartials(ctx, client, settings, finalPrompt, merged, budget, inputBudgetCap, depth+1)
+	return mergePartials(ctx, client, settings, prompts, merged, budget, inputBudgetCap, depth+1)
 }
 
 // callModel 统一沿用系统温度和输出长度设置。
