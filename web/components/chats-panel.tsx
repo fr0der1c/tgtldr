@@ -13,9 +13,10 @@ import {
 import { api } from "@/lib/api";
 import { AppSelect } from "@/components/app-select";
 import { ChatActivityStrip } from "@/components/chat-activity-strip";
+import { ChatDefaultsSurface } from "@/components/chat-defaults-surface";
 import { ChatHistorySearchForm } from "@/components/chat-history-search-form";
 import { GlobalChatMessageSearch } from "@/components/global-chat-message-search";
-import { BotSummaryDeliveryMode, Chat, TelegramAccountChat } from "@/lib/types";
+import { BotSummaryDeliveryMode, Chat, ChatDefaults, TelegramAccountChat } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
@@ -126,6 +127,19 @@ export function ChatsPanel() {
       return true;
     });
   }, [chatType, deferredQuery, items, messageSaveFilter, summaryFilter]);
+
+  // 应用默认配置只改这四项，就地合并到本地状态，避免重新加载冲掉其他未保存的修改。
+  function applyDefaultsLocally(applied: ChatDefaults) {
+    const merge = (chat: Chat): Chat => ({
+      ...chat,
+      deliveryMode: applied.deliveryMode,
+      summaryTimeLocal: applied.summaryTimeLocal,
+      modelOverride: applied.modelOverride,
+      keepBotMessages: applied.keepBotMessages
+    });
+    setItems((current) => current.map(merge));
+    setSavedItems((current) => current.map(merge));
+  }
 
   const syncedCount = savedItems.length;
   const messageSaveCount = savedItems.filter((chat) => chat.enabled).length;
@@ -287,6 +301,11 @@ export function ChatsPanel() {
         )}
       </Surface>
 
+      <ChatDefaultsSurface
+        botSummaryDeliveryMode={botSummaryDeliveryMode}
+        chatCount={savedItems.length}
+        onApplied={applyDefaultsLocally}
+      />
     </DashboardPage>
   );
 }

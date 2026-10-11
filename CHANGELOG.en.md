@@ -4,6 +4,10 @@
 
 ## 2026-10-11
 
+### Added
+
+- The Chats page adds "New chat defaults" for Telegram delivery, summary time, model override, and keeping bot messages. Newly synced chats use these defaults automatically, and they can be applied to all existing chats after confirmation.
+
 ### Changed
 
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.

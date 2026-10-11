@@ -10,6 +10,7 @@ import {
   DailyDigest,
   DailyDigestListResponse,
   Chat,
+  ChatDefaults,
   ChatMessageListResponse,
   ChatMessageSearchResponse,
   GlobalChatMessageSearchResponse,
@@ -133,6 +134,14 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
   settings: () => request<AppSettings>("/api/settings"),
+  chatDefaults: () => request<ChatDefaults>("/api/chat-defaults"),
+  saveChatDefaults: (payload: ChatDefaults) =>
+    request<ChatDefaults>("/api/chat-defaults", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  applyChatDefaults: () =>
+    request<{ updated: number }>("/api/chat-defaults/apply", { method: "POST" }),
   saveSettings: (payload: AppSettings) =>
     request<AppSettings>("/api/settings", {
       method: "PUT",
