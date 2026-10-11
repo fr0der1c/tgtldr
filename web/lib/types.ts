@@ -251,6 +251,23 @@ export type Summary = {
   matchedFields?: string[];
 };
 
+export type SummaryFollowUpTurn = {
+  question: string;
+  answer: string;
+};
+
+export type SummaryFollowUpResponse = {
+  answer: string;
+  source: "messages" | "summary";
+};
+
+export type ChatFollowUpResponse = {
+  answer: string;
+  fromDate: string;
+  toDate: string;
+  summaryCount: number;
+};
+
 export type SummarySearchFilters = {
   q?: string;
   chatId?: string;

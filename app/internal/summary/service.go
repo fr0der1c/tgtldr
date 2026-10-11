@@ -26,35 +26,12 @@ func NewService(st *store.Store, c clock.Clock, openAITimeout time.Duration) *Se
 }
 
 func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary) (model.SummaryContextPreview, error) {
-	settings, err := s.store.Settings.Get(ctx)
+	loaded, err := s.loadSummaryMessages(ctx, summary)
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
-
-	chat, err := s.store.Chats.GetByID(ctx, summary.ChatID)
-	if err != nil {
-		return model.SummaryContextPreview{}, err
-	}
-
-	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
-	location, err := loadLocation(timezone)
-	if err != nil {
-		return model.SummaryContextPreview{}, err
-	}
-	start, end, err := dayRange(summary.SummaryDate, timezone)
-	if err != nil {
-		return model.SummaryContextPreview{}, err
-	}
-
-	messages, err := s.store.Messages.ListForRange(ctx, chat.ID, start, end)
-	if err != nil {
-		return model.SummaryContextPreview{}, err
-	}
-
-	filteredMessages, messageLookup, err := s.prepareMessages(ctx, chat, messages)
-	if err != nil {
-		return model.SummaryContextPreview{}, err
-	}
+	settings, chat, location := loaded.settings, loaded.chat, loaded.location
+	filteredMessages, messageLookup := loaded.messages, loaded.lookup
 	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
 	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
 	modelName := resolveSummaryModel(chat, settings)
@@ -94,6 +71,47 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 		preview.FinalInputNotice = ""
 	}
 	return preview, nil
+}
+
+type summaryMessages struct {
+	settings model.AppSettings
+	chat     model.Chat
+	location *time.Location
+	messages []model.Message
+	lookup   map[int]model.Message
+}
+
+func (s *Service) loadSummaryMessages(ctx context.Context, summary model.Summary) (summaryMessages, error) {
+	settings, err := s.store.Settings.Get(ctx)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+
+	chat, err := s.store.Chats.GetByID(ctx, summary.ChatID)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+
+	timezone := resolveSummaryTimezone(chat, settings.DefaultTimezone)
+	location, err := loadLocation(timezone)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+	start, end, err := dayRange(summary.SummaryDate, timezone)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+
+	messages, err := s.store.Messages.ListForRange(ctx, chat.ID, start, end)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+
+	filteredMessages, messageLookup, err := s.prepareMessages(ctx, chat, messages)
+	if err != nil {
+		return summaryMessages{}, err
+	}
+	return summaryMessages{settings, chat, location, filteredMessages, messageLookup}, nil
 }
 
 func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date string) (model.Summary, error) {
@@ -277,7 +295,7 @@ func dayRange(date string, timezone string) (time.Time, time.Time, error) {
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("parse date %s: %w", date, err)
 	}
-	end := start.Add(24 * time.Hour)
+	end := start.AddDate(0, 0, 1)
 	return start.UTC(), end.UTC(), nil
 }
 

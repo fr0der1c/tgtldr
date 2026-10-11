@@ -91,6 +91,7 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
     body: await readRequestBody(req),
     redirect: "manual",
     cache: "no-store",
+    signal: req.signal,
   });
   return new Response(response.body, {
     status: response.status,

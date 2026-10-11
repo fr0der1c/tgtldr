@@ -19,6 +19,9 @@ import {
   Summary,
   SummaryStats,
   SummaryContextPreview,
+  SummaryFollowUpTurn,
+  SummaryFollowUpResponse,
+  ChatFollowUpResponse,
   OpenAITestResult,
 } from "@/lib/types";
 
@@ -278,6 +281,29 @@ export const api = {
     ),
   getSummary: (summaryId: number) =>
     request<Summary>(`/api/summaries/${summaryId}`),
+  followUpSummary: (
+    summaryId: number,
+    question: string,
+    history: SummaryFollowUpTurn[],
+    signal?: AbortSignal,
+  ) =>
+    request<SummaryFollowUpResponse>(`/api/summaries/${summaryId}/follow-up`, {
+      method: "POST",
+      body: JSON.stringify({ question, history }),
+      signal,
+    }),
+  followUpChat: (
+    chatId: number,
+    toDate: string,
+    question: string,
+    history: SummaryFollowUpTurn[],
+    signal?: AbortSignal,
+  ) =>
+    request<ChatFollowUpResponse>(`/api/chats/${chatId}/follow-up`, {
+      method: "POST",
+      body: JSON.stringify({ toDate, question, history }),
+      signal,
+    }),
   retrySummaryDelivery: (summaryId: number) =>
     request(`/api/summaries/${summaryId}/retry-delivery`, {
       method: "POST",

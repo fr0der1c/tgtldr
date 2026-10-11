@@ -2,7 +2,19 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-12
+
+### Added
+
+- Summary details can now ask about the whole chat. Answers use the chat's successful, non-empty summaries up to that day, starting from the most recent until the model capacity is used (up to 90), and show the date range and number of summaries used. Like single-summary follow-ups, the conversation is kept only while the details stay open.
+
 ## 2026-10-11
+
+### Added
+
+- Single-summary follow-ups show conversation bubbles and loading feedback, with Enter to send, Shift+Enter for newlines, and IME-safe input. Slow answers use the model timeout; provider context overflow retries from the saved summary, and DST dates use local calendar-day boundaries.
+
+- Successfully generated chat summaries support follow-up conversations, using the day's original messages when available and within the model's capacity; otherwise, answers use the summary and identify their source. Conversations are kept only in the current detail view and cleared on closing, switching summaries, or regenerating.
 
 ### Changed
 
