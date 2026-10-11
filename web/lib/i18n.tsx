@@ -559,6 +559,7 @@ const textTranslations = {
   "每日总览已由用户重新生成，需要手动确认发送。": "The Daily Digest was regenerated and requires manual delivery confirmation.",
   "等待手动发送": "Waiting for manual delivery",
   "重新生成完成后不会自动重复发送。": "A regenerated Daily Digest is not sent again automatically.",
+  "按群组筛选": "Filter by chat",
 } as const;
 
 const attributeNames = ["placeholder", "title", "aria-label"] as const;
