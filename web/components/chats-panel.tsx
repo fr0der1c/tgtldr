@@ -45,6 +45,7 @@ export function ChatsPanel() {
   const [messageQuery, setMessageQuery] = useState("");
   const [messageSearchPage, setMessageSearchPage] = useState(1);
   const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
+  const [botEnabled, setBotEnabled] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
   const showErrorRef = useRef(toast.showError);
@@ -60,6 +61,7 @@ export function ChatsPanel() {
       setItems(chats);
       setSavedItems(chats);
       setBotSummaryDeliveryMode(settings.botSummaryDeliveryMode || "per_chat");
+      setBotEnabled(Boolean(settings.botEnabled));
       setEditingId((current) =>
         current && chats.some((chat) => chat.id === current) ? current : null
       );
@@ -267,6 +269,7 @@ export function ChatsPanel() {
                       <ChatTableRow
                         key={chat.id}
                         chat={chat}
+                        botEnabled={botEnabled}
                         botSummaryDeliveryMode={botSummaryDeliveryMode}
                         editing={editingId === chat.id}
                         onBackfill={(fromDate, toDate) =>
@@ -305,6 +308,8 @@ function normalizeChat(chat: Chat): Chat {
     filteredKeywords: Array.isArray(chat.filteredKeywords) ? chat.filteredKeywords : [],
     filteredSenders: Array.isArray(chat.filteredSenders) ? chat.filteredSenders : [],
     keepBotMessages: chat.keepBotMessages ?? true,
+    alertEnabled: chat.alertEnabled ?? false,
+    alertKeywords: Array.isArray(chat.alertKeywords) ? chat.alertKeywords : [],
     messageActivity: Array.isArray(chat.messageActivity) ? chat.messageActivity : [],
     availableAccounts: Array.isArray(chat.availableAccounts) ? chat.availableAccounts : []
   };
@@ -322,6 +327,7 @@ function splitLines(value: string) {
 }
 
 function ChatTableRow({
+  botEnabled,
   botSummaryDeliveryMode,
   chat,
   editing,
@@ -330,6 +336,7 @@ function ChatTableRow({
   onEdit,
   onSave
 }: {
+  botEnabled: boolean;
   botSummaryDeliveryMode: BotSummaryDeliveryMode;
   chat: Chat;
   editing: boolean;
@@ -577,6 +584,38 @@ function ChatTableRow({
                       </Field>
                     </>
                   ) : null}
+
+                  <div className="form-grid">
+                    <Field
+                      label="关键词提醒"
+                      hint={botEnabled ? "消息命中关键词时立即通过 Bot 推送提醒。" : "Bot 推送未启用，开启后才会发送提醒。"}
+                    >
+                      <AppSelect
+                        onChange={(value) => onPatch({ alertEnabled: value === "yes" })}
+                        options={[
+                          { value: "yes", label: "启用" },
+                          { value: "no", label: "停用" }
+                        ]}
+                        value={chat.alertEnabled ? "yes" : "no"}
+                      />
+                    </Field>
+
+                    {chat.alertEnabled ? (
+                      <Field
+                        label="提醒关键词"
+                        hint="每行一个，不区分大小写；同一关键词 10 分钟内只提醒一次。"
+                      >
+                        <Textarea
+                          rows={4}
+                          placeholder={"空投\nairdrop"}
+                          value={joinLines(chat.alertKeywords)}
+                          onChange={(event) =>
+                            onPatch({ alertKeywords: splitLines(event.target.value) })
+                          }
+                        />
+                      </Field>
+                    ) : null}
+                  </div>
 
                   <div className="editor-footer">
                     <p className="muted">

@@ -200,6 +200,8 @@ export type Chat = {
   keepBotMessages: boolean;
   filteredSenders: string[];
   filteredKeywords: string[];
+  alertEnabled: boolean;
+  alertKeywords: string[];
   messageActivity?: ChatMessageActivity[];
   avatarUrl?: string;
 };

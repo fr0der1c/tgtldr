@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fr0der1c/tgtldr/app/internal/alerts"
 	"github.com/fr0der1c/tgtldr/app/internal/api"
 	"github.com/fr0der1c/tgtldr/app/internal/bot"
 	"github.com/fr0der1c/tgtldr/app/internal/catchup"
@@ -64,6 +65,11 @@ func run() error {
 	if err := catchUpService.RecoverInterrupted(ctx); err != nil {
 		return fmt.Errorf("recover interrupted Catch Up tasks: %w", err)
 	}
+	alertService := alerts.NewService(st, sysClock, botService)
+	telegramService.SetLiveMessageHook(func(chat model.Chat, message model.Message) {
+		// 提醒走 Bot HTTP 请求，异步发送以免阻塞实时消息落库。
+		go func() { _ = alertService.Handle(ctx, chat, message) }()
+	})
 	telegramService.SetHistoryBackfillCompletionHook(func(chat model.Chat, fromDate, toDate string) {
 		_ = schedulerService.RepairEmptySummariesInRange(context.Background(), chat, fromDate, toDate)
 	})

@@ -59,6 +59,7 @@ type Service struct {
 	historyBackfills *historyBackfillStore
 
 	historyBackfillCompleted func(chat model.Chat, fromDate, toDate string)
+	liveMessageStored        func(chat model.Chat, message model.Message)
 
 	mu        sync.Mutex
 	pending   *model.AuthSessionState
@@ -91,6 +92,19 @@ func (s *Service) SetHistoryBackfillCompletionHook(fn func(chat model.Chat, from
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.historyBackfillCompleted = fn
+}
+
+// SetLiveMessageHook 注册实时消息落库后的回调；历史回补的消息不会触发。
+func (s *Service) SetLiveMessageHook(fn func(chat model.Chat, message model.Message)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.liveMessageStored = fn
+}
+
+func (s *Service) liveMessageHook() func(chat model.Chat, message model.Message) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.liveMessageStored
 }
 
 func (s *Service) historyBackfillCompletionHook() func(chat model.Chat, fromDate, toDate string) {
@@ -392,6 +406,9 @@ func (s *Service) storeIncomingMessage(ctx context.Context, accountID int64, ent
 	}
 	if err := s.store.Messages.Upsert(ctx, item); err != nil {
 		return err
+	}
+	if hook := s.liveMessageHook(); hook != nil {
+		hook(chat, item)
 	}
 	asset, ok := messageMediaAsset(accountID, msg)
 	if !ok {

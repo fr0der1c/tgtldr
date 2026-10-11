@@ -715,6 +715,8 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 		KeepBotMessages    bool               `json:"keepBotMessages"`
 		FilteredSenders    []string           `json:"filteredSenders"`
 		FilteredKeywords   []string           `json:"filteredKeywords"`
+		AlertEnabled       *bool              `json:"alertEnabled"`
+		AlertKeywords      *[]string          `json:"alertKeywords"`
 		CollectorAccountID int64              `json:"collectorAccountId"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
@@ -732,6 +734,13 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	current.KeepBotMessages = payload.KeepBotMessages
 	current.FilteredSenders = compactStrings(payload.FilteredSenders)
 	current.FilteredKeywords = compactStrings(payload.FilteredKeywords)
+	// 告警字段可选，未携带时保留原值，避免旧客户端保存群配置时清空告警规则。
+	if payload.AlertEnabled != nil {
+		current.AlertEnabled = *payload.AlertEnabled
+	}
+	if payload.AlertKeywords != nil {
+		current.AlertKeywords = compactStrings(*payload.AlertKeywords)
+	}
 	if payload.CollectorAccountID != current.CollectorAccountID {
 		if err := r.store.Chats.SetCollectorAccount(req.Context(), current.ID, payload.CollectorAccountID); err != nil {
 			httpx.Error(w, http.StatusBadRequest, err.Error())

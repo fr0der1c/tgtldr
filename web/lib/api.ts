@@ -245,6 +245,8 @@ export const api = {
         keepBotMessages: chat.keepBotMessages,
         filteredSenders: chat.filteredSenders,
         filteredKeywords: chat.filteredKeywords,
+        alertEnabled: chat.alertEnabled,
+        alertKeywords: chat.alertKeywords,
         collectorAccountId: chat.collectorAccountId,
       }),
     }),
