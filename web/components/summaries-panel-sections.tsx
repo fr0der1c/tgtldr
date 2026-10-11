@@ -116,6 +116,8 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 				</button>
 			</div>
 
+			<SummaryChatPills allChats={allChats} chatFilter={chatFilter} chats={chats} onChatFilterChange={onChatFilterChange} />
+
 			<div className={`toolbar-grid summary-search-grid ${filtersOpen ? "mobile-open" : ""}`} id="summary-filters">
 				<Field label="群组">
 					<SearchSelect
@@ -280,6 +282,47 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 			)}
 		</Surface>
 	)
+}
+
+// SummaryChatPills 为已启用 AI 总结的群组提供一键筛选，与“群组”下拉框共用同一个筛选值；
+// 当前筛选的群组不在其中时（例如未启用 AI 总结），也会显示在最前面。
+function SummaryChatPills({
+	allChats,
+	chatFilter,
+	chats,
+	onChatFilterChange,
+}: {
+	allChats: Chat[];
+	chatFilter: string;
+	chats: Chat[];
+	onChatFilterChange: (value: string) => void;
+}) {
+	if (chats.length < 2) {
+		return null;
+	}
+	const current = chats.some((chat) => String(chat.id) === chatFilter)
+		? undefined
+		: allChats.find((chat) => String(chat.id) === chatFilter);
+	const pillChats = current ? [current, ...chats] : chats;
+	const options = [
+		{ value: "all", label: "全部群组", translate: true },
+		...pillChats.map((chat) => ({ value: String(chat.id), label: chat.title, translate: false })),
+	];
+	return (
+		<div aria-label="按群组筛选" className="summary-chat-pills" role="group">
+			{options.map((option) => (
+				<button
+					aria-pressed={chatFilter === option.value}
+					className={`summary-chat-pill${chatFilter === option.value ? " active" : ""}`}
+					key={option.value}
+					onClick={() => onChatFilterChange(option.value)}
+					type="button"
+				>
+					{option.translate ? option.label : <span data-i18n-skip="true">{option.label}</span>}
+				</button>
+			))}
+		</div>
+	);
 }
 
 export function statusTone(status: Summary["status"]) {

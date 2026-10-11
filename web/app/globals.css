@@ -653,6 +653,47 @@ select {
   color: var(--muted);
 }
 
+.summary-chat-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.summary-chat-pill {
+  flex: none;
+  max-width: 240px;
+  min-height: 34px;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.summary-chat-pill:hover {
+  color: var(--text);
+}
+
+.summary-chat-pill.active {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.summary-chat-pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(185, 137, 59, 0.14);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

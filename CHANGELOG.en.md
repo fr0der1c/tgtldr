@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-12
+
+### Added
+
+- Added quick chat filters above the summary list for switching between chats with AI summaries in one click. They share the same filter as the Chats dropdown.
+
 ## 2026-10-11
 
 ### Changed
