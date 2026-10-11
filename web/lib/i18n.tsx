@@ -49,6 +49,19 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const textTranslations = {
+  "输入问题，按 Enter 发送（Shift+Enter 换行）": "Ask a question. Enter to send; Shift+Enter for a new line.",
+  "追问这条摘要": "Ask about this summary",
+  "仅针对当天内容追问；关闭详情后清空对话。": "Ask about this day's content only. The conversation is cleared when you close the details.",
+  "回答依据：当天原始消息。": "Based on this day's original messages.",
+  "回答依据：摘要。原始消息不可用或超出模型容量，细节可能不完整。": "Based on the summary. Original messages are unavailable or exceed the model's capacity, so details may be incomplete.",
+  "你的问题": "Your question",
+  "例如：这条结论有哪些具体依据？": "For example: What evidence supports this conclusion?",
+  "最多 2000 个字符": "Up to 2000 characters",
+  "问题不能超过 2000 个字符。": "Your question cannot exceed 2000 characters.",
+  "正在回答…": "Answering…",
+  "发送问题": "Send question",
+  "追问失败，请稍后重新发送。": "Could not answer your question. Please send it again later.",
+  "问题或对话超出模型容量，请缩短问题或关闭详情后重新开始。": "The question or conversation exceeds the model's capacity. Shorten your question or close the details to start again.",
   "一键重跑": "Retry all",
   "重跑中": "Retrying",
   "重跑详情": "Retry details",

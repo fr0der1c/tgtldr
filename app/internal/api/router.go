@@ -22,16 +22,17 @@ import (
 )
 
 type Router struct {
-	store        *store.Store
-	bot          *bot.Service
-	telegram     *telegramsvc.Service
-	scheduler    *scheduler.Service
-	catchups     *catchup.Service
-	dailyDigests *dailydigest.Service
-	auth         *localauth.Service
-	origin       string
-	timeout      time.Duration
-	mediaDir     string
+	store           *store.Store
+	bot             *bot.Service
+	telegram        *telegramsvc.Service
+	scheduler       *scheduler.Service
+	catchups        *catchup.Service
+	dailyDigests    *dailydigest.Service
+	auth            *localauth.Service
+	origin          string
+	timeout         time.Duration
+	followUpTimeout time.Duration
+	mediaDir        string
 }
 
 const chatMessageActivityDays = 30
@@ -45,19 +46,21 @@ func New(
 	botService *bot.Service,
 	origin string,
 	timeout time.Duration,
+	openAITimeout time.Duration,
 	mediaDir string,
 ) *Router {
 	return &Router{
-		store:        store,
-		bot:          botService,
-		telegram:     telegram,
-		scheduler:    scheduler,
-		catchups:     catchups,
-		dailyDigests: dailyDigests,
-		auth:         localauth.NewService(store),
-		origin:       origin,
-		timeout:      timeout,
-		mediaDir:     mediaDir,
+		store:           store,
+		bot:             botService,
+		telegram:        telegram,
+		scheduler:       scheduler,
+		catchups:        catchups,
+		dailyDigests:    dailyDigests,
+		auth:            localauth.NewService(store),
+		origin:          origin,
+		timeout:         timeout,
+		followUpTimeout: timeout + 2*openAITimeout,
+		mediaDir:        mediaDir,
 	}
 }
 
@@ -93,6 +96,7 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries", r.handleSummaries)
 	mux.HandleFunc("/api/summaries/stats", r.handleSummaryStats)
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
+	mux.HandleFunc("POST /api/summaries/{summaryID}/follow-up", r.handleSummaryFollowUp)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
 	mux.HandleFunc("/api/summaries/recovery", r.handleSummaryRecovery)
@@ -119,7 +123,7 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(req.Context(), r.timeout)
+		ctx, cancel := context.WithTimeout(req.Context(), r.requestTimeout(req))
 		defer cancel()
 		authorizedReq, ok := r.authorizeRequest(w, req.WithContext(ctx))
 		if !ok {
@@ -127,6 +131,16 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, authorizedReq)
 	})
+}
+
+// Follow-ups can make two model calls when the provider rejects the first
+// source for context length. Keep ordinary API deadlines unchanged.
+func (r *Router) requestTimeout(req *http.Request) time.Duration {
+	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+	if req.Method == http.MethodPost && len(parts) == 4 && parts[0] == "api" && parts[1] == "summaries" && parts[3] == "follow-up" && r.followUpTimeout > r.timeout {
+		return r.followUpTimeout
+	}
+	return r.timeout
 }
 
 func allowedOrigin(requestOrigin, configuredOrigin string) string {
