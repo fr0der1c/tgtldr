@@ -55,7 +55,6 @@ export function SummaryFollowUp({ summaryId }: { summaryId: number }) {
 
   return (
     <FollowUpConversation
-      title="追问这条摘要"
       turns={loading ? [...turns, { question: question.trim(), answer: null }] : turns}
       question={question}
       onQuestionChange={setQuestion}

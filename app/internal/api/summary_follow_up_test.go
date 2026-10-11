@@ -166,6 +166,7 @@ func TestFollowUpRequestTimeout(t *testing.T) {
 		want         time.Duration
 	}{
 		{http.MethodPost, "/api/summaries/1/follow-up", 230 * time.Millisecond},
+		{http.MethodPost, "/api/chats/1/follow-up", 230 * time.Millisecond},
 		{http.MethodGet, "/api/summaries/1/follow-up", 30 * time.Millisecond},
 		{http.MethodPost, "/api/summaries/1/follow-up/extra", 30 * time.Millisecond},
 		{http.MethodGet, "/api/health", 30 * time.Millisecond},

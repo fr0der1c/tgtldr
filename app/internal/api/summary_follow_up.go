@@ -52,3 +52,37 @@ func (r *Router) handleSummaryFollowUp(w http.ResponseWriter, req *http.Request)
 	}
 	httpx.JSON(w, http.StatusOK, answer)
 }
+
+// handleChatFollowUp 依据群组截至指定日期的成功摘要回答追问。
+func (r *Router) handleChatFollowUp(w http.ResponseWriter, req *http.Request) {
+	id, err := strconv.ParseInt(req.PathValue("chatID"), 10, 64)
+	if err != nil || id <= 0 {
+		httpx.Error(w, http.StatusBadRequest, "invalid chat id")
+		return
+	}
+	req.Body = http.MaxBytesReader(w, req.Body, 1024*1024)
+	var payload struct {
+		ToDate   string                 `json:"toDate"`
+		Question string                 `json:"question"`
+		History  []summary.FollowUpTurn `json:"history"`
+	}
+	if err := httpx.DecodeJSON(req, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid follow-up request")
+		return
+	}
+	answer, err := r.scheduler.AskChatFollowUp(req.Context(), id, payload.ToDate, payload.Question, payload.History)
+	switch {
+	case err == nil:
+		httpx.JSON(w, http.StatusOK, answer)
+	case errors.Is(err, pgx.ErrNoRows):
+		httpx.Error(w, http.StatusNotFound, "chat not found")
+	case errors.Is(err, summary.ErrFollowUpContextLimit):
+		httpx.ErrorWithCode(w, http.StatusBadRequest, err.Error(), "follow_up_context_limit", 0)
+	case errors.Is(err, summary.ErrNoChatFollowUpSummaries):
+		httpx.ErrorWithCode(w, http.StatusBadRequest, err.Error(), "follow_up_no_summaries", 0)
+	case errors.Is(err, summary.ErrInvalidFollowUp):
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+	default:
+		httpx.Error(w, http.StatusInternalServerError, "unable to answer follow-up")
+	}
+}

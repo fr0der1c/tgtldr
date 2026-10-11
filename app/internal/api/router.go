@@ -97,6 +97,7 @@ func (r *Router) Handler() http.Handler {
 	mux.HandleFunc("/api/summaries/stats", r.handleSummaryStats)
 	mux.HandleFunc("/api/summaries/", r.handleSummaryByID)
 	mux.HandleFunc("POST /api/summaries/{summaryID}/follow-up", r.handleSummaryFollowUp)
+	mux.HandleFunc("POST /api/chats/{chatID}/follow-up", r.handleChatFollowUp)
 	mux.HandleFunc("/api/summaries/context-preview", r.handleSummaryContextPreview)
 	mux.HandleFunc("/api/summaries/run", r.handleRunSummary)
 	mux.HandleFunc("/api/summaries/recovery", r.handleSummaryRecovery)
@@ -137,7 +138,8 @@ func (r *Router) withMiddleware(next http.Handler) http.Handler {
 // source for context length. Keep ordinary API deadlines unchanged.
 func (r *Router) requestTimeout(req *http.Request) time.Duration {
 	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
-	if req.Method == http.MethodPost && len(parts) == 4 && parts[0] == "api" && parts[1] == "summaries" && parts[3] == "follow-up" && r.followUpTimeout > r.timeout {
+	followUp := len(parts) == 4 && parts[0] == "api" && (parts[1] == "summaries" || parts[1] == "chats") && parts[3] == "follow-up"
+	if req.Method == http.MethodPost && followUp && r.followUpTimeout > r.timeout {
 		return r.followUpTimeout
 	}
 	return r.timeout

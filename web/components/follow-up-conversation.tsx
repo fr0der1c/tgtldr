@@ -7,9 +7,10 @@ import { translateText, useI18n } from "@/lib/i18n";
 
 export const followUpQuestionLimit = 2000;
 
-type Turn = { question: string; answer: string | null; source?: "messages" | "summary" };
+// note 是调用方提供的回答依据说明，由 i18n 的动态规则翻译。
+type Turn = { question: string; answer: string | null; source?: "messages" | "summary"; note?: string };
 
-export function FollowUpConversation({ turns, question, onQuestionChange, onSubmit, loading, error, description, title }: {
+export function FollowUpConversation({ turns, question, onQuestionChange, onSubmit, loading, error, description }: {
   turns: Turn[];
   question: string;
   onQuestionChange: (value: string) => void;
@@ -17,7 +18,6 @@ export function FollowUpConversation({ turns, question, onQuestionChange, onSubm
   loading: boolean;
   error: string | null;
   description: string;
-  title?: string;
 }) {
   const { language } = useI18n();
   const t = (text: string) => translateText(text, language);
@@ -32,7 +32,6 @@ export function FollowUpConversation({ turns, question, onQuestionChange, onSubm
 
   return (
     <form className="followup-box" onSubmit={(event) => { event.preventDefault(); if (!loading && !tooLong && question.trim()) onSubmit(); }}>
-      {title ? <h3>{t(title)}</h3> : null}
       <p className="followup-label">{t(description)}</p>
       {turns.length > 0 ? (
         <div className="followup-thread" ref={threadRef} aria-live="polite">
@@ -45,6 +44,7 @@ export function FollowUpConversation({ turns, question, onQuestionChange, onSubm
                     {turn.source ? <p className="muted">{t(turn.source === "messages"
                       ? "回答依据：当天原始消息。"
                       : "回答依据：摘要。原始消息不可用或超出模型容量，细节可能不完整。")}</p> : null}
+                    {turn.note ? <p className="muted">{turn.note}</p> : null}
                     <SummaryMarkdown content={turn.answer} />
                   </>
                 )}

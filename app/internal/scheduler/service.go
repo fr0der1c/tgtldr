@@ -58,6 +58,10 @@ func (s *Service) AskFollowUp(ctx context.Context, item model.Summary, question 
 	return s.summaries.AskFollowUp(ctx, item, question, history)
 }
 
+func (s *Service) AskChatFollowUp(ctx context.Context, chatID int64, toDate, question string, history []summary.FollowUpTurn) (summary.ChatFollowUpAnswer, error) {
+	return s.summaries.AskChatFollowUp(ctx, chatID, toDate, question, history)
+}
+
 func (s *Service) ContextPreview(ctx context.Context, item model.Summary) (model.SummaryContextPreview, error) {
 	return s.summaries.BuildContextPreview(ctx, item)
 }

@@ -4,6 +4,7 @@ import { startTransition, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown } from "@/components/summary-markdown";
+import { ChatFollowUp } from "@/components/chat-follow-up";
 import { SummaryFollowUp } from "@/components/summary-follow-up";
 import { StatusPill } from "@/components/ui";
 import { Chat, Summary } from "@/lib/types";
@@ -107,15 +108,53 @@ export function SummaryDetailDrawer({
             </div>
           </div>
           <SummaryContent summary={selectedSummary} summaryRetryLimit={summaryRetryLimit} />
-          {open && selectedSummary.status === "succeeded" ? (
-            <SummaryFollowUp
+          {open ? (
+            <FollowUpSection
               key={`${selectedSummary.id}:${selectedSummary.generatedAt}:${followUpRevision}`}
-              summaryId={selectedSummary.id}
+              summary={selectedSummary}
             />
           ) : null}
         </div>
       )}
     </Drawer>
+  );
+}
+
+type FollowUpMode = "summary" | "chat";
+
+/** FollowUpSection 在单条摘要追问和整个群的追问间切换，两段对话各自保留到关闭详情。 */
+function FollowUpSection({ summary }: { summary: Summary }) {
+  const summaryAvailable = summary.status === "succeeded";
+  const [selectedMode, setMode] = useState<FollowUpMode>(summaryAvailable ? "summary" : "chat");
+  // 摘要在详情打开期间变为不可追问时，回到整个群的追问，避免两个面板都隐藏。
+  const mode = summaryAvailable ? selectedMode : "chat";
+  const modes: { value: FollowUpMode; label: string }[] = summaryAvailable
+    ? [{ value: "summary", label: "追问这条摘要" }, { value: "chat", label: "追问整个群" }]
+    : [{ value: "chat", label: "追问整个群" }];
+  return (
+    <section className="followup-section">
+      <div aria-label="追问范围" className="followup-modes" role="group">
+        {modes.map((item) => (
+          <button
+            aria-pressed={mode === item.value}
+            className={`followup-mode${mode === item.value ? " active" : ""}`}
+            key={item.value}
+            onClick={() => setMode(item.value)}
+            type="button"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      {summaryAvailable ? (
+        <div hidden={mode !== "summary"}>
+          <SummaryFollowUp summaryId={summary.id} />
+        </div>
+      ) : null}
+      <div hidden={mode !== "chat"}>
+        <ChatFollowUp chatId={summary.chatId} toDate={summary.summaryDate} />
+      </div>
+    </section>
   );
 }
 
