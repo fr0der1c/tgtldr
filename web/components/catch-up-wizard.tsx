@@ -262,7 +262,7 @@ export function CatchUpWizard({
 }
 
 /** 使用指定时区的自然日计算最近若干个已结束日期。 */
-function dateRangeForDays(days: number, timezone: string) {
+export function dateRangeForDays(days: number, timezone: string) {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: timezone || "Asia/Shanghai",
     year: "numeric",

@@ -190,6 +190,11 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 		return () => window.clearInterval(timer);
 	}, [hasActiveSummaries]);
 
+	function reloadAfterBatch() {
+		void loadRef.current();
+		void loadStatsRef.current();
+	}
+
 	async function runManual() {
 		if (!selectedChatId || !manualDate) {
 			return;
@@ -316,6 +321,8 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					onLoadSummaryDateChange={setManualDate}
 					onManualEditorToggle={() => setManualEditorOpen((current) => !current)}
 					onManualRun={runManual}
+					onBatchChanged={reloadAfterBatch}
+					timezone={defaultTimezone}
 					onPageChange={setPage}
 					onQueryChange={setQuery}
 					onSelectedChatChange={setSelectedChatId}

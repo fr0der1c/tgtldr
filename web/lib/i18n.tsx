@@ -559,6 +559,10 @@ const textTranslations = {
   "每日总览已由用户重新生成，需要手动确认发送。": "The Daily Digest was regenerated and requires manual delivery confirmation.",
   "等待手动发送": "Waiting for manual delivery",
   "重新生成完成后不会自动重复发送。": "A regenerated Daily Digest is not sent again automatically.",
+  "批量生成": "Batch generation",
+  "批量生成中…": "Generating batch…",
+  "为多个群组按日期范围排队生成，后台每次处理两条，可以离开页面。": "Queue summaries for several chats over a date range. Two are generated at a time in the background, so you can leave this page.",
+  "重新生成已成功的摘要": "Regenerate summaries that already succeeded",
 } as const;
 
 const attributeNames = ["placeholder", "title", "aria-label"] as const;

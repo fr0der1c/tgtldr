@@ -11,13 +11,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// RunMaintenance 独立处理历史恢复和失败通知，避免阻塞每天的正常调度。
+// RunMaintenance 独立处理历史恢复、批量生成和失败通知，避免阻塞每天的正常调度。
 func (s *Service) RunMaintenance(ctx context.Context, origin string) error {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
 		if err := s.runRecovery(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("summary recovery: %v", err)
+		}
+		if err := s.runSummaryBatch(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("summary batch: %v", err)
 		}
 		if err := s.retryHistoricalFailures(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("historical summary retry: %v", err)

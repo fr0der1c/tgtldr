@@ -1,6 +1,7 @@
 import {
   RecoveryItem,
   FailureNotice,
+  SummaryBatch,
   AppSettings,
   AuthStatus,
   Bootstrap,
@@ -258,6 +259,12 @@ export const api = {
   summaryRecovery: () => request<RecoveryItem[]>("/api/summaries/recovery"),
   startSummaryRecovery: () => request<RecoveryItem[]>("/api/summaries/recovery", { method: "POST" }),
   failureNotices: () => request<FailureNotice[]>("/api/summaries/failure-notices"),
+  summaryBatch: () => request<SummaryBatch>("/api/summaries/batch"),
+  startSummaryBatch: (payload: { chatIds: number[]; fromDate: string; toDate: string; overwrite: boolean }) =>
+    request<SummaryBatch>("/api/summaries/batch", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   summaryStats: () => request<SummaryStats>("/api/summaries/stats"),
   listSummaries: (filters?: SummarySearchFilters) =>
     request<SummaryListResponse>(
