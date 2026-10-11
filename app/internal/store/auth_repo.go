@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/jackc/pgx/v5"
@@ -56,7 +57,9 @@ func (r *AuthRepository) List(ctx context.Context) ([]model.TelegramAuth, error)
 		select a.id, a.phone_number, a.telegram_user_id, a.telegram_name, a.telegram_handle,
 		       a.session_data, a.status,
 		       (select count(*) from chats c where c.collector_account_id = a.id),
-		       a.last_connected_at, a.created_at, a.updated_at
+		       a.last_connected_at,
+		       a.chats_synced_at,
+		       a.created_at, a.updated_at
 		from telegram_accounts a
 		order by a.id
 	`)
@@ -70,7 +73,7 @@ func (r *AuthRepository) List(ctx context.Context) ([]model.TelegramAuth, error)
 		var encrypted string
 		if err := rows.Scan(&item.ID, &item.PhoneNumber, &item.TelegramUserID, &item.TelegramName,
 			&item.TelegramHandle, &encrypted, &item.Status, &item.UsedByChatCount,
-			&item.LastConnectedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			&item.LastConnectedAt, &item.ChatsSyncedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan telegram account: %w", err)
 		}
 		item.SessionData, err = r.cipher.DecryptBytes(encrypted)
@@ -183,6 +186,14 @@ func (r *AuthRepository) Save(ctx context.Context, auth model.TelegramAuth) erro
 	)
 	if err != nil {
 		return fmt.Errorf("update auth: %w", err)
+	}
+	return nil
+}
+
+// MarkChatsSynced 记录该账号最近一次成功同步群组列表的时间。
+func (r *AuthRepository) MarkChatsSynced(ctx context.Context, accountID int64, syncedAt time.Time) error {
+	if _, err := r.pool.Exec(ctx, `update telegram_accounts set chats_synced_at = $2 where id = $1`, accountID, syncedAt); err != nil {
+		return fmt.Errorf("mark telegram account chats synced: %w", err)
 	}
 	return nil
 }

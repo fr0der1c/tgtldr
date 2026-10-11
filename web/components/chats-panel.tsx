@@ -15,11 +15,13 @@ import { AppSelect } from "@/components/app-select";
 import { ChatActivityStrip } from "@/components/chat-activity-strip";
 import { ChatHistorySearchForm } from "@/components/chat-history-search-form";
 import { GlobalChatMessageSearch } from "@/components/global-chat-message-search";
-import { BotSummaryDeliveryMode, Chat, TelegramAccountChat } from "@/lib/types";
+import { BotSummaryDeliveryMode, Chat, TelegramAccountChat, TelegramAuth } from "@/lib/types";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
 import { onHistoryBackfillCompleted } from "@/lib/history-backfill-sync";
+import { formatDateTime } from "@/lib/date-time";
+import { type Language, useI18n } from "@/lib/i18n";
 
 type ChatTypeFilter = "all" | Chat["chatType"];
 type SwitchFilter = "all" | "yes" | "no";
@@ -34,8 +36,12 @@ const historyRangeOptions = [
 ];
 
 export function ChatsPanel() {
+  const { language } = useI18n();
   const [items, setItems] = useState<Chat[]>([]);
   const [savedItems, setSavedItems] = useState<Chat[]>([]);
+  // chatsSyncedAt：undefined 表示尚未加载或读取失败，null 表示没有同步记录。
+  const [chatsSyncedAt, setChatsSyncedAt] = useState<string | null>();
+  const [timeZone, setTimeZone] = useState<string>();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [chatType, setChatType] = useState<ChatTypeFilter>("all");
@@ -55,8 +61,15 @@ export function ChatsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const [chatData, settings] = await Promise.all([api.listChats(), api.settings()]);
+      const [chatData, settings, bootstrap] = await Promise.all([
+        api.listChats(),
+        api.settings(),
+        // 同步时间只用于卡片角标，读取失败不影响群组列表。
+        api.bootstrap().catch(() => null),
+      ]);
       const chats = chatData.map(normalizeChat);
+      setChatsSyncedAt(bootstrap ? latestChatsSyncedAt(bootstrap.telegramAccounts) : undefined);
+      setTimeZone(settings.defaultTimezone);
       setItems(chats);
       setSavedItems(chats);
       setBotSummaryDeliveryMode(settings.botSummaryDeliveryMode || "per_chat");
@@ -140,7 +153,7 @@ export function ChatsPanel() {
         <MetricCard
           label="已同步群组"
           value={syncedCount}
-          badge="最新"
+          badge={syncedBadge(chatsSyncedAt, language, timeZone)}
           detail="所有已绑定 Telegram 账号下可管理的群组与超级群组。"
         />
         <MetricCard
@@ -291,6 +304,24 @@ export function ChatsPanel() {
   );
 }
 
+function syncedBadge(syncedAt: string | null | undefined, language: Language, timeZone?: string) {
+  if (syncedAt === undefined) {
+    return undefined;
+  }
+  return syncedAt ? `上次同步 ${formatDateTime(syncedAt, language, timeZone)}` : "暂无同步记录";
+}
+
+// latestChatsSyncedAt 返回所有账号中最近一次同步群组的时间，没有记录时返回 null。
+function latestChatsSyncedAt(accounts: TelegramAuth[]) {
+  let latest: string | null = null;
+  for (const account of accounts) {
+    if (account.chatsSyncedAt && (!latest || Date.parse(account.chatsSyncedAt) > Date.parse(latest))) {
+      latest = account.chatsSyncedAt;
+    }
+  }
+  return latest;
+}
+
 function asMessage(err: unknown) {
   if (err instanceof Error) {
     return err.message;
@@ -370,6 +401,11 @@ function ChatTableRow({
                   {shouldShowCollectorAccount ? (
                     <span className="chat-collector-account">
                       · {formatCollectorAccount(selectedCollectorAccount)}
+                    </span>
+                  ) : null}
+                  {chat.firstMessageDate ? (
+                    <span className="chat-first-message" title="本地已保存的最早一条消息">
+                      · {`最早消息 ${chat.firstMessageDate}`}
                     </span>
                   ) : null}
                 </div>

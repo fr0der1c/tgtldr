@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast";
 import { api } from "@/lib/api";
 import { CatchUp, CatchUpSource, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/date-time";
 
 /** CatchUpDrawer 在同一侧栏中组合历史列表、任务状态、正文和来源入口。 */
 export function CatchUpDrawer({
@@ -322,11 +323,6 @@ function catchUpDeliveryState(item: CatchUp): { label: string; tone: "neutral" |
   if (item.deliveredAt) return { label: "已发送", tone: "good" };
   if (item.deliveryError) return { label: "发送失败", tone: "bad", detail: item.deliveryError };
   return { label: "待发送", tone: "warn" };
-}
-
-function formatDateTime(value: string, language: "zh-CN" | "en") {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language, { hour12: false });
 }
 
 function asMessage(error: unknown) {

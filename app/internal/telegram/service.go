@@ -154,7 +154,7 @@ func (s *Service) SyncChats(ctx context.Context, accountIDs ...int64) error {
 			return err
 		}
 	}
-	return nil
+	return s.store.Auth.MarkChatsSynced(ctx, accountID, s.clock.Now())
 }
 
 func (s *Service) EnsureListener(accountIDs ...int64) {
