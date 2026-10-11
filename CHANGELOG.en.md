@@ -9,6 +9,10 @@
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.
 - Inline citations in the digest viewer display clickable chat names. Telegram delivery resolves current-day source numbers to chat names and deduplicates adjacent citations, while stored content retains source numbers for traceability.
 
+### Fixed
+
+- Failed Bot deliveries for chat summaries no longer resend every minute. They now follow the summary auto-retry limit and the 1/3/5/10 minute backoff, stop once the limit is reached, and can still be retried manually from the summary list. Retries continue after the date changes, and setting the retry limit to 0 also stops queued retries. While waiting, the status shows "Retrying automatically".
+
 ## 2026-10-06
 
 ### Changed

@@ -162,6 +162,36 @@ func TestDecideScheduledAction(t *testing.T) {
 			},
 			expected: scheduledActionGenerate,
 		},
+		{
+			name:  "投递失败后未到下一次重试时间时跳过",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: readyAt,
+				DeliveryRetryCount: 1, NextDeliveryRetryAt: timePtr(time.Date(2026, time.April, 18, 9, 3, 0, 0, shanghai)),
+			},
+			expected: scheduledActionSkip,
+		},
+		{
+			name:  "投递失败后到达下一次重试时间时重新投递",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: readyAt,
+				DeliveryRetryCount: 1, NextDeliveryRetryAt: timePtr(time.Date(2026, time.April, 18, 8, 59, 0, 0, shanghai)),
+			},
+			expected: scheduledActionDeliver,
+		},
+		{
+			name:  "投递重试达到上限后不再自动投递",
+			chat:  model.Chat{DeliveryMode: model.DeliveryModeBot},
+			found: true,
+			summary: model.Summary{
+				Status: model.SummaryStatusSucceeded, SummaryDate: "2026-04-17", GeneratedAt: readyAt,
+				DeliveryRetryCount: 3,
+			},
+			expected: scheduledActionSkip,
+		},
 	}
 
 	for _, testCase := range tests {
@@ -198,6 +228,29 @@ func TestSummaryRetryBackoff(t *testing.T) {
 	if _, ok := nextSummaryRetryAt(model.AppSettings{}, 0, now); ok {
 		t.Fatal("disabled retries must not run")
 	}
+}
+
+// TestDeliveryRetryDue 验证投递重试只在计划时间到达后进行，且没有计划时停止。
+func TestDeliveryRetryDue(t *testing.T) {
+	Convey("自动投递重试按计划时间放行", t, func() {
+		now := time.Date(2026, time.April, 18, 9, 0, 0, 0, time.UTC)
+
+		settings := model.AppSettings{SummaryRetryLimit: 4}
+
+		So(deliveryRetryDue(settings, model.Summary{}, now), ShouldBeTrue)
+		So(deliveryRetryDue(settings, model.Summary{DeliveryRetryCount: 1, NextDeliveryRetryAt: timePtr(now)}, now), ShouldBeTrue)
+		So(deliveryRetryDue(settings, model.Summary{DeliveryRetryCount: 1, NextDeliveryRetryAt: timePtr(now.Add(time.Minute))}, now), ShouldBeFalse)
+		So(deliveryRetryDue(settings, model.Summary{DeliveryRetryCount: 5}, now), ShouldBeFalse)
+	})
+
+	Convey("关闭或调低重试上限后，已排队的投递重试不再执行", t, func() {
+		now := time.Date(2026, time.April, 18, 9, 0, 0, 0, time.UTC)
+		queued := model.Summary{DeliveryRetryCount: 2, NextDeliveryRetryAt: timePtr(now)}
+
+		So(deliveryRetryDue(model.AppSettings{SummaryRetryLimit: 0}, queued, now), ShouldBeFalse)
+		So(deliveryRetryDue(model.AppSettings{SummaryRetryLimit: 1}, queued, now), ShouldBeFalse)
+		So(deliveryRetryDue(model.AppSettings{SummaryRetryLimit: 2}, queued, now), ShouldBeTrue)
+	})
 }
 
 func timePtr(value time.Time) *time.Time {

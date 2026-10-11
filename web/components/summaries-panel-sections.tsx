@@ -354,6 +354,9 @@ export function deliveryState(
 	if (summary.status !== "succeeded") {
 		return { label: "未发送", tone: "neutral", detail: "摘要尚未生成成功，当前不会执行发送。", retryable: false }
 	}
+	if (summary.deliveryError && summary.nextDeliveryRetryAt) {
+		return { label: "等待自动重试", tone: "warn", detail: summary.deliveryError, retryable: true }
+	}
 	if (summary.deliveryError) {
 		return { label: "发送失败", tone: "bad", detail: summary.deliveryError, retryable: true }
 	}

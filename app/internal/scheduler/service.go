@@ -334,10 +334,19 @@ func (s *Service) tryDeliverSummary(ctx context.Context, chat model.Chat, result
 	}
 
 	if err := s.deliverSummary(ctx, settings, chat, result); err != nil {
-		_ = s.store.Summaries.MarkDeliveryFailed(ctx, result.ChatID, result.SummaryDate, err.Error())
+		s.scheduleDeliveryRetry(ctx, settings, result, err)
 		return
 	}
 	_ = s.store.Summaries.MarkDelivered(ctx, result.ChatID, result.SummaryDate, s.clock.Now())
+}
+
+// scheduleDeliveryRetry 复用摘要重试的次数上限与退避间隔，避免投递失败后每分钟重复请求 Telegram。
+func (s *Service) scheduleDeliveryRetry(ctx context.Context, settings model.AppSettings, result model.Summary, deliveryErr error) {
+	var nextRetryAt *time.Time
+	if next, ok := nextSummaryRetryAt(settings, result.DeliveryRetryCount, s.clock.Now()); ok {
+		nextRetryAt = &next
+	}
+	_ = s.store.Summaries.ScheduleDeliveryRetry(ctx, result.ChatID, result.SummaryDate, deliveryErr.Error(), nextRetryAt)
 }
 
 func (s *Service) deliverSummary(ctx context.Context, settings model.AppSettings, chat model.Chat, result model.Summary) error {
@@ -407,6 +416,9 @@ func decideScheduledAction(
 	}
 	if !summaryReadyForDelivery(item, timezone) {
 		return scheduledActionGenerate
+	}
+	if !deliveryRetryDue(settings, item, now) {
+		return scheduledActionSkip
 	}
 	return scheduledActionDeliver
 }

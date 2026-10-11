@@ -272,6 +272,7 @@ const textTranslations = {
   "已发送": "Sent",
   "待发送": "Pending",
   "发送失败": "Delivery failed",
+  "等待自动重试": "Retrying automatically",
   "不发送": "Do not send",
   "手动补跑": "Manual run",
   "收起补跑": "Collapse manual run",
