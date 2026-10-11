@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SummaryContextDrawer } from "@/components/summary-context-drawer";
 import { SummaryDetailDrawer } from "@/components/summary-detail-drawer";
 import { useToast } from "@/components/toast";
@@ -36,31 +36,38 @@ export function SummaryDrawerPair({
   const [contextPreview, setContextPreview] = useState<SummaryContextPreview | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const toast = useToast();
+  const showErrorRef = useRef(toast.showError);
+  // 摘要列表处理中会每 3 秒轮询刷新，只按摘要 ID 加载原始 Prompt，避免侧栏反复重载。
+  const selectedSummaryId = selectedSummary?.id ?? null;
+
+  useEffect(() => {
+    showErrorRef.current = toast.showError;
+  }, [toast.showError]);
 
   useEffect(() => {
     if (!open) setContextOpen(false);
   }, [open]);
 
   useEffect(() => {
-    if (!contextOpen || !selectedSummary) {
+    if (!contextOpen || selectedSummaryId === null) {
       setContextPreview(null);
       return;
     }
     let cancelled = false;
     setContextLoading(true);
-    void api.summaryContextPreview(selectedSummary.id).then((preview) => {
+    void api.summaryContextPreview(selectedSummaryId).then((preview) => {
       if (!cancelled) setContextPreview(preview);
     }).catch((error) => {
       if (cancelled) return;
       setContextPreview(null);
-      toast.showError(asMessage(error));
+      showErrorRef.current(asMessage(error));
     }).finally(() => {
       if (!cancelled) setContextLoading(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [contextOpen, selectedSummary, toast]);
+  }, [contextOpen, selectedSummaryId]);
 
   async function retryDelivery(summary: Summary) {
     try {
