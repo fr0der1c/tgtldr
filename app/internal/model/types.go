@@ -41,6 +41,17 @@ const (
 	DefaultSummaryRetryBackoffMultiplier                         = 3
 )
 
+const (
+	ChatTypeGroup      = "group"
+	ChatTypeSupergroup = "supergroup"
+	ChatTypeChannel    = "channel"
+)
+
+// UsesChannelPeer 判断会话是否需要通过 Telegram Channel 接口访问，超级群组和频道都属于这一类。
+func UsesChannelPeer(chatType string) bool {
+	return chatType == ChatTypeSupergroup || chatType == ChatTypeChannel
+}
+
 func NormalizeLanguage(language Language) Language {
 	if language == LanguageEN {
 		return LanguageEN

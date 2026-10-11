@@ -122,7 +122,7 @@ const textTranslations = {
   "已同步群组": "Synced Chats",
   "最新": "Latest",
   "当前 Telegram 账号下可管理的群组与超级群组。": "Groups and supergroups available to the current Telegram account.",
-  "所有已绑定 Telegram 账号下可管理的群组与超级群组。": "Groups and supergroups available to all connected Telegram accounts.",
+  "所有已绑定 Telegram 账号下可管理的群组、超级群组与频道。": "Groups, supergroups, and channels available to all connected Telegram accounts.",
   "已启用消息保存": "Message Saving Enabled",
   "运行中": "Running",
   "启用后，系统会实时保存该群的消息。": "When enabled, the system saves messages from this chat in real time.",

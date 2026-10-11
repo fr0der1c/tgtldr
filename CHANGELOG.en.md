@@ -4,6 +4,10 @@
 
 ## 2026-10-11
 
+### Added
+
+- Telegram broadcast channels are now supported. Chat sync includes joined channels, which can save messages, backfill history, and generate summaries like groups. The Chats page adds a Channel type filter.
+
 ### Changed
 
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.

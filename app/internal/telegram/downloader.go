@@ -139,7 +139,7 @@ func (s *Service) reconcileStoredEntityGroup(ctx context.Context, accountID int6
 	}
 	var result tg.MessagesMessagesClass
 	var err error
-	if candidates[0].ChatType == "supergroup" {
+	if model.UsesChannelPeer(candidates[0].ChatType) {
 		result, err = api.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
 			Channel: &tg.InputChannel{ChannelID: candidates[0].TelegramChatID, AccessHash: candidates[0].TelegramAccessHash},
 			ID:      ids,
@@ -326,7 +326,7 @@ func fetchMediaMessage(ctx context.Context, api *tg.Client, candidate store.Mess
 	id := []tg.InputMessageClass{&tg.InputMessageID{ID: candidate.TelegramMessageID}}
 	var result tg.MessagesMessagesClass
 	var err error
-	if candidate.ChatType == "supergroup" {
+	if model.UsesChannelPeer(candidate.ChatType) {
 		result, err = api.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
 			Channel: &tg.InputChannel{ChannelID: candidate.TelegramChatID, AccessHash: candidate.TelegramAccessHash},
 			ID:      id,

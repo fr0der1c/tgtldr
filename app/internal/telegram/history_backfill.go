@@ -292,7 +292,7 @@ func inputPeerForChat(chat model.Chat) (tg.InputPeerClass, error) {
 	switch chat.ChatType {
 	case "group":
 		return &tg.InputPeerChat{ChatID: chat.TelegramChatID}, nil
-	case "supergroup":
+	case "supergroup", "channel":
 		return &tg.InputPeerChannel{
 			ChannelID:  chat.TelegramChatID,
 			AccessHash: chat.TelegramAccess,

@@ -636,7 +636,7 @@ func (r *Router) handleChats(w http.ResponseWriter, req *http.Request) {
 func (r *Router) attachChatAvatars(ctx context.Context, chats []model.Chat) error {
 	for index := range chats {
 		peerType := "chat"
-		if chats[index].ChatType == "supergroup" {
+		if model.UsesChannelPeer(chats[index].ChatType) {
 			peerType = "channel"
 		}
 		asset, err := r.store.Assets.FindEntityAvatar(ctx, chats[index].CollectorAccountID, peerType, chats[index].TelegramChatID)

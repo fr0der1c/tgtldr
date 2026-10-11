@@ -30,15 +30,19 @@ func dialogToChat(elem dialogsquery.Elem) (model.Chat, bool) {
 		}, true
 	case dialogsquery.Channel:
 		channel, ok := elem.Entities.Channel(key.ID)
-		if !ok || channel.Broadcast {
+		if !ok {
 			return model.Chat{}, false
+		}
+		chatType := model.ChatTypeSupergroup
+		if channel.Broadcast {
+			chatType = model.ChatTypeChannel
 		}
 		return model.Chat{
 			TelegramChatID: key.ID,
 			TelegramAccess: channel.AccessHash,
 			Title:          channel.Title,
 			Username:       channel.Username,
-			ChatType:       "supergroup",
+			ChatType:       chatType,
 		}, true
 	default:
 		return model.Chat{}, false
