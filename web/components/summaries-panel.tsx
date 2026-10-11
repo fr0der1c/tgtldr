@@ -332,6 +332,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 					selectedSummaryId={selectedSummaryId}
 					summaries={summaries}
 					total={total}
+					timezone={defaultTimezone}
 					totalPages={totalPages}
 				/>
 			</div>
@@ -346,6 +347,7 @@ export function SummariesPanel({ initialChatId = "all" }: { initialChatId?: stri
 				open={detailOpen && Boolean(selectedSummary)}
 				selectedChat={selectedChat}
 				selectedSummary={selectedSummary}
+				timezone={defaultTimezone}
 				summaryRetryLimit={summaryRetryLimit}
 			/>
 		</DashboardPage>

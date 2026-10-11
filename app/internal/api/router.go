@@ -716,6 +716,8 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 		FilteredSenders    []string           `json:"filteredSenders"`
 		FilteredKeywords   []string           `json:"filteredKeywords"`
 		CollectorAccountID int64              `json:"collectorAccountId"`
+		// SummaryFrequency 省略时保持原频率，兼容旧客户端。
+		SummaryFrequency *model.SummaryPeriod `json:"summaryFrequency"`
 	}
 	if err := httpx.DecodeJSON(req, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -732,6 +734,16 @@ func (r *Router) handleChatByID(w http.ResponseWriter, req *http.Request) {
 	current.KeepBotMessages = payload.KeepBotMessages
 	current.FilteredSenders = compactStrings(payload.FilteredSenders)
 	current.FilteredKeywords = compactStrings(payload.FilteredKeywords)
+	if payload.SummaryFrequency != nil {
+		if !model.IsValidSummaryPeriod(*payload.SummaryFrequency) {
+			httpx.Error(w, http.StatusBadRequest, r.localized(req.Context(), "不支持的摘要频率。", "Unsupported summary frequency."))
+			return
+		}
+		if err := r.scheduler.ChangeSummaryFrequency(req.Context(), &current, *payload.SummaryFrequency); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 	if payload.CollectorAccountID != current.CollectorAccountID {
 		if err := r.store.Chats.SetCollectorAccount(req.Context(), current.ID, payload.CollectorAccountID); err != nil {
 			httpx.Error(w, http.StatusBadRequest, err.Error())

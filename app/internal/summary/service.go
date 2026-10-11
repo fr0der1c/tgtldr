@@ -13,6 +13,7 @@ import (
 	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/fr0der1c/tgtldr/app/internal/openai"
 	"github.com/fr0der1c/tgtldr/app/internal/store"
+	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
@@ -41,7 +42,8 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
-	start, end, err := dayRange(summary.SummaryDate, timezone)
+	summary.FillPeriodEnd()
+	start, end, err := periodRange(summary.SummaryDate, summary.PeriodEnd, timezone)
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
@@ -55,11 +57,12 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 	if err != nil {
 		return model.SummaryContextPreview{}, err
 	}
-	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
-	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	stagePrompt := withPeriodNote(settings.Language, buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt), summary)
+	finalPrompt := withPeriodNote(settings.Language, buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt), summary)
 	modelName := resolveSummaryModel(chat, settings)
 	budget := resolveSummaryBudget(settings, modelName, stagePrompt)
-	fullTranscript := BuildTranscript(filteredMessages, messageLookup, location, settings.Language)
+	timeLayout := transcriptTimeLayout(summary.Period)
+	fullTranscript := buildTranscript(filteredMessages, messageLookup, location, settings.Language, timeLayout)
 	directPlan := llmcontext.PlanRequest(budget.Counter, budget.ContextWindow, finalPrompt, fullTranscript, budget.FinalReserve)
 	chunks := SplitMessagesWithCounter(filteredMessages, budget.ChunkTokenBudget, budget.Counter)
 	directMode := len(filteredMessages) > 0 && directPlan.Fits
@@ -86,7 +89,7 @@ func (s *Service) BuildContextPreview(ctx context.Context, summary model.Summary
 		preview.Chunks = append(preview.Chunks, model.SummaryContextChunk{
 			Index:        chunk.Index,
 			MessageCount: len(chunk.Messages),
-			Content:      BuildTranscript(chunk.Messages, messageLookup, location, settings.Language),
+			Content:      buildTranscript(chunk.Messages, messageLookup, location, settings.Language, timeLayout),
 		})
 	}
 	if directMode || len(chunks) == 0 {
@@ -107,7 +110,14 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	if err != nil {
 		return model.Summary{}, err
 	}
-	start, end, err := dayRange(date, timezone)
+	target := model.Summary{SummaryDate: date}
+	if existing, err := s.store.Summaries.GetByChatAndDate(ctx, chat.ID, date); err == nil {
+		target.Period = existing.Period
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return model.Summary{}, err
+	}
+	target.FillPeriodEnd()
+	start, end, err := periodRange(date, target.PeriodEnd, timezone)
 	if err != nil {
 		return model.Summary{}, err
 	}
@@ -124,6 +134,8 @@ func (s *Service) RunDailySummary(ctx context.Context, chat model.Chat, date str
 	summary := model.Summary{
 		ChatID:             chat.ID,
 		SummaryDate:        date,
+		Period:             target.Period,
+		PeriodEnd:          target.PeriodEnd,
 		Status:             model.SummaryStatusSucceeded,
 		Model:              resolveSummaryModel(chat, settings),
 		RequestedModel:     resolveSummaryModel(chat, settings),
@@ -266,6 +278,16 @@ func loadLocation(timezone string) (*time.Location, error) {
 		return nil, fmt.Errorf("load location %s: %w", timezone, err)
 	}
 	return location, nil
+}
+
+// periodRange 返回从 date 当天开始、到 lastDay 当天结束的时间范围。
+func periodRange(date string, lastDay string, timezone string) (time.Time, time.Time, error) {
+	start, _, err := dayRange(date, timezone)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	_, end, err := dayRange(lastDay, timezone)
+	return start, end, err
 }
 
 func dayRange(date string, timezone string) (time.Time, time.Time, error) {

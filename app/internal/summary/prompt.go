@@ -188,6 +188,27 @@ Write in English and use this format:
 `
 }
 
+// withPeriodNote 为每周和每月摘要追加周期说明，让模型按整个周期归纳，而不是只看一天。
+func withPeriodNote(language model.Language, prompt string, item model.Summary) string {
+	if model.NormalizeSummaryPeriod(item.Period) == model.SummaryPeriodDay || item.PeriodEnd == "" {
+		return prompt
+	}
+	if language == model.LanguageEN {
+		unit := "week"
+		if item.Period == model.SummaryPeriodMonth {
+			unit = "month"
+		}
+		return prompt + "\n\nThis summary covers the whole " + unit + " from " + item.SummaryDate + " to " + item.PeriodEnd +
+			", not a single day. Read \"today\" and \"daily digest\" above as this period, organize topics across the whole period, and mention dates when the timing matters."
+	}
+	unit := "整周"
+	if item.Period == model.SummaryPeriodMonth {
+		unit = "整月"
+	}
+	return prompt + "\n\n本次摘要覆盖 " + item.SummaryDate + " 至 " + item.PeriodEnd + " 的" + unit +
+		"，不是单独一天。上文中的“今天”“日报”均指这个周期，请按整个周期归纳话题，时间先后有意义时注明日期。"
+}
+
 func buildSystemPrompt(language model.Language, base string, summaryContext string, prompt string) string {
 	sections := []string{strings.TrimSpace(base)}
 

@@ -89,6 +89,7 @@ func failureMessage(date string, states []store.FailureState, limit int, languag
 	digestFailed := false
 	digestAffected := false
 	reasons := map[string]bool{}
+	periodEnds := map[string]bool{}
 	for _, state := range states {
 		if state.Status == "pending" || state.Status == "running" {
 			return "", false
@@ -104,11 +105,19 @@ func failureMessage(date string, states []store.FailureState, limit int, languag
 		} else {
 			failed++
 			digestAffected = digestAffected || state.InDigest
+			periodEnds[state.PeriodEnd] = true
 		}
 		reasons[failureReason(state.Error, language)] = true
 	}
 	if failed == 0 && !digestFailed {
 		return "", false
+	}
+	// 失败的摘要都属于同一个每周或每月周期时显示完整范围，混有每日摘要时只显示日期。
+	label := date
+	if len(periodEnds) == 1 {
+		for end := range periodEnds {
+			label = summaryDateLabel(model.Summary{SummaryDate: date, PeriodEnd: end}, language)
+		}
 	}
 	labels := []string{}
 	for reason := range reasons {
@@ -122,7 +131,7 @@ func failureMessage(date string, states []store.FailureState, limit int, languag
 	if digestFailed {
 		impact = "每日总览生成失败，无法推送。"
 	}
-	message := fmt.Sprintf("**摘要生成失败 · %s**\n\n%d 个群组摘要失败，自动重试已结束。\n原因：%s\n\n%s请检查摘要引擎配置，然后使用“一键重跑失败任务”。", date, failed, strings.Join(labels, "、"), impact)
+	message := fmt.Sprintf("**摘要生成失败 · %s**\n\n%d 个群组摘要失败，自动重试已结束。\n原因：%s\n\n%s请检查摘要引擎配置，然后使用“一键重跑失败任务”。", label, failed, strings.Join(labels, "、"), impact)
 	if language == model.LanguageEN {
 		impact = "These chat summaries are currently unavailable."
 		if dailyDigest && digestAffected {
@@ -131,7 +140,7 @@ func failureMessage(date string, states []store.FailureState, limit int, languag
 		if digestFailed {
 			impact = "The Daily Digest failed to generate and cannot be sent."
 		}
-		message = fmt.Sprintf("**Summary generation failed · %s**\n\n%d chat summaries failed. Automatic retries have ended.\nReason: %s\n\n%s Check the summary engine settings, then use Retry all failed tasks.", date, failed, strings.Join(labels, ", "), impact)
+		message = fmt.Sprintf("**Summary generation failed · %s**\n\n%d chat summaries failed. Automatic retries have ended.\nReason: %s\n\n%s Check the summary engine settings, then use Retry all failed tasks.", label, failed, strings.Join(labels, ", "), impact)
 	}
 	if strings.HasPrefix(origin, "https://") || strings.HasPrefix(origin, "http://") {
 		message += "\n\n" + strings.TrimRight(origin, "/") + "/dashboard/summaries"

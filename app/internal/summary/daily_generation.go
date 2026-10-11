@@ -31,10 +31,11 @@ func (s *Service) generateDailySummary(
 		Timeout: s.openAITimeout,
 		Stream:  settings.OpenAIRequestMode != model.OpenAIRequestModeNonStream,
 	})
-	stagePrompt := buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
-	finalPrompt := buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt)
+	stagePrompt := withPeriodNote(settings.Language, buildStagePrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt), result)
+	finalPrompt := withPeriodNote(settings.Language, buildFinalPrompt(settings.Language, chat.SummaryContext, chat.SummaryPrompt), result)
 	budget := resolveSummaryBudget(settings, result.Model, stagePrompt)
-	fullTranscript := BuildTranscript(messages, messageLookup, location, settings.Language)
+	timeLayout := transcriptTimeLayout(result.Period)
+	fullTranscript := buildTranscript(messages, messageLookup, location, settings.Language, timeLayout)
 	directPlan := llmcontext.PlanRequest(
 		budget.Counter,
 		budget.ContextWindow,
@@ -65,6 +66,7 @@ func (s *Service) generateDailySummary(
 		messages,
 		messageLookup,
 		location,
+		timeLayout,
 		chunkBudget,
 		budget,
 	)
@@ -90,13 +92,14 @@ func generateDailyPartials(
 	messages []model.Message,
 	messageLookup map[int]model.Message,
 	location *time.Location,
+	timeLayout string,
 	initialBudget int,
 	budget summaryBudget,
 ) ([]string, []Chunk, int, error) {
 	chunkBudget := max(minimumChunkTokenBudget, initialBudget)
 	for {
 		chunks := SplitMessagesWithCounter(messages, chunkBudget, budget.Counter)
-		partials, err := runDailyChunkBatch(ctx, client, settings, modelName, stagePrompt, chunks, messageLookup, location, budget)
+		partials, err := runDailyChunkBatch(ctx, client, settings, modelName, stagePrompt, chunks, messageLookup, location, timeLayout, budget)
 		if err == nil {
 			return partials, chunks, chunkBudget, nil
 		}
@@ -117,6 +120,7 @@ func runDailyChunkBatch(
 	chunks []Chunk,
 	messageLookup map[int]model.Message,
 	location *time.Location,
+	timeLayout string,
 	budget summaryBudget,
 ) ([]string, error) {
 	partials := make([]string, len(chunks))
@@ -126,7 +130,7 @@ func runDailyChunkBatch(
 		index := index
 		chunk := chunk
 		group.Go(func() error {
-			transcript := BuildTranscript(chunk.Messages, messageLookup, location, settings.Language)
+			transcript := buildTranscript(chunk.Messages, messageLookup, location, settings.Language, timeLayout)
 			response, err := callDailyModel(groupCtx, client, settings, modelName, "chunk", &index, stagePrompt, transcript, budget.StageRequestMax)
 			if err != nil {
 				return err

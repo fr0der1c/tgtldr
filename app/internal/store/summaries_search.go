@@ -61,7 +61,8 @@ func buildSummaryWhereClause(params SummaryListParams, terms []string) (string, 
 	}
 	if params.DateFrom != "" {
 		args = append(args, params.DateFrom)
-		clauses = append(clauses, fmt.Sprintf("s.summary_date >= $%d::date", len(args)))
+		// 每周和每月摘要只要周期与筛选范围有交集就显示。
+		clauses = append(clauses, fmt.Sprintf("%s >= $%d::date", summaryPeriodEndSQL, len(args)))
 	}
 	if params.DateTo != "" {
 		args = append(args, params.DateTo)

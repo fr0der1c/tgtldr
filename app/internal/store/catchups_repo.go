@@ -257,11 +257,12 @@ func selectCatchUpChats(ctx context.Context, tx pgx.Tx, chatIDs []int64) ([]mode
 // selectCatchUpSources 按日期、群组标题和摘要 ID 排序可用的成功摘要。
 func selectCatchUpSources(ctx context.Context, tx pgx.Tx, chatIDs []int64, fromDate, toDate string) ([]model.CatchUpSource, error) {
 	rows, err := tx.Query(ctx, `
-		select s.id, s.chat_id, c.title, s.summary_date::text, s.content
+		select s.id, s.chat_id, c.title, s.summary_date::text, `+summaryPeriodEndSQL+`::text, s.content
 		from summaries s
 		join chats c on c.id = s.chat_id
 		where s.chat_id = any($1::bigint[])
-		  and s.summary_date between $2::date and $3::date
+		  and s.summary_date <= $3::date
+		  and `+summaryPeriodEndSQL+` >= $2::date
 		  and s.status = 'succeeded'
 		  and s.source_message_count > 0
 		  and btrim(s.content) <> ''
@@ -275,7 +276,7 @@ func selectCatchUpSources(ctx context.Context, tx pgx.Tx, chatIDs []int64, fromD
 	items := make([]model.CatchUpSource, 0)
 	for rows.Next() {
 		var item model.CatchUpSource
-		if err := rows.Scan(&item.SummaryID, &item.ChatID, &item.ChatTitle, &item.SummaryDate, &item.Content); err != nil {
+		if err := rows.Scan(&item.SummaryID, &item.ChatID, &item.ChatTitle, &item.SummaryDate, &item.PeriodEnd, &item.Content); err != nil {
 			return nil, fmt.Errorf("scan catch up source: %w", err)
 		}
 		items = append(items, item)
@@ -340,14 +341,20 @@ func insertCatchUpSnapshots(ctx context.Context, tx pgx.Tx, catchUpID int64, cha
 		if err != nil {
 			return fmt.Errorf("parse catch up source date %s: %w", source.SummaryDate, err)
 		}
+		periodEnd := summaryDate
+		if source.PeriodEnd != "" {
+			if periodEnd, err = time.Parse("2006-01-02", source.PeriodEnd); err != nil {
+				return fmt.Errorf("parse catch up source period end %s: %w", source.PeriodEnd, err)
+			}
+		}
 		sourceRows = append(sourceRows, []any{
-			catchUpID, source.SummaryID, source.ChatID, source.ChatTitle, summaryDate, source.Content,
+			catchUpID, source.SummaryID, source.ChatID, source.ChatTitle, summaryDate, periodEnd, source.Content,
 		})
 	}
 	copied, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"catch_up_sources"},
-		[]string{"catch_up_id", "summary_id", "chat_id", "chat_title", "summary_date", "content"},
+		[]string{"catch_up_id", "summary_id", "chat_id", "chat_title", "summary_date", "period_end", "content"},
 		pgx.CopyFromRows(sourceRows),
 	)
 	if err != nil {
@@ -387,7 +394,7 @@ func (r *CatchUpRepository) listSources(ctx context.Context, catchUpID int64, in
 		contentColumn = "content"
 	}
 	rows, err := r.pool.Query(ctx, `
-		select summary_id, chat_id, chat_title, summary_date::text, `+contentColumn+`
+		select summary_id, chat_id, chat_title, summary_date::text, coalesce(period_end, summary_date)::text, `+contentColumn+`
 		from catch_up_sources
 		where catch_up_id = $1
 		order by summary_date, chat_title, summary_id
@@ -399,7 +406,7 @@ func (r *CatchUpRepository) listSources(ctx context.Context, catchUpID int64, in
 	items := make([]model.CatchUpSource, 0)
 	for rows.Next() {
 		var item model.CatchUpSource
-		if err := rows.Scan(&item.SummaryID, &item.ChatID, &item.ChatTitle, &item.SummaryDate, &item.Content); err != nil {
+		if err := rows.Scan(&item.SummaryID, &item.ChatID, &item.ChatTitle, &item.SummaryDate, &item.PeriodEnd, &item.Content); err != nil {
 			return nil, fmt.Errorf("scan catch up source snapshot: %w", err)
 		}
 		items = append(items, item)

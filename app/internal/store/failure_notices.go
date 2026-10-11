@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fr0der1c/tgtldr/app/internal/model"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -15,6 +16,8 @@ type FailureState struct {
 	RetryCount  int
 	NextRetryAt *time.Time
 	InDigest    bool
+	// PeriodEnd 是该摘要周期的最后一天；每周和每月摘要晚于通知日期。
+	PeriodEnd string
 }
 
 type FailureNotice struct {
@@ -48,12 +51,14 @@ func (s *Store) FailureDates(ctx context.Context) ([]string, error) {
 	return dates, rows.Err()
 }
 
-// FailureStates 读取启用摘要的群组及总览状态；缺失的群摘要视为尚未结束。
+// FailureStates 读取启用摘要的群组及总览状态；当天按日生成却缺失的群摘要视为尚未结束，
+// 当天按每周或每月汇总的群组没有这一天的摘要，不参与判断。
 func (s *Store) FailureStates(ctx context.Context, date string) ([]FailureState, error) {
-	rows, err := s.Pool.Query(ctx, `select 'summary',coalesce(s.status,'pending'),coalesce(s.error_message,''),coalesce(s.retry_count,0),s.next_retry_at,c.delivery_mode='bot'
+	rows, err := s.Pool.Query(ctx, `select 'summary',coalesce(s.status,'pending'),coalesce(s.error_message,''),coalesce(s.retry_count,0),s.next_retry_at,c.delivery_mode='bot',coalesce(`+summaryPeriodEndSQL+`::text,$1::date::text),
+ s.id is not null,c.summary_frequency,c.previous_summary_frequency,coalesce(c.summary_frequency_effective_date::text,'')
  from chats c left join summaries s on s.chat_id=c.id and s.summary_date=$1::date
  where c.summary_enabled
- union all select 'digest',status,error_message,retry_count,next_retry_at,false from daily_digests where summary_date=$1::date`, date)
+ union all select 'digest',status,error_message,retry_count,next_retry_at,false,$1::date::text,true,'day','day','' from daily_digests where summary_date=$1::date`, date)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +66,17 @@ func (s *Store) FailureStates(ctx context.Context, date string) ([]FailureState,
 	items := []FailureState{}
 	for rows.Next() {
 		var item FailureState
-		if err := rows.Scan(&item.Kind, &item.Status, &item.Error, &item.RetryCount, &item.NextRetryAt, &item.InDigest); err != nil {
+		var found bool
+		var chat model.Chat
+		if err := rows.Scan(&item.Kind, &item.Status, &item.Error, &item.RetryCount, &item.NextRetryAt, &item.InDigest, &item.PeriodEnd,
+			&found, &chat.SummaryFrequency, &chat.PreviousSummaryFrequency, &chat.SummaryFrequencyEffectiveDate); err != nil {
 			return nil, err
 		}
+		daily := chat.SummaryPeriodFor(date) == model.SummaryPeriodDay
+		if !found && !daily {
+			continue
+		}
+		item.InDigest = item.InDigest && daily
 		items = append(items, item)
 	}
 	return items, rows.Err()

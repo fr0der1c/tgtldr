@@ -22,7 +22,7 @@ func TestBuildSummaryWhereClause(t *testing.T) {
 
 		So(whereClause, ShouldContainSubstring, "s.chat_id = $1")
 		So(whereClause, ShouldContainSubstring, "s.status = $2")
-		So(whereClause, ShouldContainSubstring, "s.summary_date >= $3::date")
+		So(whereClause, ShouldContainSubstring, summaryPeriodEndSQL+" >= $3::date")
 		So(whereClause, ShouldContainSubstring, "s.summary_date <= $4::date")
 		So(whereClause, ShouldContainSubstring, "c.delivery_mode = 'bot' and s.delivered_at is null and dd.delivered_at is null")
 		So(whereClause, ShouldContainSubstring, "coalesce(dd.delivery_error, '') = ''")

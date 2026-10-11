@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast";
 import { api } from "@/lib/api";
 import { CatchUp, CatchUpSource, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { summaryDateText } from "@/lib/summary-period";
 
 /** CatchUpDrawer 在同一侧栏中组合历史列表、任务状态、正文和来源入口。 */
 export function CatchUpDrawer({
@@ -218,10 +219,10 @@ function CatchUpDetail({
       source.reference,
       {
         label: String(source.number),
-        title: `${source.chatTitle} · ${source.summaryDate}`,
+        title: `${source.chatTitle} · ${summaryDateText(source, language)}`,
         ariaLabel: language === "en"
-          ? `Open source ${source.number}: ${source.chatTitle} · ${source.summaryDate}`
-          : `打开来源 ${source.number}：${source.chatTitle} · ${source.summaryDate}`,
+          ? `Open source ${source.number}: ${source.chatTitle} · ${summaryDateText(source, language)}`
+          : `打开来源 ${source.number}：${source.chatTitle} · ${summaryDateText(source, language)}`,
       },
     ])),
     [language, referencedSources],
@@ -284,7 +285,7 @@ function CatchUpDetail({
               <div className="catch-up-source-links">
                 {sources.map((source) => (
                   <button key={source.summaryId} onClick={() => onOpenSource(source)} type="button">
-                    {source.number} · {source.summaryDate}
+                    {source.number} · {summaryDateText(source)}
                   </button>
                 ))}
               </div>

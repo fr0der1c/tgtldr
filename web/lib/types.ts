@@ -195,6 +195,9 @@ export type Chat = {
   summaryContext: string;
   summaryPrompt: string;
   summaryTimeLocal: string;
+  summaryFrequency?: SummaryFrequency;
+  previousSummaryFrequency?: SummaryFrequency;
+  summaryFrequencyEffectiveDate?: string;
   deliveryMode: DeliveryMode;
   modelOverride: string;
   keepBotMessages: boolean;
@@ -218,10 +221,14 @@ export type HistoryBackfillTask = {
   completedAt?: string;
 };
 
+export type SummaryFrequency = "day" | "week" | "month";
+
 export type Summary = {
   id: number;
   chatId: number;
   summaryDate: string;
+  period?: SummaryFrequency;
+  periodEnd?: string;
   status: "pending" | "running" | "succeeded" | "failed";
   content: string;
   model: string;
@@ -307,6 +314,7 @@ export type CatchUpSource = {
   chatId: number;
   chatTitle: string;
   summaryDate: string;
+  periodEnd?: string;
 };
 
 export type CatchUp = {

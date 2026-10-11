@@ -25,11 +25,11 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
 		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
-		       s.created_at, s.updated_at
+		       s.created_at, s.updated_at, s.period
 		from summaries s
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
-		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date and s.period = 'day'
 		where s.id = $1
 	`, id), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary %d: %w", id, err)
@@ -49,11 +49,11 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
 		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
-		       s.created_at, s.updated_at
+		       s.created_at, s.updated_at, s.period
 		from summaries s
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
-		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date and s.period = 'day'
 		where s.chat_id = $1 and s.summary_date = $2::date
 	`, chatID, date), &item); err != nil {
 		return model.Summary{}, fmt.Errorf("get summary for chat %d on %s: %w", chatID, date, err)
@@ -81,7 +81,7 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		join chats c on c.id = s.chat_id
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
-		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date and s.period = 'day'
 	` + whereClause
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return model.SummaryListResponse{}, fmt.Errorf("count summaries: %w", err)
@@ -99,12 +99,12 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 		       coalesce(dds.included, false), coalesce(dds.omission_reason, ''),
 		       coalesce(dd.status, date_dd.status, ''), dd.delivered_at, coalesce(dd.delivery_error, ''),
 		       coalesce(dd.delivery_skipped_reason, ''), coalesce(dd.delivery_suppressed, false),
-		       s.created_at, s.updated_at, c.title
+		       s.created_at, s.updated_at, s.period, c.title
 		from summaries s
 		join chats c on c.id = s.chat_id
 		left join daily_digest_sources dds on dds.summary_id = s.id
 		left join daily_digests dd on dd.id = dds.daily_digest_id
-		left join daily_digests date_dd on date_dd.summary_date = s.summary_date
+		left join daily_digests date_dd on date_dd.summary_date = s.summary_date and s.period = 'day'
 	` + whereClause + `
 		order by s.summary_date desc, s.id desc
 		limit $` + fmt.Sprint(len(args)+1) + ` offset $` + fmt.Sprint(len(args)+2)
@@ -142,12 +142,13 @@ func (r *SummaryRepository) UpsertPending(
 	chatID int64,
 	date string,
 	deliveryMode model.BotSummaryDeliveryMode,
+	period model.SummaryPeriod,
 ) error {
 	_, err := r.pool.Exec(ctx, `
-		insert into summaries (chat_id, summary_date, status, bot_summary_delivery_mode)
-		values ($1, $2::date, 'pending', $3)
+		insert into summaries (chat_id, summary_date, status, bot_summary_delivery_mode, period)
+		values ($1, $2::date, 'pending', $3, $4)
 		on conflict (chat_id, summary_date) do nothing
-	`, chatID, date, model.NormalizeBotSummaryDeliveryMode(deliveryMode))
+	`, chatID, date, model.NormalizeBotSummaryDeliveryMode(deliveryMode), model.NormalizeSummaryPeriod(period))
 	if err != nil {
 		return fmt.Errorf("upsert pending summary: %w", err)
 	}
@@ -337,12 +338,15 @@ func (r *SummaryRepository) ExistsForDate(ctx context.Context, chatID int64, dat
 	return exists, nil
 }
 
+// summaryPeriodEndSQL 是别名 s 的摘要周期最后一天（含），用于按日期范围匹配每周和每月摘要。
+const summaryPeriodEndSQL = `(case s.period when 'week' then s.summary_date + 6 when 'month' then (date_trunc('month', s.summary_date) + interval '1 month - 1 day')::date else s.summary_date end)`
+
 type summaryScanner interface {
 	Scan(dest ...any) error
 }
 
 func scanSummary(scanner summaryScanner, item *model.Summary) error {
-	return scanner.Scan(
+	err := scanner.Scan(
 		&item.ID,
 		&item.ChatID,
 		&item.SummaryDate,
@@ -375,11 +379,14 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.DailyDigestDeliverySuppressed,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+		&item.Period,
 	)
+	item.FillPeriodEnd()
+	return err
 }
 
 func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatTitle *string) error {
-	return scanner.Scan(
+	err := scanner.Scan(
 		&item.ID,
 		&item.ChatID,
 		&item.SummaryDate,
@@ -412,8 +419,11 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.DailyDigestDeliverySuppressed,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+		&item.Period,
 		chatTitle,
 	)
+	item.FillPeriodEnd()
+	return err
 }
 
 func (r *SummaryRepository) PendingDueChats(ctx context.Context, now time.Time) ([]model.Chat, error) {
