@@ -71,13 +71,13 @@ function linkSourceReferences(content: string, references: ReadonlyMap<string, M
   }).join("\n");
 }
 
-/** linkSourceReferencesInLine 跳过行内代码，只替换普通 Markdown 文本。 */
+/** linkSourceReferencesInLine 使用编号构造链接，群名仅由按钮渲染，避免群名中的 Markdown 改变解析。 */
 function linkSourceReferencesInLine(line: string, references: ReadonlyMap<string, MarkdownSourceReference>) {
   return line.split(/(`[^`]*`)/g).map((part, index) => {
     if (index % 2 === 1) return part;
     return part.replace(/\[(S\d{3,})\](?!\()/g, (match, reference: string) => {
       const source = references.get(reference);
-      return source ? `[${source.label}](#catch-up-source-${reference})` : match;
+      return source ? `[${reference}](#catch-up-source-${reference})` : match;
     });
   }).join("");
 }

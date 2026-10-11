@@ -237,7 +237,7 @@ function DailyDigestDetail({
   );
   const markdownSources = useMemo<ReadonlyMap<string, MarkdownSourceReference>>(
     () => new Map(includedSources.map((source) => [source.reference, {
-      label: String(source.number),
+      label: source.chatTitle,
       title: `${source.chatTitle} · ${item.summaryDate}`,
       ariaLabel: language === "en"
         ? `Open source ${source.number}: ${source.chatTitle}`

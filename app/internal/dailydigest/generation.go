@@ -86,5 +86,5 @@ func buildDeliveryMessage(language model.Language, item model.DailyDigest) strin
 	if strings.TrimSpace(item.Content) == "" {
 		return header
 	}
-	return header + "\n\n" + strings.TrimSpace(deliverySourceMarker.ReplaceAllString(item.Content, ""))
+	return header + "\n\n" + strings.TrimSpace(deliveryContentWithSources(language, item))
 }

@@ -71,7 +71,7 @@ func TestRerunLatestParticipants(t *testing.T) {
 			t.Errorf("unexpected digest input: %+v", payload)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"最新摘要"}}]}`))
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"最新摘要 [S001]"}}]}`))
 	}))
 	defer modelServer.Close()
 	settings.OpenAIBaseURL = modelServer.URL
@@ -141,7 +141,7 @@ func TestRerunLatestParticipants(t *testing.T) {
 	}
 	select {
 	case body := <-sent:
-		if !strings.Contains(body, "最新摘要") || strings.Contains(body, "更新版") {
+		if !strings.Contains(body, "最新摘要") || !strings.Contains(body, "加入群") || strings.Contains(body, "[S001]") || strings.Contains(body, "更新版") {
 			t.Fatalf("unexpected message: %s", body)
 		}
 	case <-time.After(5 * time.Second):
@@ -153,7 +153,7 @@ func TestRerunLatestParticipants(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if result.DeliveredAt != nil && result.Content == "最新摘要" {
+		if result.DeliveredAt != nil && result.Content == "最新摘要 [S001]" {
 			if result.ParticipantCount != 1 || len(result.Sources) != 1 || result.Sources[0].ChatID != 2 || result.DeliverySuppressed {
 				t.Fatalf("unexpected rebuilt sources: %+v", result)
 			}

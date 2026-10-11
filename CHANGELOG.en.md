@@ -2,6 +2,13 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-11
+
+### Changed
+
+- Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.
+- Inline citations in the digest viewer display clickable chat names. Telegram delivery resolves current-day source numbers to chat names and deduplicates adjacent citations, while stored content retains source numbers for traceability.
+
 ## 2026-10-06
 
 ### Changed

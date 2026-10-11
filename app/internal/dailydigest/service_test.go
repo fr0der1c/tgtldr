@@ -198,6 +198,7 @@ func TestGenerateDailyDigest(t *testing.T) {
 	})
 }
 
+// TestBuildDailyDigestDeliveryMessage 验证推送显示来源群名，且不改写数据库中的编号引用。
 func TestBuildDailyDigestDeliveryMessage(t *testing.T) {
 	item := model.DailyDigest{SummaryDate: "2026-09-04", Content: "正文"}
 
@@ -205,10 +206,15 @@ func TestBuildDailyDigestDeliveryMessage(t *testing.T) {
 		So(buildDeliveryMessage(model.LanguageZhCN, item), ShouldStartWith, "**每日总览 · 2026-09-04**")
 		So(buildDeliveryMessage(model.LanguageEN, item), ShouldStartWith, "**Daily Digest · 2026-09-04**")
 	})
-	Convey("推送移除来源标记但保留正文、段落和网页原文", t, func() {
+	Convey("推送显示来源群名，保留未知编号、段落和网页原文", t, func() {
+		item.Sources = []model.DailyDigestSource{
+			{ChatTitle: "群 A", Included: true},
+			{ChatTitle: "未纳入群", Included: false},
+			{ChatTitle: "群 B", Included: true},
+		}
 		item.Content = "重点 [S002] [S010]。\n\n- 结论[S001]\n- [注意] 保留"
 		message := buildDeliveryMessage(model.LanguageZhCN, item)
-		So(message, ShouldEqual, "**每日总览 · 2026-09-04**\n\n重点。\n\n- 结论\n- [注意] 保留")
+		So(message, ShouldEqual, "**每日总览 · 2026-09-04**\n\n重点（来源：群 B） [S010]。\n\n- 结论（来源：群 A）\n- [注意] 保留")
 		So(item.Content, ShouldContainSubstring, "[S002]")
 	})
 }
