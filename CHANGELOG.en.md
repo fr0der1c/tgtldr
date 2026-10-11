@@ -4,6 +4,10 @@
 
 ## 2026-10-11
 
+### Added
+
+- Message saving, AI summaries, and Telegram delivery can be toggled directly in the chat list. Only the toggled setting changes; unsaved edits in the editor are neither submitted nor overwritten, and delivery is shown in gray while the Telegram Bot is disabled.
+
 ### Changed
 
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.
