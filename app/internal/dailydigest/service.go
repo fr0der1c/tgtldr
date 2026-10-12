@@ -85,7 +85,7 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 		return err
 	}
 
-	selectedChats := participantChats(chats)
+	selectedChats := participantChats(chats, summaryDate)
 	if len(selectedChats) == 0 || !allParticipantsDue(s.clock.Now(), selectedChats, settings.DefaultTimezone) {
 		return nil
 	}
@@ -95,6 +95,10 @@ func (s *Service) RunIfReady(ctx context.Context, settings model.AppSettings, ch
 	}
 	if err != nil || !ready {
 		return err
+	}
+	if len(sources) == 0 {
+		// 参与群组当天都只有其他周期的摘要时，不创建空总览。
+		return nil
 	}
 	item, created, err := s.store.DailyDigests.Create(ctx, summaryDate, sources)
 	if err != nil {
@@ -131,7 +135,7 @@ func (s *Service) Rerun(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	participants := participantsFromChats(participantChats(chats))
+	participants := participantsFromChats(participantChats(chats, item.SummaryDate))
 	if len(participants) == 0 {
 		if settings.Language == model.LanguageEN {
 			return fmt.Errorf("No chats are participating in Daily Digest")
@@ -144,6 +148,12 @@ func (s *Service) Rerun(ctx context.Context, id int64) error {
 	}
 	if !ready {
 		return ErrSourcesNotReady
+	}
+	if len(sources) == 0 {
+		if settings.Language == model.LanguageEN {
+			return fmt.Errorf("Participating chats only have weekly or monthly summaries for this date")
+		}
+		return fmt.Errorf("参与群组这一天只有每周或每月摘要，没有可纳入每日总览的日报")
 	}
 	if err := s.store.DailyDigests.PrepareRegeneration(ctx, id, sources); err != nil {
 		return err
@@ -311,6 +321,11 @@ func (s *Service) collectSources(
 		if err != nil {
 			return nil, false, err
 		}
+		if model.NormalizeSummaryPeriod(item.Period) != model.SummaryPeriodDay {
+			// 切换频率前留下的每周或每月摘要占用了这一天，定时任务不会再生成当天的日报；
+			// 这个群不进入总览，避免整份总览一直等待。
+			continue
+		}
 		if !summaryTerminal(item, settings, summaryDate) {
 			waiting = append(waiting, selected.chatTitle)
 			continue
@@ -360,10 +375,11 @@ func summaryTerminal(item model.Summary, settings model.AppSettings, summaryDate
 }
 
 // participantChats 将群级 Bot 选项解释为每日总览的参与范围。
-func participantChats(chats []model.Chat) []model.Chat {
+// participantChats 选择当天参与每日总览的群组；当天按每周或每月汇总的群组单独推送，不参与。
+func participantChats(chats []model.Chat, summaryDate string) []model.Chat {
 	result := make([]model.Chat, 0)
 	for _, chat := range chats {
-		if chat.SummaryEnabled && chat.DeliveryMode == model.DeliveryModeBot {
+		if chat.SummaryEnabled && chat.DeliveryMode == model.DeliveryModeBot && chat.SummaryPeriodFor(summaryDate) == model.SummaryPeriodDay {
 			result = append(result, chat)
 		}
 	}

@@ -15,6 +15,11 @@ type Chunk struct {
 }
 
 func BuildTranscript(messages []model.Message, lookup map[int]model.Message, location *time.Location, language model.Language) string {
+	return buildTranscript(messages, lookup, location, language, transcriptTimeLayout(model.SummaryPeriodDay))
+}
+
+// buildTranscript 按指定时间格式生成聊天记录；每周和每月摘要需要带日期。
+func buildTranscript(messages []model.Message, lookup map[int]model.Message, location *time.Location, language model.Language, timeLayout string) string {
 	if len(messages) == 0 {
 		return ""
 	}
@@ -35,7 +40,7 @@ func BuildTranscript(messages []model.Message, lookup map[int]model.Message, loc
 		}
 
 		blockLines := []string{
-			fmt.Sprintf("[%s] %s %s", localRefs[message.TelegramMessageID], formatTranscriptTime(message.MessageTime, location), fallback(message.SenderName, "Unknown")),
+			fmt.Sprintf("[%s] %s %s", localRefs[message.TelegramMessageID], formatTranscriptTime(message.MessageTime, location, timeLayout), fallback(message.SenderName, "Unknown")),
 		}
 
 		if message.ReplyToMessageID > 0 {
@@ -61,7 +66,7 @@ func BuildTranscript(messages []model.Message, lookup map[int]model.Message, loc
 			label := externalRefs[messageID]
 			referenced = append(
 				referenced,
-				fmt.Sprintf("[%s] %s %s", label, formatTranscriptTime(reference.MessageTime, location), fallback(reference.SenderName, "Unknown")),
+				fmt.Sprintf("[%s] %s %s", label, formatTranscriptTime(reference.MessageTime, location, timeLayout), fallback(reference.SenderName, "Unknown")),
 				referenceSummaryText(reference),
 			)
 		}
@@ -72,11 +77,19 @@ func BuildTranscript(messages []model.Message, lookup map[int]model.Message, loc
 	return strings.Join(sections, "\n\n")
 }
 
-func formatTranscriptTime(messageTime time.Time, location *time.Location) string {
-	if location == nil {
-		return messageTime.Format("15:04")
+// transcriptTimeLayout 返回聊天记录的时间格式：每日摘要只显示时间，每周和每月摘要带上日期。
+func transcriptTimeLayout(period model.SummaryPeriod) string {
+	if model.NormalizeSummaryPeriod(period) == model.SummaryPeriodDay {
+		return "15:04"
 	}
-	return messageTime.In(location).Format("15:04")
+	return "2006-01-02 15:04"
+}
+
+func formatTranscriptTime(messageTime time.Time, location *time.Location, layout string) string {
+	if location == nil {
+		return messageTime.Format(layout)
+	}
+	return messageTime.In(location).Format(layout)
 }
 
 func SplitMessages(messages []model.Message, maxTokens int) []Chunk {

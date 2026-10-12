@@ -161,14 +161,18 @@ type Chat struct {
 	SummaryTimeLocal   string                `json:"summaryTimeLocal"`
 	SummaryTimezone    string                `json:"summaryTimezone"`
 	DeliveryMode       DeliveryMode          `json:"deliveryMode"`
-	ModelOverride      string                `json:"modelOverride"`
-	KeepBotMessages    bool                  `json:"keepBotMessages"`
-	FilteredSenders    []string              `json:"filteredSenders"`
-	FilteredKeywords   []string              `json:"filteredKeywords"`
-	MessageActivity    []ChatMessageActivity `json:"messageActivity,omitempty"`
-	AvatarURL          string                `json:"avatarUrl,omitempty"`
-	CreatedAt          time.Time             `json:"createdAt"`
-	UpdatedAt          time.Time             `json:"updatedAt"`
+	// SummaryFrequency 自 SummaryFrequencyEffectiveDate 起生效，此前沿用 PreviousSummaryFrequency。
+	SummaryFrequency              SummaryPeriod         `json:"summaryFrequency"`
+	PreviousSummaryFrequency      SummaryPeriod         `json:"previousSummaryFrequency"`
+	SummaryFrequencyEffectiveDate string                `json:"summaryFrequencyEffectiveDate"`
+	ModelOverride                 string                `json:"modelOverride"`
+	KeepBotMessages               bool                  `json:"keepBotMessages"`
+	FilteredSenders               []string              `json:"filteredSenders"`
+	FilteredKeywords              []string              `json:"filteredKeywords"`
+	MessageActivity               []ChatMessageActivity `json:"messageActivity,omitempty"`
+	AvatarURL                     string                `json:"avatarUrl,omitempty"`
+	CreatedAt                     time.Time             `json:"createdAt"`
+	UpdatedAt                     time.Time             `json:"updatedAt"`
 }
 
 type ChatMessageActivity struct {
@@ -245,9 +249,12 @@ func (m Message) SummaryText() string {
 }
 
 type Summary struct {
-	ID                               int64                  `json:"id"`
-	ChatID                           int64                  `json:"chatId"`
-	SummaryDate                      string                 `json:"summaryDate"`
+	ID          int64  `json:"id"`
+	ChatID      int64  `json:"chatId"`
+	SummaryDate string `json:"summaryDate"`
+	// Period 是摘要覆盖的周期，SummaryDate 为周期第一天，PeriodEnd 为最后一天（含）。
+	Period                           SummaryPeriod          `json:"period"`
+	PeriodEnd                        string                 `json:"periodEnd"`
 	Status                           SummaryStatus          `json:"status"`
 	Content                          string                 `json:"content"`
 	Model                            string                 `json:"model"`
@@ -351,7 +358,9 @@ type CatchUpSource struct {
 	ChatID      int64  `json:"chatId"`
 	ChatTitle   string `json:"chatTitle"`
 	SummaryDate string `json:"summaryDate"`
-	Content     string `json:"-"`
+	// PeriodEnd 是来源摘要周期的最后一天；每周和每月摘要可能部分超出回顾范围。
+	PeriodEnd string `json:"periodEnd"`
+	Content   string `json:"-"`
 }
 
 type CatchUpListResponse struct {

@@ -13,17 +13,21 @@ import (
 )
 
 func TestParticipantChats(t *testing.T) {
-	Convey("只选择开启摘要且参与 Bot 推送的群组并稳定排序", t, func() {
+	Convey("只选择当天按日生成、开启摘要且参与 Bot 推送的群组并稳定排序", t, func() {
 		chats := participantChats([]model.Chat{
 			{ID: 3, Title: "群 C", SummaryEnabled: true, DeliveryMode: model.DeliveryModeBot},
 			{ID: 2, Title: "群 B", SummaryEnabled: true, DeliveryMode: model.DeliveryModeDashboard},
 			{ID: 1, Title: "群 A", SummaryEnabled: true, DeliveryMode: model.DeliveryModeBot},
 			{ID: 4, Title: "群 D", SummaryEnabled: false, DeliveryMode: model.DeliveryModeBot},
-		})
+			{ID: 5, Title: "群 E", SummaryEnabled: true, DeliveryMode: model.DeliveryModeBot, SummaryFrequency: model.SummaryPeriodWeek},
+			{ID: 6, Title: "群 F", SummaryEnabled: true, DeliveryMode: model.DeliveryModeBot, SummaryFrequency: model.SummaryPeriodWeek,
+				PreviousSummaryFrequency: model.SummaryPeriodDay, SummaryFrequencyEffectiveDate: "2026-10-12"},
+		}, "2026-10-08")
 
-		So(chats, ShouldHaveLength, 2)
+		So(chats, ShouldHaveLength, 3)
 		So(chats[0].ID, ShouldEqual, int64(1))
 		So(chats[1].ID, ShouldEqual, int64(3))
+		So(chats[2].ID, ShouldEqual, int64(6))
 	})
 }
 

@@ -83,15 +83,29 @@ func buildRollupSources(sources []model.CatchUpSource, language model.Language) 
 		ref := fmt.Sprintf("S%03d", index+1)
 		if language == model.LanguageEN {
 			units = append(units, rollup.Source{
-				Header:  fmt.Sprintf("[%s]\nChat: %s\nDate: %s\nDaily summary:\n", ref, source.ChatTitle, source.SummaryDate),
+				Header:  fmt.Sprintf("[%s]\nChat: %s\n%s", ref, source.ChatTitle, sourcePeriodHeader(source, language)),
 				Content: strings.TrimSpace(source.Content),
 			})
 			continue
 		}
 		units = append(units, rollup.Source{
-			Header:  fmt.Sprintf("[%s]\n群组：%s\n日期：%s\n每日摘要：\n", ref, source.ChatTitle, source.SummaryDate),
+			Header:  fmt.Sprintf("[%s]\n群组：%s\n%s", ref, source.ChatTitle, sourcePeriodHeader(source, language)),
 			Content: strings.TrimSpace(source.Content),
 		})
 	}
 	return units
+}
+
+// sourcePeriodHeader 标注来源摘要覆盖的日期；每周和每月摘要标注完整范围。
+func sourcePeriodHeader(source model.CatchUpSource, language model.Language) string {
+	if source.PeriodEnd == "" || source.PeriodEnd == source.SummaryDate {
+		if language == model.LanguageEN {
+			return fmt.Sprintf("Date: %s\nDaily summary:\n", source.SummaryDate)
+		}
+		return fmt.Sprintf("日期：%s\n每日摘要：\n", source.SummaryDate)
+	}
+	if language == model.LanguageEN {
+		return fmt.Sprintf("Dates: %s to %s\nSummary for this period:\n", source.SummaryDate, source.PeriodEnd)
+	}
+	return fmt.Sprintf("日期：%s 至 %s\n该时段摘要：\n", source.SummaryDate, source.PeriodEnd)
 }

@@ -15,7 +15,8 @@ import { AppSelect } from "@/components/app-select";
 import { ChatActivityStrip } from "@/components/chat-activity-strip";
 import { ChatHistorySearchForm } from "@/components/chat-history-search-form";
 import { GlobalChatMessageSearch } from "@/components/global-chat-message-search";
-import { BotSummaryDeliveryMode, Chat, TelegramAccountChat } from "@/lib/types";
+import { BotSummaryDeliveryMode, Chat, SummaryFrequency, TelegramAccountChat } from "@/lib/types";
+import { dateInTimezone, frequencyLabel, summaryFrequencyOptions } from "@/lib/summary-period";
 import { DashboardPage, EmptyState, MetricCard, MetricRail, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill, Textarea } from "@/components/ui";
@@ -45,6 +46,7 @@ export function ChatsPanel() {
   const [messageQuery, setMessageQuery] = useState("");
   const [messageSearchPage, setMessageSearchPage] = useState(1);
   const [botSummaryDeliveryMode, setBotSummaryDeliveryMode] = useState<BotSummaryDeliveryMode>("per_chat");
+  const [defaultTimezone, setDefaultTimezone] = useState("");
   const deferredQuery = useDeferredValue(query);
   const toast = useToast();
   const showErrorRef = useRef(toast.showError);
@@ -60,6 +62,7 @@ export function ChatsPanel() {
       setItems(chats);
       setSavedItems(chats);
       setBotSummaryDeliveryMode(settings.botSummaryDeliveryMode || "per_chat");
+      setDefaultTimezone(settings.defaultTimezone || "");
       setEditingId((current) =>
         current && chats.some((chat) => chat.id === current) ? current : null
       );
@@ -80,7 +83,10 @@ export function ChatsPanel() {
 
   async function saveChat(chat: Chat) {
     try {
-      await api.saveChat(chat);
+      // 只在本次修改了频率时提交，避免旧页面保存其他配置时覆盖别处的频率切换。
+      const saved = savedItems.find((item) => item.id === chat.id);
+      const frequencyChanged = (chat.summaryFrequency ?? "day") !== (saved?.summaryFrequency ?? "day");
+      await api.saveChat(chat, { includeFrequency: frequencyChanged });
       toast.showSuccess(`已保存「${chat.title}」的配置。`);
       await load();
     } catch (err) {
@@ -268,6 +274,7 @@ export function ChatsPanel() {
                         key={chat.id}
                         chat={chat}
                         botSummaryDeliveryMode={botSummaryDeliveryMode}
+                        defaultTimezone={defaultTimezone}
                         editing={editingId === chat.id}
                         onBackfill={(fromDate, toDate) =>
                           startTransition(() => void startHistoryBackfill(chat, fromDate, toDate))
@@ -324,6 +331,7 @@ function splitLines(value: string) {
 function ChatTableRow({
   botSummaryDeliveryMode,
   chat,
+  defaultTimezone,
   editing,
   onBackfill,
   onPatch,
@@ -332,6 +340,7 @@ function ChatTableRow({
 }: {
   botSummaryDeliveryMode: BotSummaryDeliveryMode;
   chat: Chat;
+  defaultTimezone: string;
   editing: boolean;
   onBackfill: (fromDate: string, toDate: string) => void;
   onPatch: (patch: Partial<Chat>) => void;
@@ -479,10 +488,28 @@ function ChatTableRow({
                             }
                             options={[
                               { value: "dashboard", label: "不参与，仅网页查看" },
-                              { value: "bot", label: botSummaryDeliveryMode === "daily_digest" ? "纳入每日总览" : "参与推送" }
+                              {
+                                value: "bot",
+                                label: botSummaryDeliveryMode === "daily_digest" && (chat.summaryFrequency ?? "day") === "day" ? "纳入每日总览" : "参与推送",
+                              }
                             ]}
                             value={chat.deliveryMode}
                           />
+                        </Field>
+
+                        <Field
+                          hint="每周和每月摘要在周期结束后的摘要时间生成，单独推送，不纳入每日总览。切换后从下一个完整周期开始生效。"
+                          label="摘要频率"
+                        >
+                          <AppSelect
+                            onChange={(value) =>
+                              // 生效日期由保存时的服务端计算；未保存前不显示可能过时的说明。
+                              onPatch({ summaryFrequency: value as SummaryFrequency, summaryFrequencyEffectiveDate: "" })
+                            }
+                            options={summaryFrequencyOptions}
+                            value={chat.summaryFrequency ?? "day"}
+                          />
+                          {pendingFrequencyNote(chat, defaultTimezone)}
                         </Field>
 
                         <Field label="摘要时间">
@@ -708,6 +735,23 @@ function localDateOffset(offsetDays: number) {
   now.setDate(now.getDate() + offsetDays);
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+/**
+ * pendingFrequencyNote 在新频率尚未生效时说明当前沿用的频率和生效日期。
+ * 生效日期由服务端按摘要时区计算，这里也按同一时区判断今天，未读到时区时退回浏览器日期。
+ */
+function pendingFrequencyNote(chat: Chat, timezone: string) {
+  const effectiveDate = chat.summaryFrequencyEffectiveDate;
+  const today = (timezone && dateInTimezone(new Date(), timezone)) || localDateInputValue();
+  if (!effectiveDate || effectiveDate <= today || chat.previousSummaryFrequency === chat.summaryFrequency) {
+    return null;
+  }
+  return (
+    <span className="field-hint">
+      {`当前仍按${frequencyLabel(chat.previousSummaryFrequency)}生成，${effectiveDate} 起按${frequencyLabel(chat.summaryFrequency)}生成。`}
+    </span>
+  );
 }
 
 function localDateInputValue() {

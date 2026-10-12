@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/ui";
 import { Chat, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { summaryModelLabel } from "@/lib/summary-model";
+import { summaryDateText } from "@/lib/summary-period";
 import { deliveryState, statusText, statusTone } from "@/components/summaries-panel-sections";
 
 export function SummaryDetailDrawer({
@@ -24,7 +25,8 @@ export function SummaryDetailDrawer({
   open,
   selectedChat,
   selectedSummary,
-  summaryRetryLimit
+  summaryRetryLimit,
+  timezone
 }: {
   active: boolean;
   botReady: boolean;
@@ -40,10 +42,11 @@ export function SummaryDetailDrawer({
   selectedChat: Chat | null;
   selectedSummary: Summary | null;
   summaryRetryLimit: number;
+  timezone?: string;
 }) {
   const { language } = useI18n();
   const selectedDelivery = selectedSummary
-    ? deliveryState(selectedSummary, selectedChat, botReady)
+    ? deliveryState(selectedSummary, selectedChat, botReady, timezone)
     : null;
 
   return (
@@ -59,7 +62,7 @@ export function SummaryDetailDrawer({
         <div className="summary-detail-stack">
           <div className="summary-detail-header">
             <h2>
-              {chatTitle} · {selectedSummary.summaryDate}
+              {chatTitle} · {summaryDateText(selectedSummary)}
             </h2>
           </div>
           <div className="summary-status-actions">

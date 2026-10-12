@@ -294,6 +294,8 @@ const textTranslations = {
   "Bot 配置尚未完成，当前无法发送。": "Bot configuration is incomplete, so this cannot be sent now.",
   "摘要尚未生成成功，当前不会执行发送。": "The summary has not succeeded yet, so delivery will not run.",
   "摘要已生成，等待自动发送或手动重试。": "The summary is ready and waiting for automatic delivery or manual retry.",
+  "周期结束后发送": "Sent after the period ends",
+  "周期尚未结束，当前内容不完整；周期结束后会重新生成并发送。": "The period has not ended, so this summary is incomplete. It will be regenerated and sent after the period ends.",
   "没有可查看的摘要": "No summary selected",
   "从列表中选择一条摘要后，这里会展示完整正文。": "Select a summary from the list to view the full content here.",
   "通过 Bot 发送": "Send through Bot",
@@ -540,6 +542,12 @@ const textTranslations = {
   "Telegram 推送": "Telegram delivery",
   "不参与，仅网页查看": "Do not include; web only",
   "参与推送": "Include in delivery",
+  "摘要频率": "Summary frequency",
+  "每天": "Daily",
+  "每周（周一至周日）": "Weekly (Monday to Sunday)",
+  "每月": "Monthly",
+  "每周和每月摘要在周期结束后的摘要时间生成，单独推送，不纳入每日总览。切换后从下一个完整周期开始生效。":
+    "Weekly and monthly summaries are generated at the summary time after the period ends and delivered on their own, outside Daily Digest. A change takes effect from the next full period.",
   "未纳入总览": "Not included",
   "单群摘要生成失败，无法纳入每日总览。": "This chat summary failed and could not be included in the Daily Digest.",
   "当日无消息": "No messages that day",
@@ -565,6 +573,14 @@ const attributeNames = ["placeholder", "title", "aria-label"] as const;
 
 const dynamicTranslations: Array<[RegExp, (...matches: string[]) => string]> = [
   [/^第 (\d+) 步，共 (\d+) 步$/, (current, total) => `Step ${current} of ${total}`],
+  [/^(\d{4}-\d{2}-\d{2}) 至 (\d{4}-\d{2}-\d{2})$/, (from, to) => `${from} to ${to}`],
+  [
+    /^当前仍按(每天|每周|每月)生成，(\d{4}-\d{2}-\d{2}) 起按(每天|每周|每月)生成。$/,
+    (previous, date, next) => {
+      const label = (value: string) => ({ 每天: "daily", 每周: "weekly", 每月: "monthly" })[value] ?? value;
+      return `Summaries stay ${label(previous)} until ${date}, then switch to ${label(next)}.`;
+    },
+  ],
   [/^有 (\d+) 个群组正在使用此账号，请先为这些群组选择其他账号。$/, (count) => `${count} chats are using this account. Choose another account for them before deleting it.`],
   [/^已保存「(.+)」的配置。$/, (chat) => `Saved settings for "${chat}".`],
   [/^正在为「(.+)」回补 (.+) 到 (.+) 的历史消息。$/, (chat, from, to) => `Backfilling history for "${chat}" from ${from} to ${to}.`],

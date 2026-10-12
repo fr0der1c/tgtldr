@@ -2,6 +2,13 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-12
+
+### Added
+
+- Chats can set AI summaries to daily, weekly (Monday to Sunday), or monthly. Weekly and monthly summaries are generated at the summary time after the period ends, cover the whole period, are dated by its first day, and show the full date range on the web and in Telegram delivery. After downtime only the latest ended period is caught up. They are delivered on their own, outside Daily Digest, with the same automatic retries and failure notices as daily summaries. Generating manually for any day in a period generates the whole period, and a summary generated before the period ends is not delivered; it is regenerated and delivered once the period ends. Date filters, the per-day chat summary view, and Catch Up include weekly and monthly summaries that overlap the selected dates.
+- When the frequency changes, the current period finishes at the old frequency and the new one starts with the next full period. Days between periods that do not line up are summarized daily, and existing summaries are kept.
+
 ## 2026-10-11
 
 ### Changed

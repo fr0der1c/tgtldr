@@ -19,6 +19,7 @@ export function SummaryDrawerPair({
   selectedChat,
   selectedSummary,
   summaryRetryLimit,
+  timezone,
 }: {
   botReady: boolean;
   chatTitle: string;
@@ -31,6 +32,7 @@ export function SummaryDrawerPair({
   selectedChat: Chat | null;
   selectedSummary: Summary | null;
   summaryRetryLimit: number;
+  timezone?: string;
 }) {
   const [contextOpen, setContextOpen] = useState(false);
   const [contextPreview, setContextPreview] = useState<SummaryContextPreview | null>(null);
@@ -98,6 +100,7 @@ export function SummaryDrawerPair({
         open={open}
         selectedChat={selectedChat}
         selectedSummary={selectedSummary}
+        timezone={timezone}
         summaryRetryLimit={summaryRetryLimit}
       />
       <SummaryContextDrawer

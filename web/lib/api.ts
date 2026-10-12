@@ -231,7 +231,7 @@ export const api = {
     ),
   downloadAsset: (assetId: number) =>
     request<{ status: string }>(`/api/assets/${assetId}/download`, { method: "POST" }),
-  saveChat: (chat: Chat) =>
+  saveChat: (chat: Chat, options: { includeFrequency?: boolean } = {}) =>
     request<Chat>(`/api/chats/${chat.id}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -240,6 +240,7 @@ export const api = {
         summaryContext: chat.summaryContext,
         summaryPrompt: chat.summaryPrompt,
         summaryTimeLocal: chat.summaryTimeLocal,
+        ...(options.includeFrequency ? { summaryFrequency: chat.summaryFrequency || "day" } : {}),
         deliveryMode: chat.deliveryMode,
         modelOverride: chat.modelOverride,
         keepBotMessages: chat.keepBotMessages,
