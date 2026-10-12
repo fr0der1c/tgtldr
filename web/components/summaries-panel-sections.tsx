@@ -3,6 +3,7 @@
 import { startTransition, useState } from "react";
 import { AppSelect } from "@/components/app-select";
 import { SearchSelect } from "@/components/search-select";
+import { SummaryBatchRun } from "@/components/summary-batch-run";
 import {
 	EmptyState,
 	Surface,
@@ -51,11 +52,13 @@ type SummaryListSectionProps = {
 	onLoadSummaryDateChange: (value: string) => void;
 	onManualEditorToggle: () => void;
 	onManualRun: () => Promise<void>;
+	onBatchChanged: () => void;
 	onPageChange: (value: number) => void;
 	onQueryChange: (value: string) => void;
 	onSelectedChatChange: (value: string) => void;
 	onSelectSummary: (summaryId: number) => void;
 	chatTitles: Map<number, string>;
+	timezone: string;
 };
 
 export function SummaryListSection(props: SummaryListSectionProps) {
@@ -211,6 +214,7 @@ export function SummaryListSection(props: SummaryListSectionProps) {
 									立即生成
 								</Button>
 							</div>
+							<SummaryBatchRun chats={chats} onChanged={props.onBatchChanged} timezone={props.timezone} />
 						</>
 					)}
 				</div>

@@ -395,6 +395,20 @@ export type RecoveryItem = {
   error: string;
 };
 
+export type SummaryBatchItem = {
+  chatId: number;
+  chatTitle: string;
+  date: string;
+  status: "queued" | "succeeded" | "failed" | "skipped";
+  error: string;
+};
+
+export type SummaryBatch = {
+  queued: number;
+  skipped: number;
+  items: SummaryBatchItem[];
+};
+
 export type FailureNotice = {
   date: string;
   attempts: number;

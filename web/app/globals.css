@@ -1493,6 +1493,66 @@ select {
   justify-content: flex-end;
 }
 
+.summary-batch {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.summary-batch-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.summary-batch-option input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent-strong);
+}
+
+.summary-batch-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.summary-batch-limit {
+  margin: 0;
+  color: var(--danger);
+  line-height: 1.6;
+}
+
+.summary-batch-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.summary-batch-failures {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary-batch-failures li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--danger-soft);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.summary-batch-failures li > span {
+  color: var(--muted);
+}
+
 .text-link-button {
   appearance: none;
   border: 0;

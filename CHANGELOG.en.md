@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-12
+
+### Added
+
+- Added batch generation to Manual run on the Summaries page. Select several chats with AI summaries and a date range (up to 90 days and 200 summaries per batch); up to two summaries start at a time in the background. Summaries that already succeeded are skipped by default, checked again just before generation, and chats whose AI summaries were turned off meanwhile are skipped too. Each summary follows the same generation, delivery, automatic retry, and failure notice flow as Generate now, and counts as failed only after automatic retries end. The page shows progress, skipped items, and failure reasons for the last batch.
+
 ## 2026-10-11
 
 ### Changed
