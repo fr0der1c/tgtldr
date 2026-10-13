@@ -30,6 +30,8 @@ This group may be a free-form discussion group rather than a formal collaboratio
 5. Which scattered details are mentioned briefly but may still matter
 
 Prioritize:
+- Important events and their direct evidence. A single substantive announcement can outweigh repeated discussion; preserve it even if posted by an automated account. Prioritizing a particular speaker must not hide relevant formal notices or other direct evidence.
+- Preserve an event's trigger, actor, decision, execution status, affected scope, concrete consequences, deadlines, and source-required preparations when supplied. Distinguish proposals, announcements, completed actions, and future consequences. Retain each affected batch's own action and effective time; do not let a future effect in one batch hide completed actions in another. Keep corrected figures and separate batches distinct; do not add them together without evidence.
 - Topics discussed by multiple people
 - Evaluations of an object, phenomenon, product, service, event, or idea
 - Group judgment, experience-based conclusions, usage feedback, and directional opinions
@@ -41,11 +43,15 @@ Ignore or downplay:
 - Short replies with no new information
 - Fragmented content that cannot be understood independently and adds no context
 - Pure repetition
+- Routine scheduled activity and its expected temporary effects, without consequences beyond that ordinary activity
 
 If a message includes reply_to and reply_excerpt, use them to understand context. Do not interpret replies in isolation.
 Keep specific names, locations, prices, configurations, and examples when they explain a judgment. Attribute personal experiences as such; do not turn them into general facts. Only mention disagreement or missing evidence when the segment contains a specific one. Do not replace useful details with generic caveats. Omit empty fields.
 
 Write in English and use this structure:
+
+## Important Events and Formal Notices (only if consequential)
+- For each, retain the source and trigger, formal decision and completed actions, each affected batch's scope, corrected count and effective time, and consequences or explicitly required preparations and deadlines. Omit unsupported fields; do not merge distinct treatment states.
 
 ## Main Topics
 - List the main topics in this segment
@@ -72,6 +78,8 @@ Write in English and use this structure:
 5. 哪些信息只是零散提及，但可能值得注意
 
 请优先关注：
+- 重要事件及其直接证据。单条高信息量的正式公告可以比大量重复讨论更重要，即使由自动化账号发布也要保留；重点关注某位发言人，不应掩盖相关正式通知或其他直接证据。
+- 原文有依据时，保留事件的起因、主体、决定、执行状态、影响范围、具体后果、期限，以及来源明确要求的准备事项；区分提议、公告、已执行行动和未来后果。不同批次各自的行动与生效时间分别保留，不能因一批后果尚待生效而省掉另一批已经执行的行动。数字修正与不同批次分别保留，不要无依据相加。
 - 被多人讨论的话题
 - 对某个对象、现象、产品、服务、事件或观点的评价
 - 群体判断、经验结论、使用反馈、倾向性意见
@@ -83,11 +91,15 @@ Write in English and use this structure:
 - 没有信息增量的短回复
 - 无法独立理解、且没有补充信息的碎片化内容
 - 纯重复表达
+- 计划内的日常安排及其预期短暂影响，没有超出日常安排的实质后果
 
 如果消息带有 reply_to 和 reply_excerpt，请结合它理解上下文，不要孤立理解回复内容。
 保留能解释判断的具体名称、地区、价格、配置和事例。个人经历要表述为个人经历，不要上升为普遍事实。只有出现具体分歧或缺失的关键证据时才写出来，不要用笼统的保留意见代替有用细节。没有内容的字段直接省略。
 
 请使用中文输出，并按以下结构整理：
+
+## 重要事件与正式通知（仅在有实质影响时）
+- 每件保留来源主体与触发背景、正式决定与已执行行动、各批次范围与修正后的数量及生效时间、具体后果和明确准备要求及期限；缺少依据的字段省略，不要合并不同处置状态。
 
 ## 主要话题
 - 列出这一段中出现的主要话题
@@ -126,6 +138,16 @@ Writing requirements:
 4. Distinguish personal reports from established facts. State a disagreement only by naming the competing claims and their conditions; state uncertainty only by naming the specific missing evidence. Do not merely list factors that might matter; explain the differences actually reported. Omit generic caveats such as "it depends", "there is no consensus", or "more validation is needed" when they add no information
 5. Do not turn scattered messages into certain facts or invent supporting details
 6. Omit empty fields and keep the language concise, direct, and suitable for a daily digest
+
+Event priority and presentation:
+- Rank actual actions and consequential changes above general viewpoints or explanations of principles. A substantive formal notice or direct evidence remains important even if mentioned once or posted by an automated account; speaker preferences must not hide it.
+- An event moving from a plan to a formal decision or execution, expanding in impact, or creating irreversible consequences deserves a prominent takeaway. State what happened, its status, and the supported scale in the headline; do not frame an executed action as merely a clarification of rules.
+- Keep a major event's decision, execution result, key scale, and consequences together in the leading takeaway or connected short paragraphs instead of scattering them among separate explanations of principles.
+- For major events, retain a short coherent account of the trigger, formal decision, execution, affected scope, consequences, and deadlines that the sources establish. Include source-stated precautions when relevant. Allow more space than an ordinary item; omit unsupported fields instead of inventing them.
+- Attribute announcements and claims to their sources. Distinguish immediate actions from changes taking effect later, and separate affected batches. Use corrected figures without turning a screening count into an executed count; retain meaningful uncertainty about scope, disputed treatment, and further action.
+- Preserve each batch's completed actions and effective time separately. Never describe the whole event using only one batch's future effective date. Retain source-required preparation and deadlines prominently when irreversible consequences make them relevant.
+- Before finalizing, check that consequential formal notices and completed actions in the input remain in the main takeaways with their supported scale and consequences. A speaker preference or a length target must not erase them. Distinguish an explicitly unavailable option from missing information; do not reword a stated refusal as an arrangement that has not yet been announced.
+- An ordinary notice is not automatically important. Omit routine scheduled activity and expected temporary effects within its announced scope unless the sources establish substantive consequences beyond that ordinary activity. An explicit time, place, or formal announcement alone is insufficient. Keep omitting low-information repetition and generic caveats.
 
 Write in English and use this format:
 
@@ -166,6 +188,16 @@ Write in English and use this format:
 4. 区分个人反馈与已证实的事实。写分歧时说明具体哪两种说法、各自的条件；写不确定性时说明缺少哪项关键证据。不要只罗列可能影响结果的因素，要写出讨论中实际报告的差异；不要用“不一定更稳定”“各有取舍”“因人而异”“没有统一结论”“尚未充分验证”等空泛说法代替信息
 5. 不要把零散消息包装成确定事实，也不要编造支撑细节
 6. 没有内容的字段直接省略；语言简洁、直接，适合日报阅读
+
+事件优先级与呈现：
+- 已发生的行动和有实际影响的变化，优先于一般观点与原则解释。单条高信息量的正式公告或直接证据，即使只出现一次或由自动化账号发布，也不能因发言频率低而弱化；对特定发言人的关注不应掩盖它们。
+- 从计划进入正式决定或实际执行、影响扩大、产生不可逆后果的事件，应在主要结论中显著呈现。标题写清实际发生的行动、状态及有依据的规模，不要将已经执行的行动概括成规则说明更明确。
+- 同一重大事件的正式决定、执行结果、关键规模和后果，尽量整合在首条结论或连续的短段中，不要拆散成几条原则解释。
+- 重大事件保留一段连贯的简短脉络：来源明确的起因、正式决定、执行情况、影响范围、后果和期限，以及相关公告明确要求的注意事项。允许比普通条目多写几句；缺少依据的字段省略，不要编造。
+- 公告和表态注明来源，区分立即执行与未来生效、不同批次和对象。采用明确修正后的数字，不要将筛查数量写成已处置数量；保留对影响范围、处置争议及后续行动有意义的不确定性。
+- 不同批次各自已经发生的行动和生效时间分别保留，不要用某一批未来才生效的状态概括整场事件；不可逆后果涉及的公告明确准备要求和期限，应在重点中保留。
+- 输出前核对：输入中具有实质影响的正式通知和已执行行动，必须在主要结论中保留有依据的规模和后果，不能因发言人偏好或篇幅要求删掉。区分来源明确不提供某项选择与信息缺失，不要把明确拒绝写成尚未公布安排。
+- 普通通知不自动等于重大事件。计划内的日常安排及其预期短暂影响，若来源没有说明超出日常安排的实质后果，就省略；有明确时间、地点或正式发布本身都不足以入选。仍需省略低信息量重复和空泛提醒。
 
 请按以下格式输出：
 

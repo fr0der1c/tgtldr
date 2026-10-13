@@ -2,6 +2,13 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-13
+
+### Changed
+
+- Chat summaries and Daily Digests prioritize consequential formal notices and completed actions, preserving triggers, scale, distinct batch states, consequences, and deadlines instead of reducing major execution results to statements of principles.
+- Chunk summaries gather important event evidence separately. Historical deduplication compares facts and states, retaining transitions from plans to execution and expanding impact while continuing to omit routine scheduled activity and expected temporary effects.
+
 ## 2026-10-11
 
 ### Changed
