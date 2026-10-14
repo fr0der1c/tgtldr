@@ -17,6 +17,10 @@
 
 ## 2026-10-11
 
+### Added
+
+- Chats can enable keyword alerts. When a live message matches any alert keyword, the Telegram Bot immediately sends the chat name, keyword, sender, and a message excerpt. Matching is case-insensitive, each keyword alerts at most once every 10 minutes per chat, and neither backfilled history nor messages older than 10 minutes (such as those caught up after a reconnect) trigger alerts.
+
 ### Changed
 
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.
