@@ -18,7 +18,7 @@ func (r *SummaryRepository) GetByID(ctx context.Context, id int64) (model.Summar
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
-		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.delivery_error, s.delivery_retry_count, s.next_delivery_retry_at, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
@@ -42,7 +42,7 @@ func (r *SummaryRepository) GetByChatAndDate(ctx context.Context, chatID int64, 
 	if err := scanSummary(r.pool.QueryRow(ctx, `
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
-		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.delivery_error, s.delivery_retry_count, s.next_delivery_retry_at, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
@@ -92,7 +92,7 @@ func (r *SummaryRepository) Search(ctx context.Context, params SummaryListParams
 	dataQuery := `
 		select s.id, s.chat_id, s.summary_date::text, s.status, s.content, s.model, s.requested_model, s.returned_model,
 		       s.source_message_count, s.chunk_count, s.generated_at, s.delivered_at,
-		       s.delivery_error, s.error_message, s.error_context, s.error_system_prompt,
+		       s.delivery_error, s.delivery_retry_count, s.next_delivery_retry_at, s.error_message, s.error_context, s.error_system_prompt,
 		       s.error_user_prompt, s.retry_count, s.next_retry_at, s.bot_summary_delivery_mode,
 		       ''::text as match_snippet,
 		       '{}'::text[] as matched_fields, coalesce(dds.daily_digest_id, 0),
@@ -241,6 +241,8 @@ func (r *SummaryRepository) SaveResult(ctx context.Context, summary model.Summar
 		    next_retry_at = $12,
 		    delivered_at = null,
 		    delivery_error = '',
+		    delivery_retry_count = 0,
+		    next_delivery_retry_at = null,
 		    updated_at = now()
 		where chat_id = $13 and summary_date = $14::date
 	`,
@@ -285,6 +287,8 @@ func (r *SummaryRepository) MarkDelivered(ctx context.Context, chatID int64, dat
 		update summaries
 		set delivered_at = $1,
 		    delivery_error = '',
+		    delivery_retry_count = 0,
+		    next_delivery_retry_at = null,
 		    updated_at = now()
 		where chat_id = $2 and summary_date = $3::date
 	`, deliveredAt, chatID, date)
@@ -304,6 +308,23 @@ func (r *SummaryRepository) MarkDeliveryFailed(ctx context.Context, chatID int64
 	`, message, chatID, date)
 	if err != nil {
 		return fmt.Errorf("mark summary delivery failed: %w", err)
+	}
+	return nil
+}
+
+// ScheduleDeliveryRetry 记录一次自动投递失败；nextRetryAt 为空表示已达上限，不再自动重试。
+func (r *SummaryRepository) ScheduleDeliveryRetry(ctx context.Context, chatID int64, date string, message string, nextRetryAt *time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		update summaries
+		set delivered_at = null,
+		    delivery_error = $1,
+		    delivery_retry_count = delivery_retry_count + 1,
+		    next_delivery_retry_at = $2,
+		    updated_at = now()
+		where chat_id = $3 and summary_date = $4::date
+	`, message, nextRetryAt, chatID, date)
+	if err != nil {
+		return fmt.Errorf("schedule summary delivery retry: %w", err)
 	}
 	return nil
 }
@@ -356,6 +377,8 @@ func scanSummary(scanner summaryScanner, item *model.Summary) error {
 		&item.GeneratedAt,
 		&item.DeliveredAt,
 		&item.DeliveryError,
+		&item.DeliveryRetryCount,
+		&item.NextDeliveryRetryAt,
 		&item.ErrorMessage,
 		&item.ErrorContext,
 		&item.ErrorSystemPrompt,
@@ -393,6 +416,8 @@ func scanSummaryWithChatTitle(scanner summaryScanner, item *model.Summary, chatT
 		&item.GeneratedAt,
 		&item.DeliveredAt,
 		&item.DeliveryError,
+		&item.DeliveryRetryCount,
+		&item.NextDeliveryRetryAt,
 		&item.ErrorMessage,
 		&item.ErrorContext,
 		&item.ErrorSystemPrompt,

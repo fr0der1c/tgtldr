@@ -58,6 +58,11 @@ func (s *Service) retryHistoricalItem(ctx context.Context, settings model.AppSet
 	if err != nil {
 		return err
 	}
+	if item.Kind == "delivery" {
+		// 跨日的投递重试不会被当天调度扫描到，由这里继续执行，失败时按原规则安排下一次。
+		s.deliverExistingSummary(ctx, chat, summary)
+		return nil
+	}
 	if err = s.RunRetry(ctx, chat, summary.SummaryDate); err != nil && ctx.Err() == nil {
 		if saveErr := s.store.Summaries.SetFailed(ctx, chat.ID, summary.SummaryDate, err.Error()); saveErr != nil {
 			return saveErr

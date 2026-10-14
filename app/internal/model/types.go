@@ -258,6 +258,8 @@ type Summary struct {
 	GeneratedAt                      time.Time              `json:"generatedAt"`
 	DeliveredAt                      *time.Time             `json:"deliveredAt,omitempty"`
 	DeliveryError                    string                 `json:"deliveryError"`
+	DeliveryRetryCount               int                    `json:"deliveryRetryCount"`
+	NextDeliveryRetryAt              *time.Time             `json:"nextDeliveryRetryAt,omitempty"`
 	ErrorMessage                     string                 `json:"errorMessage"`
 	ErrorContext                     string                 `json:"errorContext"`
 	ErrorSystemPrompt                string                 `json:"errorSystemPrompt"`

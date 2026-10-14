@@ -232,6 +232,8 @@ export type Summary = {
   generatedAt: string;
   deliveredAt?: string;
   deliveryError: string;
+  deliveryRetryCount: number;
+  nextDeliveryRetryAt?: string;
   errorMessage: string;
   errorContext: string;
   errorSystemPrompt: string;
