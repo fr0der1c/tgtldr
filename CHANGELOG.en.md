@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-10-14
+
+### Changed
+
+- Daily Digest prompts require major events to retain the notice issuer, concrete trigger, actual action, and consequences within the same highlight. Instructions preserve the key cause when compressing historical background and require checking source-established elements before returning the output.
+
 ## 2026-10-13
 
 ### Changed
