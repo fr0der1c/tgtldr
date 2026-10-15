@@ -44,6 +44,7 @@ export type TelegramAuth = {
   status: string;
   usedByChatCount: number;
   lastConnectedAt: string;
+  chatsSyncedAt?: string;
 };
 
 export type TelegramAccountChat = {
@@ -201,6 +202,7 @@ export type Chat = {
   filteredSenders: string[];
   filteredKeywords: string[];
   messageActivity?: ChatMessageActivity[];
+  firstMessageDate?: string;
   avatarUrl?: string;
 };
 

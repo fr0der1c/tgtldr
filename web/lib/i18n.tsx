@@ -559,12 +559,18 @@ const textTranslations = {
   "每日总览已由用户重新生成，需要手动确认发送。": "The Daily Digest was regenerated and requires manual delivery confirmation.",
   "等待手动发送": "Waiting for manual delivery",
   "重新生成完成后不会自动重复发送。": "A regenerated Daily Digest is not sent again automatically.",
+  "暂无同步记录": "No sync record",
+  "暂无群组同步记录": "No chat sync record",
+  "本地已保存的最早一条消息": "Earliest message stored locally",
 } as const;
 
 const attributeNames = ["placeholder", "title", "aria-label"] as const;
 
 const dynamicTranslations: Array<[RegExp, (...matches: string[]) => string]> = [
   [/^第 (\d+) 步，共 (\d+) 步$/, (current, total) => `Step ${current} of ${total}`],
+  [/^上次同步 (.+)$/, (time) => `Synced ${time}`],
+  [/^上次同步群组：(.+)$/, (time) => `Chats last synced: ${time}`],
+  [/^最早消息 (.+)$/, (date) => `Earliest message ${date}`],
   [/^有 (\d+) 个群组正在使用此账号，请先为这些群组选择其他账号。$/, (count) => `${count} chats are using this account. Choose another account for them before deleting it.`],
   [/^已保存「(.+)」的配置。$/, (chat) => `Saved settings for "${chat}".`],
   [/^正在为「(.+)」回补 (.+) 到 (.+) 的历史消息。$/, (chat, from, to) => `Backfilling history for "${chat}" from ${from} to ${to}.`],

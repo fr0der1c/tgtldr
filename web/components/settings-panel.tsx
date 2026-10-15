@@ -21,6 +21,7 @@ import { DashboardPage, Surface } from "@/components/dashboard-page";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, StatusPill } from "@/components/ui";
 import { listTimezoneOptions } from "@/lib/timezones";
+import { formatDateTime } from "@/lib/date-time";
 import { normalizeLanguage, translateText, useI18n } from "@/lib/i18n";
 
 type SecretPlaceholders = {
@@ -45,6 +46,8 @@ export function SettingsPanel() {
   const { dict, setLanguage } = useI18n();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  // savedTimeZone 是已保存的系统时区，用于显示时间；表单中未保存的时区不影响它。
+  const [savedTimeZone, setSavedTimeZone] = useState<string>();
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [secretPlaceholders, setSecretPlaceholders] =
     useState<SecretPlaceholders>({
@@ -94,6 +97,7 @@ export function SettingsPanel() {
         api.settings(),
         api.bootstrap(),
       ]);
+      setSavedTimeZone(settingsData.defaultTimezone);
       setSecretPlaceholders({
         botToken: settingsData.botToken || "",
         openAIApiKey: settingsData.openAIApiKey || "",
@@ -143,6 +147,7 @@ export function SettingsPanel() {
     try {
       const saved = await api.saveSettings(settings);
       setLanguage(normalizeLanguage(saved.language));
+      setSavedTimeZone(saved.defaultTimezone);
       if (showToast) {
         toast.showSuccess("系统配置已保存。");
       }
@@ -773,6 +778,7 @@ export function SettingsPanel() {
             <TelegramAccountSection
               blocked={blocked}
               bootstrap={bootstrap}
+              timeZone={savedTimeZone}
               code={code}
               countryCode={countryCode}
               onChangeCode={setCode}
@@ -1116,9 +1122,11 @@ function TelegramAccountSection({
   reauthAccountId,
   retryLabel,
   stage,
+  timeZone,
 }: {
   blocked: boolean;
   bootstrap: Bootstrap | null;
+  timeZone?: string;
   code: string;
   countryCode: string;
   onChangeCode: (value: string) => void;
@@ -1154,6 +1162,11 @@ function TelegramAccountSection({
           <div className="telegram-account-identity">
             <span>Telegram 账号</span>
             <strong>{describeTelegramAccount(account)}</strong>
+            <span>
+              {account.chatsSyncedAt
+                ? `上次同步群组：${formatDateTime(account.chatsSyncedAt, language, timeZone)}`
+                : "暂无群组同步记录"}
+            </span>
           </div>
           <StatusPill tone={account.status === "authorized" ? "good" : "warn"}>
             {account.status === "authorized" ? "已连接" : "需要重新登录"}

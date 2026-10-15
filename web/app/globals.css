@@ -2047,7 +2047,8 @@ select {
   font-size: 0.88rem;
 }
 
-.data-row-title .chat-collector-account {
+.data-row-title .chat-collector-account,
+.data-row-title .chat-first-message {
   min-width: 0;
   overflow: hidden;
   color: var(--muted);

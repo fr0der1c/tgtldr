@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast";
 import { api } from "@/lib/api";
 import { DailyDigest, DailyDigestSource, Language, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/date-time";
 
 /** DailyDigestDrawer 在侧栏中展示每日总览历史、正文和来源摘要。 */
 export function DailyDigestDrawer({
@@ -346,11 +347,6 @@ function formatSourceCount(item: DailyDigest, language: Language) {
   return language === "en"
     ? `${item.participantCount} chats · ${item.sourceSummaryCount} summaries`
     : `${item.participantCount} 个群组 · ${item.sourceSummaryCount} 份摘要`;
-}
-
-function formatDateTime(value: string, language: Language) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language, { hour12: false });
 }
 
 function asMessage(error: unknown) {

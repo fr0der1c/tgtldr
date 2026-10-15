@@ -17,6 +17,11 @@
 
 ## 2026-10-11
 
+### Added
+
+- Each Telegram account in Settings shows when its chats were last synced, and the "Synced Chats" card on the Chats page shows the most recent sync across all accounts, both in the default system timezone. Syncs before the upgrade were not recorded, so the time appears after the next sync.
+- The chat list shows the date of the earliest locally stored message under each chat name, making it easy to see how far history has been backfilled.
+
 ### Changed
 
 - Daily Digests apply a higher selection threshold, omitting isolated reports and routine activity without useful results or meaningful changes. Subject names are preserved exactly, with brief descriptions only when supported by the sources.
