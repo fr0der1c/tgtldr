@@ -145,8 +145,12 @@ func (s *Service) SyncChats(ctx context.Context, accountIDs ...int64) error {
 		return fmt.Errorf("sync chats from telegram: %w", err)
 	}
 
+	defaults, err := s.store.Settings.GetChatDefaults(ctx)
+	if err != nil {
+		return err
+	}
 	for _, chat := range chats {
-		stored, err := s.store.Chats.EnsureExists(ctx, chat)
+		stored, err := s.store.Chats.EnsureExists(ctx, chat, defaults)
 		if err != nil {
 			return err
 		}

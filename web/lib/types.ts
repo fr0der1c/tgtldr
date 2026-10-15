@@ -92,6 +92,13 @@ export type BotTargetChatResolveResult = {
 
 export type DeliveryMode = "dashboard" | "bot";
 
+export type ChatDefaults = {
+  deliveryMode: DeliveryMode;
+  summaryTimeLocal: string;
+  modelOverride: string;
+  keepBotMessages: boolean;
+};
+
 export type ChatMessageActivity = {
   date: string;
   messageCount: number;

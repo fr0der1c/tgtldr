@@ -70,7 +70,8 @@ func (r *ChatRepository) CountEnabled(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func (r *ChatRepository) UpsertMany(ctx context.Context, chats []model.Chat) error {
+// UpsertMany 新增群组时套用 defaults；已存在的群组只刷新 Telegram 元数据，不改动其配置。
+func (r *ChatRepository) UpsertMany(ctx context.Context, chats []model.Chat, defaults model.ChatDefaults) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin chats tx: %w", err)
@@ -83,7 +84,7 @@ func (r *ChatRepository) UpsertMany(ctx context.Context, chats []model.Chat) err
 				telegram_chat_id, telegram_access_hash, title, username, chat_type,
 				enabled, summary_enabled, summary_context, summary_prompt, summary_time_local, summary_timezone, delivery_mode, model_override,
 				keep_bot_messages, filtered_senders, filtered_keywords
-			) values ($1, $2, $3, $4, $5, false, false, '', '', '09:00', 'Asia/Shanghai', 'dashboard', '', true, '{}', '{}')
+			) values ($1, $2, $3, $4, $5, false, false, '', '', $6, 'Asia/Shanghai', $7, $8, $9, '{}', '{}')
 			on conflict (telegram_chat_id) do update
 			set telegram_access_hash = excluded.telegram_access_hash,
 			    title = excluded.title,
@@ -96,6 +97,10 @@ func (r *ChatRepository) UpsertMany(ctx context.Context, chats []model.Chat) err
 			chat.Title,
 			chat.Username,
 			chat.ChatType,
+			defaults.SummaryTimeLocal,
+			defaults.DeliveryMode,
+			defaults.ModelOverride,
+			defaults.KeepBotMessages,
 		)
 		if err != nil {
 			return fmt.Errorf("upsert chat %d: %w", chat.TelegramChatID, err)
@@ -311,8 +316,8 @@ func (r *ChatRepository) SetCollectorAccount(ctx context.Context, chatID, accoun
 	return nil
 }
 
-func (r *ChatRepository) EnsureExists(ctx context.Context, chat model.Chat) (model.Chat, error) {
-	if err := r.UpsertMany(ctx, []model.Chat{chat}); err != nil {
+func (r *ChatRepository) EnsureExists(ctx context.Context, chat model.Chat, defaults model.ChatDefaults) (model.Chat, error) {
+	if err := r.UpsertMany(ctx, []model.Chat{chat}, defaults); err != nil {
 		return model.Chat{}, err
 	}
 	return r.GetByTelegramID(ctx, chat.TelegramChatID)
