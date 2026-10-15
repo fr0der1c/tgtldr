@@ -662,6 +662,23 @@ select {
   font-size: 0.88rem;
 }
 
+.status-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-toggle .status-pill {
+  white-space: nowrap;
+}
+
+.status-toggle:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 .status-pill.good {
   background: var(--success-soft);
   color: var(--success);

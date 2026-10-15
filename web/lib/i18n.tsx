@@ -559,6 +559,9 @@ const textTranslations = {
   "每日总览已由用户重新生成，需要手动确认发送。": "The Daily Digest was regenerated and requires manual delivery confirmation.",
   "等待手动发送": "Waiting for manual delivery",
   "重新生成完成后不会自动重复发送。": "A regenerated Daily Digest is not sent again automatically.",
+  "点击切换": "Click to toggle",
+  "仅网页查看": "Web only",
+  "Telegram Bot 未启用，暂不会推送": "Telegram Bot is disabled; nothing will be delivered yet",
 } as const;
 
 const attributeNames = ["placeholder", "title", "aria-label"] as const;
