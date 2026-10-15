@@ -4,6 +4,7 @@ import { startTransition, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { EmptyState } from "@/components/dashboard-page";
 import { SummaryMarkdown } from "@/components/summary-markdown";
+import { SummaryFollowUp } from "@/components/summary-follow-up";
 import { StatusPill } from "@/components/ui";
 import { Chat, Summary } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -42,6 +43,7 @@ export function SummaryDetailDrawer({
   summaryRetryLimit: number;
 }) {
   const { language } = useI18n();
+  const [followUpRevision, setFollowUpRevision] = useState(0);
   const selectedDelivery = selectedSummary
     ? deliveryState(selectedSummary, selectedChat, botReady)
     : null;
@@ -94,7 +96,10 @@ export function SummaryDetailDrawer({
               </button>
               <button
                 className="text-link-button"
-                onClick={() => startTransition(() => void onRerunSummary(selectedSummary))}
+                onClick={() => {
+                  setFollowUpRevision((revision) => revision + 1);
+                  startTransition(() => void onRerunSummary(selectedSummary));
+                }}
                 type="button"
               >
                 重新生成
@@ -102,6 +107,12 @@ export function SummaryDetailDrawer({
             </div>
           </div>
           <SummaryContent summary={selectedSummary} summaryRetryLimit={summaryRetryLimit} />
+          {open && selectedSummary.status === "succeeded" ? (
+            <SummaryFollowUp
+              key={`${selectedSummary.id}:${selectedSummary.generatedAt}:${followUpRevision}`}
+              summaryId={selectedSummary.id}
+            />
+          ) : null}
         </div>
       )}
     </Drawer>
