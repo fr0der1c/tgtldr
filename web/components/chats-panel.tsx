@@ -141,7 +141,7 @@ export function ChatsPanel() {
           label="已同步群组"
           value={syncedCount}
           badge="最新"
-          detail="所有已绑定 Telegram 账号下可管理的群组与超级群组。"
+          detail="所有已绑定 Telegram 账号下可管理的群组、超级群组与频道。"
         />
         <MetricCard
           label="已启用消息保存"
@@ -216,7 +216,8 @@ export function ChatsPanel() {
                   options={[
                     { value: "all", label: "全部" },
                     { value: "group", label: "群组" },
-                    { value: "supergroup", label: "超级群组" }
+                    { value: "supergroup", label: "超级群组" },
+                    { value: "channel", label: "频道" }
                   ]}
                   value={chatType}
                 />
@@ -383,7 +384,7 @@ function ChatTableRow({
             />
           </div>
         </td>
-        <td>{chat.chatType === "supergroup" ? "超级群组" : "群组"}</td>
+        <td>{chatTypeLabel(chat.chatType)}</td>
         <td>
           <StatusPill tone={chat.enabled ? "good" : "neutral"}>
             {chat.enabled ? "已启用" : "未启用"}
@@ -580,7 +581,7 @@ function ChatTableRow({
 
                   <div className="editor-footer">
                     <p className="muted">
-                      当前群类型：{chat.chatType === "supergroup" ? "超级群组" : "群组"}
+                      当前群类型：{chatTypeLabel(chat.chatType)}
                     </p>
                     <Button onClick={onSave} type="button">
                       保存该群配置
@@ -763,4 +764,15 @@ function HistoryIcon() {
       />
     </svg>
   );
+}
+
+function chatTypeLabel(chatType: Chat["chatType"]) {
+  switch (chatType) {
+    case "supergroup":
+      return "超级群组";
+    case "channel":
+      return "频道";
+    default:
+      return "群组";
+  }
 }

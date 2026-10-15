@@ -263,7 +263,7 @@ func (r *Router) buildChatMessageResponse(
 		FiltersApplied:    filter.ExcludeBots || len(filter.Senders) > 0 || len(filter.Keywords) > 0,
 	}
 	peerType := "chat"
-	if chat.ChatType == "supergroup" {
+	if model.UsesChannelPeer(chat.ChatType) {
 		peerType = "channel"
 	}
 	if avatar, err := r.store.Assets.FindEntityAvatar(req.Context(), chat.CollectorAccountID, peerType, chat.TelegramChatID); err == nil {
