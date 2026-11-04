@@ -357,7 +357,8 @@
   }
 
   .chat-history-activity {
-    overflow-x: auto;
+    width: 100%;
+    align-items: stretch;
     padding-bottom: 5px;
   }
 

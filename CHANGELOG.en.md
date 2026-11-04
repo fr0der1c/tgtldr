@@ -2,6 +2,12 @@
 
 [中文版](CHANGELOG.md)
 
+## 2026-11-04
+
+### Fixed
+
+- On mobile, the "Last 30 days" activity strip on the chat history page now spans the full row width instead of less than half of it.
+
 ## 2026-10-14
 
 ### Changed
